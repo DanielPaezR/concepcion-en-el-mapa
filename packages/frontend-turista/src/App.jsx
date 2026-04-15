@@ -1,13 +1,19 @@
-// App.jsx - VERSIÓN CORREGIDA
-import { Routes, Route } from 'react-router-dom';  // ✅ Ya no importamos BrowserRouter
+import { useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Mapa from './pages/Mapa';
 import LugarDetalle from './pages/LugarDetalle';
 import SolicitarGuia from './pages/SolicitarGuia';
 import Encuesta from './pages/Encuesta';
+import { registrarVisita } from './services/escaneo';
 
 function App() {
+  useEffect(() => {
+    // Registrar visita cada vez que se abre la app
+    registrarVisita();
+  }, []);
+
   return (
-    <Routes>  // ✅ Solo Routes, sin BrowserRouter
+    <Routes>
       <Route path="/" element={<Mapa />} />
       <Route path="/mapa" element={<Mapa />} />
       <Route path="/lugar/:id" element={<LugarDetalle />} />

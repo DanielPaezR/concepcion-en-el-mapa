@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import {
   MapPinIcon, CalendarIcon, UsersIcon, ClipboardDocumentListIcon,
-  StarIcon, ChartBarIcon, ArrowTrendingUpIcon
+  StarIcon, ChartBarIcon, ArrowTrendingUpIcon,  QrCodeIcon
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -29,9 +29,11 @@ export default function Dashboard() {
   const [origenTuristas, setOrigenTuristas] = useState([]);
   const [calificacionesPorMes, setCalificacionesPorMes] = useState([]);
   const [actividadReciente, setActividadReciente] = useState([]);
+  const [escaneos, setEscaneos] = useState({ total: 0, unicos: 0 });
 
   useEffect(() => {
     cargarDatos();
+    cargarEscaneos();
   }, []);
 
   const cargarDatos = async () => {
@@ -67,6 +69,15 @@ export default function Dashboard() {
     }
   };
 
+  const cargarEscaneos = async () => {
+    try {
+      const response = await api.get('/escaneos/estadisticas');
+      setEscaneos(response.data.estadisticas);
+    } catch (error) {
+      console.error('Error al cargar escaneos:', error);
+    }
+  };
+
   // Tarjetas de métricas
   const metricCards = [
     { name: 'Lugares', value: estadisticas.totalLugares, icon: MapPinIcon, color: 'bg-blue-500' },
@@ -75,6 +86,8 @@ export default function Dashboard() {
     { name: 'Encuestas', value: estadisticas.totalEncuestas, icon: ClipboardDocumentListIcon, color: 'bg-orange-500' },
     { name: 'Pendientes', value: estadisticas.reservasPendientes, icon: ChartBarIcon, color: 'bg-yellow-500' },
     { name: 'Calificación', value: estadisticas.calificacionPromedio.toFixed(1), icon: StarIcon, color: 'bg-pink-500', suffix: '★' },
+    { name: 'Escaneos QR', value: escaneos.total || 0, icon: QrCodeIcon, color: 'bg-indigo-500' },
+    { name: 'Visitantes únicos', value: escaneos.unicos || 0, icon: UsersIcon, color: 'bg-teal-500' },
   ];
 
   if (loading) {

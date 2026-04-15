@@ -135,14 +135,15 @@ const guardianController = {
     // Obtener guardianes cercanos (visible en el mapa)
     async getGuardianesCercanos(req, res) {
         try {
-            const { lat, lng, radio = 0.02 } = req.query; // radio ~2km en grados
+            const { lat, lng, radio = 0.02 } = req.query;s
             
             const result = await pool.query(`
                 SELECT 
                     g.*,
                     p.nombre_publico,
                     p.foto_perfil_url,
-                    u.nivel
+                    u.id as usuario_id,
+                    u.nombre as usuario_nombre
                 FROM guardianes_anclados g
                 JOIN perfiles_guardian p ON g.usuario_id = p.usuario_id
                 JOIN usuarios u ON g.usuario_id = u.id
@@ -152,7 +153,24 @@ const guardianController = {
                     AND ABS(g.longitud - $2) < $3
             `, [lat, lng, radio]);
             
-            res.json({ success: true, guardianes: result.rows });
+            // Calcular nivel para cada guardián (según lugares descubiertos)
+            const guardianesConNivel = await Promise.all(result.rows.map(async (guardian) => {
+                const lugaresDescubiertos = await pool.query(`
+                    SELECT COUNT(DISTINCT lugar_id) as total
+                    FROM descubrimientos
+                    WHERE usuario_id = $1
+                `, [guardian.usuario_id]);
+                
+                // Calcular nivel (cada 3 lugares = 1 nivel, máx 5)
+                const nivel = Math.min(Math.floor((lugaresDescubiertos.rows[0]?.total || 0) / 3) + 1, 5);
+                
+                return {
+                    ...guardian,
+                    nivel
+                };
+            }));
+            
+            res.json({ success: true, guardianes: guardianesConNivel });
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener guardianes' });

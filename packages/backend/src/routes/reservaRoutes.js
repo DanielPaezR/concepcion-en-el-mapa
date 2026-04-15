@@ -11,7 +11,6 @@ router.post('/', reservaController.create);
 // Todas las demás rutas requieren autenticación
 router.use(authMiddleware);
 
-router.post('/', reservaController.create);
 router.get('/', reservaController.getAll);
 router.get('/:id', reservaController.getById);
 router.put('/:id/asignar-guia', reservaController.asignarGuia);

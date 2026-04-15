@@ -8,6 +8,7 @@ import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
+import BancoPreguntas from './pages/eventos/BancoPreguntas';
 
 function App() {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ function App() {
           <Route path="lugares/editar/:id" element={<LugarForm />} />
           <Route path="reservas" element={<ReservasList />} />
           <Route path="guias" element={<GuiasList />} />
+          <Route path="admin/eventos" element={<BancoPreguntas />} />
         </Route>
       </Routes>
     );

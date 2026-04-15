@@ -19,6 +19,7 @@ const navigation = [
   { name: 'Reservas', href: '/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/encuestas', icon: ClipboardDocumentListIcon },
+  { name: 'Banco Eventos', href: '/admin/eventos', icon: ClipboardDocumentListIcon },
 ]
 
 function classNames(...classes) {

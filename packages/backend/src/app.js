@@ -11,6 +11,10 @@ const authTuristaRoutes = require('./routes/authTuristaRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const metricasRoutes = require('./routes/metricasRoutes');
 const guardianRoutes = require('./routes/guardianRoutes');
+const descubrimientoRoutes = require('./routes/descubrimientoRoutes');
+const turistaRoutes = require('./routes/turistaRoutes');
+const escaneoRoutes = require('./routes/escaneoRoutes');
+const adminEventosRoutes = require('./routes/adminEventosRoutes');
 
 const app = express()
 
@@ -30,6 +34,10 @@ app.use('/api/auth/turista', authTuristaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/metricas', metricasRoutes);
 app.use('/api/guardianes', guardianRoutes);
+app.use('/api/descubrimientos', descubrimientoRoutes);
+app.use('/api/turista', turistaRoutes);
+app.use('/api/escaneos', escaneoRoutes);
+app.use('/api/admin/eventos', adminEventosRoutes);
 
 
 // Ruta de prueba

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const authTuristaController = {
@@ -93,7 +94,10 @@ const authTuristaController = {
             res.json({ success: true, token, usuario });
         } catch (error) {
             console.error('Error:', error);
-            res.status(500).json({ error: 'Error al registrar' });
+            res.status(500).json({
+                error: 'Error al registrar',
+                details: error.message
+            });
         }
     },
 

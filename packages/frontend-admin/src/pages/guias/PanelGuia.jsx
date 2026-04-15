@@ -51,6 +51,12 @@ export default function PanelGuia() {
     return colores[estado] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleLogout = () => {
+    logout();
+    // Recargar la página para ir al login
+    window.location.href = '/login';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -69,7 +75,7 @@ export default function PanelGuia() {
             <p className="text-green-100 mt-1">Panel de Guía Turístico</p>
           </div>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition"
           >
             Cerrar sesión

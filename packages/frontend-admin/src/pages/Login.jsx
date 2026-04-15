@@ -1,30 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
   const [email, setEmail] = useState('admin@concepcion.cl');
   const [password, setPassword] = useState('admin123');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, user } = useAuth();
-  const navigate = useNavigate();
-
-  // ✅ Redirigir en useEffect, NO durante el render
-  useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
-
-  // ✅ Mostrar loading mientras redirige
-  if (user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,11 +15,13 @@ export default function Login() {
     
     const result = await login(email, password);
     
-    if (!result.success) {
+    if (result.success) {
+      // ✅ Recargar la página después del login
+      window.location.href = '/';
+    } else {
       setError(result.error);
       setIsLoading(false);
     }
-    // Si es exitoso, el useEffect se encarga de redirigir
   };
 
   return (

@@ -1,6 +1,8 @@
 const app = require('./src/app');
 require('dotenv').config();
 
+require('./src/jobs/generarEventos');
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

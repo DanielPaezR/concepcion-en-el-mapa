@@ -28,6 +28,7 @@ export const useAuth = () => {
   }, []);
 
   const login = async (email, password) => {
+    setLoading(true); // ← Mostrar loading mientras se loguea
     try {
       const response = await api.post('/auth/login', { email, password });
       const { token, usuario } = response.data;
@@ -39,13 +40,17 @@ export const useAuth = () => {
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data?.error || 'Error al iniciar sesión' };
+    } finally {
+      setLoading(false); // ← Ocultar loading después
     }
   };
 
   const logout = () => {
+    setLoading(true); // ← Mostrar loading mientras cierra sesión
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    setLoading(false); // ← Ocultar loading después
   };
 
   return { user, loading, login, logout };

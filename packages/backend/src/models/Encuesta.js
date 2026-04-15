@@ -100,6 +100,38 @@ const Encuesta = {
     },
 
     // Actualizar calificación promedio del guía
+    async getEstadisticasGenerales(filtros = {}) {
+        let query = `
+            SELECT 
+                AVG(e.calificacion_guia) as promedio_calificacion_guia,
+                AVG(e.calificacion_experiencia) as promedio_calificacion_experiencia,
+                COUNT(*) as total_encuestas
+            FROM encuestas e
+            JOIN reservas_guia r ON e.reserva_id = r.id
+            WHERE 1=1
+        `;
+        const values = [];
+        let paramIndex = 1;
+
+        if (filtros.guia_id) {
+            query += ` AND r.guia_id = $${paramIndex}`;
+            values.push(filtros.guia_id);
+            paramIndex++;
+        }
+
+        if (filtros.fecha_inicio && filtros.fecha_fin) {
+            query += ` AND e.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+            values.push(filtros.fecha_inicio, filtros.fecha_fin);
+        }
+
+        const result = await pool.query(query, values);
+        return result.rows[0] || {
+            promedio_calificacion_guia: null,
+            promedio_calificacion_experiencia: null,
+            total_encuestas: 0
+        };
+    },
+
     async actualizarCalificacionGuia(reserva_id) {
         // Obtener el guía de la reserva
         const reservaQuery = 'SELECT guia_id FROM reservas_guia WHERE id = $1';

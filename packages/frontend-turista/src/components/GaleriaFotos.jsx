@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Calendar, Award, X, Send, Upload, Camera, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
+import { getTuristaActual } from '../services/auth';
+import RegistroModal from './RegistroModal';
 
 // Textos en español e inglés
 const textos = {
@@ -59,6 +61,8 @@ export default function GaleriaFotos({ nivelUsuario, onCerrar }) {
   const [idioma, setIdioma] = useState('es');
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [mostrarRegistro, setMostrarRegistro] = useState(false);
+  const usuario = getTuristaActual();
 
   const [nuevaFoto, setNuevaFoto] = useState({
     mensaje: ''
@@ -208,7 +212,13 @@ export default function GaleriaFotos({ nivelUsuario, onCerrar }) {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setMostrarFormulario(!mostrarFormulario)}
+              onClick={() => {
+                if (usuario?.anonimo) {
+                  setMostrarRegistro(true);
+                } else {
+                  setMostrarFormulario(!mostrarFormulario);
+                }
+              }}
               className="w-full bg-gradient-to-r from-green-600 to-green-500 text-white py-3 rounded-xl font-bold mb-6 flex items-center justify-center gap-2 shadow-lg"
             >
               <Camera className="w-5 h-5" />
@@ -402,6 +412,17 @@ export default function GaleriaFotos({ nivelUsuario, onCerrar }) {
             </div>
           )}
         </div>
+
+        {/* Modal de registro */}
+        {mostrarRegistro && (
+          <RegistroModal
+            onClose={() => setMostrarRegistro(false)}
+            onSuccess={() => {
+              setMostrarFormulario(true);
+            }}
+          />
+        )}
+
       </div>
     </motion.div>
   );
