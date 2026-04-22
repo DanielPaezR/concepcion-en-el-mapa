@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "cloudinary": "^2.5.1",
     "@headlessui/react": "^1.7.19",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.2",
