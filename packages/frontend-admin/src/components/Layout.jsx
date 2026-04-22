@@ -1,6 +1,6 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Fragment, useState } from 'react'
-import { Dialog, Menu, Transition } from '@headlessui/react'
+import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
+import { Fragment, useState } from 'react';
+import { Dialog, Menu, Transition } from '@headlessui/react';
 import {
   HomeIcon,
   MapPinIcon,
@@ -10,8 +10,8 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
-} from '@heroicons/react/24/outline'
-import { useAuth } from '../hooks/useAuth'
+} from '@heroicons/react/24/outline';
+import { useAuth } from '../hooks/useAuth';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -19,20 +19,20 @@ const navigation = [
   { name: 'Reservas', href: '/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/encuestas', icon: ClipboardDocumentListIcon },
-  { name: 'Banco Eventos', href: '/admin/eventos', icon: ClipboardDocumentListIcon },
-]
+];
 
 function classNames(...classes) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, logout } = useAuth()
-  const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const location = useLocation();
 
   return (
     <div>
+      {/* Sidebar para móvil */}
       <Transition.Root show={sidebarOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
           <Transition.Child
@@ -60,43 +60,27 @@ export default function Layout() {
               <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
-                    <img
-                      className="h-8 w-auto"
-                      src="../../public/logo-concepcion.svg"
-                      alt="Concepción en el Mapa"
-                    />
-                    <span className="ml-2 text-xl font-semibold text-gray-900">Admin</span>
+                    <span className="text-xl font-semibold text-gray-900">Panel Admin</span>
                   </div>
                   <nav className="flex flex-1 flex-col">
-                    <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                      <li>
-                        <ul role="list" className="-mx-2 space-y-1">
-                          {navigation.map((item) => (
-                            <li key={item.name}>
-                              <Link
-                                to={item.href}
-                                className={classNames(
-                                  location.pathname === item.href
-                                    ? 'bg-gray-50 text-primary-600'
-                                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
-                                  'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
-                                )}
-                              >
-                                <item.icon
-                                  className={classNames(
-                                    location.pathname === item.href
-                                      ? 'text-primary-600'
-                                      : 'text-gray-400 group-hover:text-primary-600',
-                                    'h-6 w-6 shrink-0'
-                                  )}
-                                  aria-hidden="true"
-                                />
-                                {item.name}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </li>
+                    <ul className="space-y-1">
+                      {navigation.map((item) => (
+                        <li key={item.name}>
+                          <Link
+                            to={item.href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={classNames(
+                              location.pathname === item.href
+                                ? 'bg-gray-50 text-green-600'
+                                : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
+                              'group flex gap-x-3 rounded-md p-2 text-sm font-semibold'
+                            )}
+                          >
+                            <item.icon className="h-6 w-6 shrink-0" />
+                            {item.name}
+                          </Link>
+                        </li>
+                      ))}
                     </ul>
                   </nav>
                 </div>
@@ -106,68 +90,45 @@ export default function Layout() {
         </Dialog>
       </Transition.Root>
 
-      {/* Static sidebar for desktop */}
+      {/* Sidebar para desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
-            <img
-              className="h-8 w-auto"
-              src="/logo-concepcion.png"
-              alt="Concepción en el Mapa"
-            />
-            <span className="ml-2 text-xl font-semibold text-gray-900">Panel Admin</span>
+            <span className="text-xl font-semibold text-gray-900">Panel Admin</span>
           </div>
           <nav className="flex flex-1 flex-col">
-            <ul role="list" className="flex flex-1 flex-col gap-y-7">
-              <li>
-                <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        to={item.href}
-                        className={classNames(
-                          location.pathname === item.href
-                            ? 'bg-gray-50 text-primary-600'
-                            : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
-                          'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
-                        )}
-                      >
-                        <item.icon
-                          className={classNames(
-                            location.pathname === item.href
-                              ? 'text-primary-600'
-                              : 'text-gray-400 group-hover:text-primary-600',
-                            'h-6 w-6 shrink-0'
-                          )}
-                          aria-hidden="true"
-                        />
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-              <li className="mt-auto">
-                <button
-                  onClick={() => {
-                    logout();
-                    window.location.href = '/login';
-                  }}
-                  className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-700 hover:text-primary-600 hover:bg-gray-50 w-full"
-                >
-                  <ArrowRightOnRectangleIcon
-                    className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-primary-600"
-                    aria-hidden="true"
-                  />
-                  Cerrar sesión
-                </button>
-              </li>
+            <ul className="space-y-1">
+              {navigation.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    to={item.href}
+                    className={classNames(
+                      location.pathname === item.href
+                        ? 'bg-gray-50 text-green-600'
+                        : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
+                      'group flex gap-x-3 rounded-md p-2 text-sm font-semibold'
+                    )}
+                  >
+                    <item.icon className="h-6 w-6 shrink-0" />
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
             </ul>
+            <div className="mt-auto pt-4">
+              <button
+                onClick={logout}
+                className="group -mx-2 flex w-full items-center gap-x-3 rounded-md p-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+              >
+                <ArrowRightOnRectangleIcon className="h-6 w-6 shrink-0" />
+                Cerrar sesión
+              </button>
+            </div>
           </nav>
         </div>
       </div>
 
-      {/* Mobile header */}
+      {/* Contenido principal */}
       <div className="lg:pl-72">
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <button
@@ -175,22 +136,10 @@ export default function Layout() {
             className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
-            <span className="sr-only">Abrir sidebar</span>
-            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+            <Bars3Icon className="h-6 w-6" />
           </button>
-
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
-            <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <Menu as="div" className="relative">
-                <Menu.Button className="-m-1.5 flex items-center p-1.5">
-                  <span className="hidden lg:flex lg:items-center">
-                    <span className="ml-4 text-sm font-semibold leading-6 text-gray-900" aria-hidden="true">
-                      {user?.nombre}
-                    </span>
-                  </span>
-                </Menu.Button>
-              </Menu>
-            </div>
+          <div className="flex flex-1 justify-end">
+            <span className="text-sm text-gray-700">{user?.nombre || 'Admin'}</span>
           </div>
         </div>
 
@@ -201,5 +150,5 @@ export default function Layout() {
         </main>
       </div>
     </div>
-  )
+  );
 }
