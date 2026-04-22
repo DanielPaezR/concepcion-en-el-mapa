@@ -15,6 +15,7 @@ const descubrimientoRoutes = require('./routes/descubrimientoRoutes');
 const turistaRoutes = require('./routes/turistaRoutes');
 const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
+const eventoRoutes = require('./routes/eventoRoutes');
 
 const app = express()
 
@@ -38,6 +39,7 @@ app.use('/api/descubrimientos', descubrimientoRoutes);
 app.use('/api/turista', turistaRoutes);
 app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
+app.use('/api/eventos', eventoRoutes);
 
 
 // Ruta de prueba

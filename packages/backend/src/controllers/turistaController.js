@@ -58,10 +58,10 @@ const turistaController = {
             res.json({ 
                 success: true, 
                 token, 
-                usuario: {
-                    id: usuario.id,
-                    nombre: usuario.nombre,
-                    anonimo: usuario.anonimo,
+                usuario: { 
+                    id: usuario.id, 
+                    nombre: usuario.nombre, 
+                    anonimo: true,   // ← AGREGAR
                     xp_total: usuario.xp_total || 0,
                     nivel: usuario.nivel || 1
                 }
@@ -76,24 +76,14 @@ const turistaController = {
     async register(req, res) {
         try {
             const { email, nombre, password } = req.body;
-            const usuarioId = req.user.id;
+            console.log('📝 Registrando:', email);
             
-            // Verificar que el usuario existe y es anónimo
-            const usuario = await pool.query(
-                'SELECT * FROM usuarios WHERE id = $1 AND anonimo = true',
-                [usuarioId]
-            );
-            
-            if (usuario.rows.length === 0) {
-                return res.status(400).json({ error: 'Usuario no es anónimo o no existe' });
+            if (!email || !password) {
+                return res.status(400).json({ error: 'Email y contraseña son requeridos' });
             }
             
-            // Verificar que el email no está registrado
-            const existe = await pool.query(
-                'SELECT id FROM usuarios WHERE email = $1',
-                [email]
-            );
-            
+            // Verificar si ya existe
+            const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
             if (existe.rows.length > 0) {
                 return res.status(400).json({ error: 'El email ya está registrado' });
             }
@@ -102,29 +92,39 @@ const turistaController = {
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash(password, salt);
             
-            // Actualizar usuario
+            // Insertar usuario
+            const result = await pool.query(
+                `INSERT INTO usuarios (email, nombre, password_hash, rol, anonimo, created_at, ultima_conexion, xp_total, nivel)
+                VALUES ($1, $2, $3, 'turista', false, NOW(), NOW(), 0, 1)
+                RETURNING id, email, nombre, rol`,
+                [email, nombre || email.split('@')[0], passwordHash]
+            );
+            
+            if (result.rows.length === 0) {
+                return res.status(500).json({ error: 'Error al crear usuario' });
+            }
+            
+            const usuario = result.rows[0];
+            
+            // ✅ CREAR PERFIL DE GUARDIÁN AUTOMÁTICAMENTE
             await pool.query(
-                `UPDATE usuarios 
-                 SET email = $1, nombre = $2, password_hash = $3, anonimo = false
-                 WHERE id = $4`,
-                [email, nombre || email.split('@')[0], passwordHash, usuarioId]
+                `INSERT INTO perfiles_guardian (usuario_id, nombre_publico, visible, ciudad_origen)
+                VALUES ($1, $2, true, $3)
+                ON CONFLICT (usuario_id) DO NOTHING`,
+                [usuario.id, nombre || email.split('@')[0], 'Concepción']
+            );
+
+            // Crear registro inicial de estadísticas de eventos
+            await pool.query(
+                `INSERT INTO estadisticas_eventos (usuario_id, total_completados, racha_actual, racha_maxima)
+                VALUES ($1, 0, 0, 0)
+                ON CONFLICT (usuario_id) DO NOTHING`,
+                [usuario.id]
             );
             
-            // Obtener usuario actualizado
-            const usuarioActualizado = await pool.query(
-                'SELECT id, email, nombre, anonimo, xp_total, nivel FROM usuarios WHERE id = $1',
-                [usuarioId]
-            );
-            
-            // Generar nuevo token
+            // Crear token
             const token = jwt.sign(
-                { 
-                    id: usuarioId, 
-                    email, 
-                    nombre: nombre || email.split('@')[0],
-                    anonimo: false,
-                    nivel: usuarioActualizado.rows[0].nivel || 1
-                },
+                { id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
                 process.env.JWT_SECRET || 'tu_secreto_jwt',
                 { expiresIn: '365d' }
             );
@@ -132,12 +132,19 @@ const turistaController = {
             res.json({ 
                 success: true, 
                 token, 
-                usuario: usuarioActualizado.rows[0],
-                message: '¡Registro completado! Ahora puedes subir fotos y anclar guardianes.'
+                usuario: {
+                    id: usuario.id,
+                    email: usuario.email,
+                    nombre: usuario.nombre,
+                    rol: usuario.rol,
+                    anonimo: false,
+                    nivel: 1,
+                    xp_total: 0
+                }
             });
         } catch (error) {
-            console.error('Error en register:', error);
-            res.status(500).json({ error: 'Error al registrar usuario' });
+            console.error('❌ Error en register:', error);
+            res.status(500).json({ error: error.message });
         }
     },
     

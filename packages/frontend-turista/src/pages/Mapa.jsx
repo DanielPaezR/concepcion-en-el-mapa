@@ -6,21 +6,400 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, Navigation, Award, Target, LocateFixed, 
   Star, Zap, Crown, Shield, Sparkles, Menu, X,
-  MapPin, Users, Landmark, TreePine, Utensils
+  MapPin, Users, Landmark, TreePine, Utensils,
+  Crosshair, Eye, Footprints
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import GaleriaFotos from '../components/GaleriaFotos';
 import Map3DEffect from '../components/Map3DEffect';
 import AnclarGuardian from '../components/AnclarGuardian';
+import EstadoReserva from '../components/EstadoReserva';
+import MenuExplorador from '../components/MenuExplorador';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-
-// Almacenamiento local para lugares visitados
 const STORAGE_KEY = 'concepcion_descubiertos';
 const VISIT_RADIUS = 50; // metros
 
+// ============================================================
+// 📦 COMPONENTES INTERNOS (para mejor organización)
+// ============================================================
+
+// 🧭 Brújula funcional (reemplaza la falsa)
+const BrújulaFuncional = ({ bearing, onRotate }) => {
+  const [angle, setAngle] = useState(bearing || 0);
+  
+  useEffect(() => {
+    setAngle(bearing || 0);
+  }, [bearing]);
+  
+  const handleClick = () => {
+    // Resetear orientación al norte
+    if (onRotate) onRotate(0);
+  };
+  
+  return (
+    <motion.button
+      animate={{ rotate: angle }}
+      transition={{ duration: 0.3 }}
+      onClick={handleClick}
+      className="brújula-btn"
+      style={{
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 48,
+        height: 48,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(8px)',
+        borderRadius: '50%',
+        border: '2px solid #fbbf24',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+      }}
+      title="Orientar al norte"
+    >
+      <Compass className="text-yellow-400" size={24} />
+    </motion.button>
+  );
+};
+
+// 🎛️ Panel HUD Superior
+const HUDHeader = ({ 
+  playerLevel, discoveredPlaces, totalLugares, xp, 
+  lugarEspecial, onOpenGaleria, onOpenAnclar, 
+  onToggleQuestLog, showQuestLog, isMobile 
+}) => (
+  <motion.div 
+    initial={{ y: -100 }} 
+    animate={{ y: 0 }} 
+    className="hud-header"
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      padding: isMobile ? 8 : 12,
+      gap: 8,
+      pointerEvents: 'none' // Los hijos tendrán pointer-events auto
+    }}
+  >
+    {/* Grupo izquierdo */}
+    <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
+      {/* Nivel */}
+      <div className="level-badge" style={{
+        background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+        borderRadius: 40,
+        padding: '6px 14px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6
+      }}>
+        <span style={{ color: 'white', fontWeight: 'bold', fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+          {playerLevel >= 5 ? <Crown size={14} /> : playerLevel >= 3 ? <Zap size={14} /> : <Star size={14} />}
+          Nv. {playerLevel}
+        </span>
+      </div>
+      
+      {/* Progreso descubrimientos */}
+      <div style={{
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)',
+        borderRadius: 40,
+        padding: '6px 12px',
+        border: '1px solid #22c55e'
+      }}>
+        <span style={{ color: '#4ade80', fontWeight: 'bold', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Sparkles size={12} />
+          {discoveredPlaces.length}/{totalLugares}
+        </span>
+      </div>
+      
+      {/* XP */}
+      <div style={{
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)',
+        borderRadius: 40,
+        padding: '6px 12px',
+        border: '1px solid #a855f7'
+      }}>
+        <span style={{ color: '#c084fc', fontWeight: 'bold', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Zap size={12} />
+          {xp} XP
+        </span>
+      </div>
+      
+      {/* Botones especiales */}
+      {playerLevel >= 5 && lugarEspecial && (
+        <button
+          onClick={onOpenGaleria}
+          style={{
+            background: 'linear-gradient(135deg, #eab308, #f59e0b)',
+            borderRadius: 40,
+            padding: '6px 12px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <Award size={18} color="white" />
+        </button>
+      )}
+      
+      {/* Anclar Guardián (solo nivel 5 y todos descubiertos) */}
+      {playerLevel >= 5 && discoveredPlaces.length === totalLugares && (
+        <button
+          onClick={onOpenAnclar}
+          style={{
+            background: '#7c3aed',
+            borderRadius: 40,
+            padding: '6px 12px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+          title="Anclar Guardián"
+        >
+          🛡️
+        </button>
+      )}
+    </div>
+    
+    {/* Botón menú derecho */}
+    <button
+      onClick={onToggleQuestLog}
+      style={{
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)',
+        borderRadius: 40,
+        padding: 10,
+        border: '1px solid #eab308',
+        cursor: 'pointer',
+        pointerEvents: 'auto'
+      }}
+    >
+      {showQuestLog ? <X size={20} color="#ef4444" /> : <Menu size={20} color="#4ade80" />}
+    </button>
+  </motion.div>
+);
+
+// 🗺️ Botón de ubicación actual
+const BotonUbicacion = ({ userPosition, onCenter }) => {
+  if (!userPosition) return null;
+  
+  return (
+    <button
+      onClick={onCenter}
+      className="ubicacion-btn"
+      style={{
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        backgroundColor: '#2563eb',
+        borderRadius: 50,
+        padding: 12,
+        border: '2px solid white',
+        cursor: 'pointer',
+        zIndex: 1000,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+      title="Centrar en mi ubicación"
+    >
+      <Navigation size={20} color="white" />
+    </button>
+  );
+};
+
+// 📜 Panel de Quest Log (Descubrimientos)
+const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, onSelectLugar, isMobile }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        style={{
+          position: 'absolute',
+          top: isMobile ? 60 : 70,
+          right: 10,
+          zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.95)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: 16,
+          padding: 12,
+          border: '1px solid #22c55e',
+          width: isMobile ? 'calc(100% - 20px)' : 320,
+          maxWidth: 320,
+          maxHeight: '70vh',
+          overflowY: 'auto'
+        }}
+      >
+        <h3 style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24', marginBottom: 12 }}>
+          📜 Descubrimientos ({discoveredPlaces.length}/{lugares.length})
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {lugares.map(lugar => {
+            const isDiscovered = discoveredPlaces.includes(lugar.id);
+            return (
+              <div
+                key={lugar.id}
+                onClick={() => {
+                  onClose();
+                  onSelectLugar(lugar);
+                }}
+                style={{
+                  padding: 10,
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  backgroundColor: isDiscovered ? 'rgba(34,197,94,0.2)' : 'rgba(55,65,81,0.5)',
+                  border: isDiscovered ? '1px solid #22c55e' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {getTipoIcon(lugar.tipo)}
+                    <span style={{ color: 'white', fontSize: 14, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {lugar.nombre}
+                    </span>
+                  </div>
+                  {isDiscovered ? (
+                    <span style={{ color: '#4ade80', fontSize: 14 }}>✓</span>
+                  ) : (
+                    <span style={{ color: '#fbbf24', fontSize: 12 }}>⚔️</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+// 📍 Prompt de ubicación
+const LocationPrompt = ({ show, onAccept, onDeny }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 50 }}
+        style={{
+          position: 'absolute',
+          bottom: 100,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 2000,
+          backgroundColor: 'rgba(0,0,0,0.95)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: 16,
+          padding: 16,
+          border: '2px solid #22c55e',
+          width: '90%',
+          maxWidth: 350,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <LocateFixed size={48} color="#4ade80" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
+            ¿Activamos tu ubicación?
+          </h3>
+          <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
+            Necesitamos tu ubicación para descubrir lugares automáticamente cuando estés cerca.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onAccept}
+              style={{ flex: 1, backgroundColor: '#16a34a', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+            >
+              Activar
+            </button>
+            <button
+              onClick={onDeny}
+              style={{ flex: 1, backgroundColor: '#4b5563', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+            >
+              Ahora no
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+// 🎯 Modal de Evento
+const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
+  <div style={{
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2000,
+    padding: 16
+  }}>
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: 24,
+      maxWidth: 400,
+      width: '100%',
+      padding: 24
+    }}>
+      <h3 style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+        🎯 {evento.titulo}
+      </h3>
+      <p style={{ color: '#374151', marginBottom: 16 }}>{evento.pregunta}</p>
+      <input
+        type="text"
+        value={respuesta}
+        onChange={(e) => setRespuesta(e.target.value)}
+        placeholder="Tu respuesta..."
+        style={{
+          width: '100%',
+          padding: 12,
+          border: '1px solid #d1d5db',
+          borderRadius: 12,
+          marginBottom: 16
+        }}
+        onKeyPress={(e) => e.key === 'Enter' && onResponder()}
+      />
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          onClick={onResponder}
+          style={{ flex: 1, backgroundColor: '#16a34a', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+        >
+          Responder
+        </button>
+        <button
+          onClick={onClose}
+          style={{ flex: 1, backgroundColor: '#9ca3af', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ============================================================
+// 🎮 COMPONENTE PRINCIPAL
+// ============================================================
+
 function Mapa() {
+  // ========== ESTADOS ==========
   const [lugares, setLugares] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLugar, setSelectedLugar] = useState(null);
@@ -32,7 +411,6 @@ function Mapa() {
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [lastVisitedPlace, setLastVisitedPlace] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
-  const navigate = useNavigate();
   const [shouldLocate, setShouldLocate] = useState(false);
   const [userResponded, setUserResponded] = useState(false);
   const [xp, setXp] = useState(0);
@@ -44,7 +422,6 @@ function Mapa() {
   const [lugarEspecial, setLugarEspecial] = useState(null);
   const [lugarEspecialDesbloqueado, setLugarEspecialDesbloqueado] = useState(false);
   const [mostrarAnclar, setMostrarAnclar] = useState(false);
-  const [guardianesCercanos, setGuardianesCercanos] = useState([]);
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
@@ -55,7 +432,10 @@ function Mapa() {
     pitch: 60,
     bearing: 15
   });
+  
+  const navigate = useNavigate();
 
+  // ========== FUNCIONES AUXILIARES ==========
   const mostrarMensajeGuia = (mensaje, tipo = 'normal', duracion = 5000) => {
     setMensajeGuia(mensaje);
     setTipoGuia(tipo);
@@ -63,42 +443,27 @@ function Mapa() {
     setTimeout(() => setMostrarGuia(false), duracion);
   };
 
-  const cargarEventos = async () => {
-      try {
-          const response = await api.get('/eventos/activos');
-          setEventos(response.data.eventos || []);
-      } catch (error) {
-          console.error('Error al cargar eventos:', error);
-      }
+  const getTipoIcon = (tipo) => {
+    const icons = {
+      historico: <Landmark size={isMobile ? 16 : 20} />,
+      natural: <TreePine size={isMobile ? 16 : 20} />,
+      cultural: <Users size={isMobile ? 16 : 20} />,
+      gastronomico: <Utensils size={isMobile ? 16 : 20} />
+    };
+    return icons[tipo] || <MapPin size={isMobile ? 16 : 20} />;
   };
 
-  const handleCompletarEvento = async (eventoId, respuesta) => {
-    try {
-        const response = await api.post('/eventos/completar', { eventoId, respuesta });
-        if (response.data.success) {
-            mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${response.data.xp_ganada} XP`, 'celebrando', 4000);
-            setEventoSeleccionado(null);
-            setRespuestaEvento('');
-            cargarEventos();
-            // Recargar estadísticas del usuario
-            const stats = await api.get('/eventos/mis-estadisticas');
-            if (stats.data.titulo !== tituloActual) {
-                mostrarMensajeGuia(`🏆 ¡NUEVO TÍTULO! Ahora eres ${stats.data.titulo}`, 'celebrando', 5000);
-            }
-        }
-    } catch (error) {
-        mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
-    }
-  };
-
-  const cargarLugarEspecial = async () => {
-    try {
-      const response = await api.get('/lugar-especial');
-      setLugarEspecial(response.data.lugar);
-      setLugarEspecialDesbloqueado(response.data.desbloqueado);
-    } catch (error) {
-      console.error('Error al cargar lugar especial:', error);
-    }
+  const calcularDistancia = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
   const calcularSistemaExp = (totalLugares) => {
@@ -120,6 +485,13 @@ function Mapa() {
     }
     return expAcumulada.length + 1;
   };
+
+  // ========== EFECTOS ==========
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (playerLevel >= 5) setLugarEspecialDesbloqueado(true);
@@ -151,20 +523,15 @@ function Mapa() {
     }
   }, [playerLevel]);
 
+  // Detección automática de lugares cercanos
   useEffect(() => {
     if (userPosition && lugares.length > 0) {
       const lugaresCerca = lugares.filter(lugar => {
         if (discoveredPlaces.includes(lugar.id)) return false;
-        const R = 6371e3;
-        const φ1 = userPosition.lat * Math.PI/180;
-        const φ2 = lugar.latitud * Math.PI/180;
-        const Δφ = (lugar.latitud - userPosition.lat) * Math.PI/180;
-        const Δλ = (lugar.longitud - userPosition.lng) * Math.PI/180;
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = R * c;
+        const distance = calcularDistancia(
+          userPosition.lat, userPosition.lng,
+          parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+        );
         return distance < VISIT_RADIUS;
       });
       
@@ -178,12 +545,14 @@ function Mapa() {
     }
   }, [userPosition, lugares]);
 
+  // Consejos aleatorios cada 30 segundos
   useEffect(() => {
     const consejos = [
       'Los marcadores dorados son lugares que ya descubriste.',
       'Cada lugar descubierto te da 10 XP.',
       'El avatar cambia de forma según tu nivel.',
-      'Usa el botón azul para volver a tu ubicación.'
+      'Usa el botón azul para volver a tu ubicación.',
+      '¡Los eventos diarios te dan XP extra!'
     ];
     const intervalo = setInterval(() => {
       if (!lastVisitedPlace && !showQuestLog) {
@@ -193,12 +562,43 @@ function Mapa() {
     return () => clearInterval(intervalo);
   }, [lastVisitedPlace, showQuestLog]);
 
+  // Cargar datos guardados
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setDiscoveredPlaces(parsed);
+      const savedXp = localStorage.getItem('player_xp');
+      if (savedXp) setXp(parseInt(savedXp));
+    }
   }, []);
 
+  // Sistema de experiencia
+  useEffect(() => {
+    if (lugares.length > 0) {
+      const sistema = calcularSistemaExp(lugares.length);
+      setSistemaExp(sistema);
+      if (xp > 0) {
+        const nuevoNivel = calcularNivelPorXP(xp, sistema.expAcumulada);
+        setPlayerLevel(Math.min(nuevoNivel, 5));
+      }
+    }
+  }, [lugares]);
+
+  useEffect(() => {
+    if (discoveredPlaces.length > 0 && sistemaExp.expBase > 0) {
+      const nuevoXP = discoveredPlaces.length * sistemaExp.expBase;
+      setXp(nuevoXP);
+      localStorage.setItem('player_xp', nuevoXP);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(discoveredPlaces));
+      if (sistemaExp.expAcumulada.length > 0) {
+        const nuevoNivel = calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada);
+        setPlayerLevel(Math.min(nuevoNivel, 5));
+      }
+    }
+  }, [discoveredPlaces, sistemaExp]);
+
+  // Verificar estado de ubicación al inicio
   useEffect(() => {
     const checkLocationStatus = async () => {
       const savedResponse = localStorage.getItem('locationResponse');
@@ -238,44 +638,7 @@ function Mapa() {
     checkLocationStatus();
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setDiscoveredPlaces(parsed);
-      const savedXp = localStorage.getItem('player_xp');
-      if (savedXp) setXp(parseInt(savedXp));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (lugares.length > 0) {
-      const sistema = calcularSistemaExp(lugares.length);
-      setSistemaExp(sistema);
-      if (xp > 0) {
-        const nuevoNivel = calcularNivelPorXP(xp, sistema.expAcumulada);
-        setPlayerLevel(Math.min(nuevoNivel, 5));
-      }
-    }
-  }, [lugares]);
-
-  useEffect(() => {
-    if (discoveredPlaces.length > 0 && sistemaExp.expBase > 0) {
-      const nuevoXP = discoveredPlaces.length * sistemaExp.expBase;
-      setXp(nuevoXP);
-      localStorage.setItem('player_xp', nuevoXP);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(discoveredPlaces));
-      if (sistemaExp.expAcumulada.length > 0) {
-        const nuevoNivel = calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada);
-        setPlayerLevel(Math.min(nuevoNivel, 5));
-      }
-    }
-  }, [discoveredPlaces, sistemaExp]);
-
-  useEffect(() => {
-    cargarLugares();
-  }, []);
-
+  // Obtener ubicación cuando shouldLocate cambie
   useEffect(() => {
     if (shouldLocate && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -285,11 +648,12 @@ function Mapa() {
             lng: position.coords.longitude
           });
           setLocationPermission('granted');
-          setViewState({
+          setViewState(prev => ({
+            ...prev,
             longitude: position.coords.longitude,
             latitude: position.coords.latitude,
-            zoom: 15
-          });
+            zoom: 16
+          }));
         },
         (error) => {
           console.error('Geolocation error:', error);
@@ -299,6 +663,7 @@ function Mapa() {
     }
   }, [shouldLocate]);
 
+  // ========== FUNCIONES DE CARGA ==========
   const cargarLugares = async () => {
     try {
       const response = await api.get('/lugares');
@@ -312,15 +677,46 @@ function Mapa() {
     }
   };
 
-  const getTipoIcon = (tipo) => {
-    const icons = {
-      historico: <Landmark className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />,
-      natural: <TreePine className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />,
-      cultural: <Users className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />,
-      gastronomico: <Utensils className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
-    };
-    return icons[tipo] || <MapPin className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />;
+  const cargarLugarEspecial = async () => {
+    try {
+      const response = await api.get('/lugar-especial');
+      setLugarEspecial(response.data.lugar);
+      setLugarEspecialDesbloqueado(response.data.desbloqueado);
+    } catch (error) {
+      console.error('Error al cargar lugar especial:', error);
+    }
   };
+
+  const cargarEventos = async () => {
+    try {
+      const response = await api.get('/eventos/activos');
+      setEventos(response.data.eventos || []);
+    } catch (error) {
+      console.error('Error al cargar eventos:', error);
+    }
+  };
+
+  const handleCompletarEvento = async (eventoId, respuesta) => {
+    try {
+      const response = await api.post('/eventos/completar', { eventoId, respuesta });
+      if (response.data.success) {
+        mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${response.data.xp_ganada} XP`, 'celebrando', 4000);
+        setEventoSeleccionado(null);
+        setRespuestaEvento('');
+        cargarEventos();
+        const stats = await api.get('/eventos/mis-estadisticas');
+        if (stats.data.titulo !== tituloActual) {
+          mostrarMensajeGuia(`🏆 ¡NUEVO TÍTULO! Ahora eres ${stats.data.titulo}`, 'celebrando', 5000);
+        }
+      }
+    } catch (error) {
+      mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
+    }
+  };
+
+  useEffect(() => {
+    cargarLugares();
+  }, []);
 
   if (loading) {
     return (
@@ -334,104 +730,67 @@ function Mapa() {
     );
   }
 
+  // ========== RENDER PRINCIPAL ==========
   return (
     <div className="h-screen relative overflow-hidden">
       {/* HUD Superior */}
-      <motion.div initial={{ y: -100 }} animate={{ y: 0 }} className="absolute top-0 left-0 right-0 z-[1000] flex justify-between items-start p-3">
-        <div className="flex items-center space-x-2">
-          <div className="level-badge bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full px-4 py-2 shadow-lg">
-            <span className="text-white flex items-center gap-1 font-bold">
-              {playerLevel >= 5 ? <Crown className="w-4 h-4" /> : playerLevel >= 3 ? <Zap className="w-4 h-4" /> : <Star className="w-4 h-4" />}
-              Nv. {playerLevel}
-            </span>
-          </div>
-          <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 border border-green-500">
-            <span className="text-green-400 font-bold text-sm flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              {discoveredPlaces.length}/{lugares.length}
-            </span>
-          </div>
-          <select value={playerLevel} onChange={(e) => setPlayerLevel(Number(e.target.value))} className="bg-black/50 text-white rounded-lg px-2 py-1 text-sm border border-yellow-500">
-            <option value={1}>Nv1 🐣</option>
-            <option value={2}>Nv2 ✨</option>
-            <option value={3}>Nv3 ⭐</option>
-            <option value={4}>Nv4 ⚡</option>
-            <option value={5}>Nv5 👑</option>
-          </select>
-          <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 border border-purple-500">
-            <div className="flex items-center gap-2">
-              <Zap className="w-3 h-3 text-purple-400" />
-              <span className="text-purple-400 font-bold text-xs">{xp} XP</span>
-            </div>
-          </div>
-          {playerLevel >= 5 && lugarEspecial && (
-            <button onClick={() => setMostrarGaleria(true)} className="bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full p-2 shadow-lg">
-              <Award className="text-white w-5 h-5" />
-            </button>
-          )}
-          {/* Botón para anclar guardián (solo nivel 5 y todos los lugares descubiertos) */}
-          {playerLevel >= 5 && discoveredPlaces.length === lugares.length && (
-            <button
-              onClick={() => setMostrarAnclar(true)}
-              className="bg-purple-600 rounded-full p-2 shadow-lg hover:bg-purple-700 transition"
-              title="Anclar Guardián"
-            >
-              🛡️
-            </button>
-          )}
-        </div>
-        <button onClick={() => setShowQuestLog(!showQuestLog)} className="bg-black/50 backdrop-blur-sm rounded-full p-3 border border-yellow-500">
-          {showQuestLog ? <X className="text-red-400 w-5 h-5" /> : <Menu className="text-green-400 w-5 h-5" />}
-        </button>
-      </motion.div>
+      <HUDHeader
+        playerLevel={playerLevel}
+        discoveredPlaces={discoveredPlaces}
+        totalLugares={lugares.length}
+        xp={xp}
+        lugarEspecial={lugarEspecial}
+        onOpenGaleria={() => setMostrarGaleria(true)}
+        onOpenAnclar={() => setMostrarAnclar(true)}
+        onToggleQuestLog={() => setShowQuestLog(!showQuestLog)}
+        showQuestLog={showQuestLog}
+        isMobile={isMobile}
+      />
 
-      <CompaneroVirtual mensaje={mensajeGuia} nivel={playerLevel} emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'} />
+      {/* Compañero Virtual (Guía) */}
+      <CompaneroVirtual 
+        mensaje={mensajeGuia} 
+        nivel={playerLevel} 
+        emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'} 
+      />
 
-      {mostrarGaleria && <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />}
+      {/* Galería de Fotos */}
+      {mostrarGaleria && (
+        <GaleriaFotos 
+          nivelUsuario={playerLevel} 
+          onCerrar={() => setMostrarGaleria(false)} 
+        />
+      )}
 
       {/* Prompt de ubicación */}
-      <AnimatePresence>
-        {showLocationPrompt && !userResponded && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-[2000] bg-black/90 backdrop-blur-sm rounded-lg p-4 border-2 border-green-500 shadow-2xl w-[90%] max-w-md">
-            <div className="text-center">
-              <LocateFixed className="w-12 h-12 text-green-400 mx-auto mb-3" />
-              <h3 className="text-white font-bold text-lg mb-2">¿Activamos tu ubicación?</h3>
-              <p className="text-gray-300 text-sm mb-4">Necesitamos tu ubicación para descubrir lugares automáticamente cuando estés cerca.</p>
-              <div className="flex space-x-2">
-                <button onClick={() => { setShowLocationPrompt(false); setShouldLocate(true); setUserResponded(true); localStorage.setItem('locationResponse', 'granted'); }} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold">Activar</button>
-                <button onClick={() => { setShowLocationPrompt(false); setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse', 'denied'); }} className="flex-1 bg-gray-600 text-white py-2 rounded-lg font-bold">Ahora no</button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <LocationPrompt
+        show={showLocationPrompt && !userResponded}
+        onAccept={() => {
+          setShowLocationPrompt(false);
+          setShouldLocate(true);
+          setUserResponded(true);
+          localStorage.setItem('locationResponse', 'granted');
+        }}
+        onDeny={() => {
+          setShowLocationPrompt(false);
+          setLocationPermission('denied');
+          setUserResponded(true);
+          localStorage.setItem('locationResponse', 'denied');
+        }}
+      />
 
       {/* Quest Log */}
-      <AnimatePresence>
-        {showQuestLog && (
-          <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="absolute top-16 right-3 z-[1000] bg-black/95 backdrop-blur-sm rounded-xl p-3 border border-green-500 w-80 max-h-[70vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-yellow-400 mb-3">📜 Descubrimientos</h3>
-            <div className="space-y-2">
-              {lugares.map(lugar => {
-                const isDiscovered = discoveredPlaces.includes(lugar.id);
-                return (
-                  <div key={lugar.id} className={`p-2 rounded-lg cursor-pointer ${isDiscovered ? 'bg-green-900/50 border border-green-500' : 'bg-gray-800/50'}`} onClick={() => { setShowQuestLog(false); setSelectedLugar(lugar); }}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {getTipoIcon(lugar.tipo)}
-                        <span className="text-sm text-white truncate max-w-[150px]">{lugar.nombre}</span>
-                      </div>
-                      {isDiscovered ? <span className="text-green-400 text-sm">✓</span> : <span className="text-yellow-400 text-sm">⚔️</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <QuestLogPanel
+        show={showQuestLog}
+        lugares={lugares}
+        discoveredPlaces={discoveredPlaces}
+        getTipoIcon={getTipoIcon}
+        onClose={() => setShowQuestLog(false)}
+        onSelectLugar={setSelectedLugar}
+        isMobile={isMobile}
+      />
 
-      {/* MAPBOX */}
+      {/* MAPA */}
       <Map
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
@@ -522,18 +881,18 @@ function Mapa() {
 
         {/* Marcadores de eventos diarios */}
         {eventos.map((evento) => (
-            <Marker
-                key={`evento_${evento.id}`}
-                longitude={parseFloat(evento.longitud)}
-                latitude={parseFloat(evento.latitud)}
-                onClick={() => setEventoSeleccionado(evento)}
-            >
-                <div className="cursor-pointer animate-bounce">
-                    <div className="w-12 h-12 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">❓</span>
-                    </div>
-                </div>
-            </Marker>
+          <Marker
+            key={`evento_${evento.id}`}
+            longitude={parseFloat(evento.longitud)}
+            latitude={parseFloat(evento.latitud)}
+            onClick={() => setEventoSeleccionado(evento)}
+          >
+            <div className="cursor-pointer animate-bounce">
+              <div className="w-12 h-12 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                <span className="text-2xl">❓</span>
+              </div>
+            </div>
+          </Marker>
         ))}
         
         {/* Popup del lugar seleccionado */}
@@ -560,63 +919,53 @@ function Mapa() {
         )}
       </Map>
 
-      {/* Brújula */}
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }} className="absolute bottom-4 right-4 w-12 h-12 bg-black/50 backdrop-blur-sm rounded-full border-2 border-yellow-500 flex items-center justify-center z-[1000]">
-        <Compass className="text-yellow-400 w-6 h-6" />
-      </motion.div>
+      {/* Botón de ubicación actual */}
+      <BotonUbicacion
+        userPosition={userPosition}
+        onCenter={() => {
+          if (userPosition) {
+            setViewState(prev => ({
+              ...prev,
+              longitude: userPosition.lng,
+              latitude: userPosition.lat,
+              zoom: 16
+            }));
+          }
+        }}
+      />
 
-      {/* Botón de ubicación */}
-      {userPosition && (
-        <button
-          onClick={() => setViewState({ longitude: userPosition.lng, latitude: userPosition.lat, zoom: 16 })}
-          className="absolute bottom-4 left-4 bg-blue-600 rounded-full p-3 z-[1000] shadow-lg border-2 border-white hover:bg-blue-700 transition"
-        >
-          <Navigation className="text-white w-5 h-5" />
-        </button>
-      )}
-      {/* Modal para anclar guardián */}
+      {/* Menú de explorador */}
+      <MenuExplorador 
+        nivel={playerLevel}
+        xp={xp}
+        lugaresDescubiertos={discoveredPlaces.length}
+        totalLugares={lugares.length}
+      />
+
+      {/* Modal Anclar Guardián */}
       {mostrarAnclar && (
         <AnclarGuardian
           userPosition={userPosition}
           onClose={() => setMostrarAnclar(false)}
           onAnclado={() => {
             setMostrarAnclar(false);
-            // Recargar guardianes cercanos si quieres
           }}
         />
       )}
 
-      {/* Modal para responder evento */}
+      {/* Modal de Evento */}
       {eventoSeleccionado && (
-          <div className="fixed inset-0 z-[2000] bg-black/70 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                  <h3 className="text-xl font-bold mb-4">🎯 {eventoSeleccionado.titulo}</h3>
-                  <p className="text-gray-700 mb-4">{eventoSeleccionado.pregunta}</p>
-                  <input
-                      type="text"
-                      value={respuestaEvento}
-                      onChange={(e) => setRespuestaEvento(e.target.value)}
-                      placeholder="Tu respuesta..."
-                      className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-                      onKeyPress={(e) => e.key === 'Enter' && handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
-                  />
-                  <div className="flex gap-3">
-                      <button
-                          onClick={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
-                          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold"
-                      >
-                          Responder
-                      </button>
-                      <button
-                          onClick={() => setEventoSeleccionado(null)}
-                          className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold"
-                      >
-                          Cancelar
-                      </button>
-                  </div>
-              </div>
-          </div>
+        <EventoModal
+          evento={eventoSeleccionado}
+          respuesta={respuestaEvento}
+          setRespuesta={setRespuestaEvento}
+          onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
+          onClose={() => setEventoSeleccionado(null)}
+        />
       )}
+
+      {/* Estado de Reserva */}
+      <EstadoReserva />
     </div>
   );
 }

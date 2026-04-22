@@ -1,10 +1,10 @@
-// pages/lugares/LugarForm.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { TrashIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
+import MapaCoordenadas from '../../components/MapaCoordenadas';
 
 export default function LugarForm() {
   const { id } = useParams();
@@ -12,6 +12,7 @@ export default function LugarForm() {
   const [loading, setLoading] = useState(false);
   const [imagenPreview, setImagenPreview] = useState(null);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [usarMapa, setUsarMapa] = useState(true);
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
@@ -63,6 +64,14 @@ export default function LugarForm() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleCoordenadasChange = (lat, lng) => {
+    setFormData(prev => ({
+      ...prev,
+      latitud: lat,
+      longitud: lng
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -157,32 +166,64 @@ export default function LugarForm() {
             />
           </div>
 
-          <div className="sm:col-span-3">
-            <label className="block text-sm font-medium text-gray-700">Latitud *</label>
-            <input
-              type="number"
-              step="any"
-              name="latitud"
-              value={formData.latitud}
-              onChange={handleChange}
-              required
-              placeholder="Ej: 6.3944"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
-          </div>
-
-          <div className="sm:col-span-3">
-            <label className="block text-sm font-medium text-gray-700">Longitud *</label>
-            <input
-              type="number"
-              step="any"
-              name="longitud"
-              value={formData.longitud}
-              onChange={handleChange}
-              required
-              placeholder="Ej: -75.2581"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
+          {/* COORDENADAS CON MAPA */}
+          <div className="sm:col-span-6">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">Ubicación</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUsarMapa(true)}
+                  className={`text-xs px-2 py-1 rounded ${usarMapa ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                >
+                  🗺️ Seleccionar en mapa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUsarMapa(false)}
+                  className={`text-xs px-2 py-1 rounded ${!usarMapa ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                >
+                  ✏️ Ingresar manual
+                </button>
+              </div>
+            </div>
+            
+            {usarMapa ? (
+              <MapaCoordenadas
+                latitud={formData.latitud}
+                longitud={formData.longitud}
+                onCoordenadasChange={handleCoordenadasChange}
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Latitud *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    name="latitud"
+                    value={formData.latitud}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ej: 6.3944"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Longitud *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    name="longitud"
+                    value={formData.longitud}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ej: -75.2581"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="sm:col-span-6">
@@ -232,6 +273,21 @@ export default function LugarForm() {
                 </>
               )}
             </div>
+          </div>
+
+          <div className="sm:col-span-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+                Horario de atención
+            </label>
+            <input
+                type="text"
+                name="horario"
+                value={formData.horario || ''}
+                onChange={handleChange}
+                placeholder="Ej: 9:00-17:00"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">Formato: HH:MM-HH:MM (ej: 9:00-17:00)</p>
           </div>
         </div>
 

@@ -11,6 +11,7 @@ import {
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import { useState } from 'react';
+import { getTuristaActual } from '../services/auth';
 
 export default function LugarDetalle() {
   const { id } = useParams();
@@ -76,11 +77,21 @@ export default function LugarDetalle() {
   };
 
   const handleSolicitarGuia = () => {
+    const usuario = getTuristaActual();
+    
+    if (!usuario || usuario.anonimo) {
+        setMensajeCompanero('📝 Para solicitar un guía, primero debes registrarte.');
+        setTimeout(() => {
+            navigate('/registro');
+        }, 2000);
+        return;
+    }
+    
     if (lugar?.id) {
-      setMensajeCompanero(`¡Excelente elección! Te ayudaré a encontrar el guía perfecto para ${lugar.nombre}.`);
-      setTimeout(() => {
-        navigate(`/solicitar-guia/${lugar.id}`);
-      }, 1500);
+        setMensajeCompanero(`¡Excelente elección! Te ayudaré a encontrar el guía perfecto para ${lugar.nombre}.`);
+        setTimeout(() => {
+            navigate(`/solicitar-guia/${lugar.id}`);
+        }, 1500);
     }
   };
 
@@ -294,21 +305,21 @@ export default function LugarDetalle() {
             </motion.div>
           )}
 
-          {/* Horario (simulado por ahora) */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="bg-white rounded-2xl shadow-xl p-6"
-          >
-            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Horario sugerido
-            </h3>
-            <p className="text-gray-600">Lunes a Domingo</p>
-            <p className="text-gray-800 font-bold mt-1">9:00 AM - 5:00 PM</p>
-            <p className="text-xs text-gray-500 mt-2">*Horario estimado, puede variar</p>
-          </motion.div>
+          {lugar.horario && (
+            <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="bg-white rounded-2xl shadow-xl p-6"
+            >
+                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Horario
+                </h3>
+                <p className="text-gray-600">{lugar.horario}</p>
+                <p className="text-xs text-gray-500 mt-2">*Horario sujeto a cambios</p>
+            </motion.div>
+          )}
         </div>
 
         {/* Botón de solicitar guía */}
