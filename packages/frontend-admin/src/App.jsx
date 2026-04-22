@@ -7,7 +7,7 @@ import LugarForm from './pages/lugares/LugarForm';
 import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
-import Layout from './components/Layout';
+import Layout from '../components/Layout';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 
 function App() {

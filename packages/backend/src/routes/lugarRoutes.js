@@ -1,18 +1,15 @@
-// routes/lugarRoutes.js
 const express = require('express');
 const router = express.Router();
 const lugarController = require('../controllers/lugarController');
-const authMiddleware = require('../middleware/auth');
-const upload = require('../middleware/upload');
 
-// Rutas públicas
-router.get('/', lugarController.getAll);
-router.get('/:id', lugarController.getById);
+// Rutas públicas (sin autenticación por ahora)
+router.get('/', lugarController.getAllLugares);
+router.get('/:id', lugarController.getLugarById);
+router.get('/tipo/:tipo', lugarController.getLugaresByTipo);
 
-// Rutas protegidas (solo admin)
-router.use(authMiddleware);
-router.post('/', upload.single('imagen'), lugarController.create);
-router.put('/:id', upload.single('imagen'), lugarController.update);
-router.delete('/:id', lugarController.delete);
+// Rutas de creación/edición (también públicas por ahora, para pruebas)
+router.post('/', lugarController.createLugar);
+router.put('/:id', lugarController.updateLugar);
+router.delete('/:id', lugarController.deleteLugar);
 
 module.exports = router;
