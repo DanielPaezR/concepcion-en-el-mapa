@@ -16,11 +16,12 @@ const turistaRoutes = require('./routes/turistaRoutes');
 const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
+const { corsOptions } = require('./config/cors');
 
 const app = express()
 
 // Middlewares
-app.use(cors())
+app.use(cors(corsOptions))
 app.use(express.json())
 
 // Rutas

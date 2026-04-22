@@ -8,11 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
-
-const socket = io('http://localhost:5000', {
-    transports: ['websocket', 'polling'],
-    reconnection: true
-});
+import { SOCKET_URL } from '../../config/runtime';
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -51,7 +47,10 @@ export default function PanelGuia() {
         cargarReservas();
         
         // Conectar Socket.IO
-        const socketIo = io('http://localhost:5000');
+        const socketIo = io(SOCKET_URL, {
+            transports: ['websocket', 'polling'],
+            reconnection: true
+        });
         setSocket(socketIo);
         
         // Conectar como guía
