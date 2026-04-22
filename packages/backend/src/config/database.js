@@ -1,21 +1,22 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-console.log('🔐 Credenciales de DB:');
-console.log('   Host:', process.env.DB_HOST);
-console.log('   User:', process.env.DB_USER);
-console.log('   Database:', process.env.DB_NAME);
-console.log('   Password length:', process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0);
+// Usar DATABASE_URL (Recomendado para Railway)
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ ERROR: No se encontró DATABASE_URL en las variables de entorno');
+  process.exit(1);
+}
+
+console.log('🔐 Conectando a PostgreSQL...');
 
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000, // Aumentado a 10 segundos
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
 
 // Test database connection

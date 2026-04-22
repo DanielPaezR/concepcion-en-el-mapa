@@ -1,0 +1,22 @@
+[33m7ae6fbd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfix/review-items[m[33m, [m[1;31morigin/fix/review-items[m[33m)[m fix: corregir app.js, eliminar import de cors personalizado
+[33m3452048[m fix: restaurar app.js y todas las rutas del backend desde commit 1f3c296
+[33m3eeea5d[m fix: usar DATABASE_URL en lugar de variables separadas
+[33mf66094b[m fix: recuperar todos los archivos eliminados del backend y frontend desde commit 1f3c296
+[33m16c0840[m fix: recuperar todos los archivos eliminados del backend y frontend desde commit 1f3c296
+[33m68c18b7[m fix: recuperar todos los archivos eliminados del backend y frontend desde commit 1f3c296
+[33m7fd47b7[m fix: agregar Layout.jsx faltante en frontend-admin
+[33mb7eab2c[m fix: agregar Layout.jsx faltante en frontend-admin
+[33mc41acaf[m fix: agregar Layout.jsx faltante en frontend-admin
+[33m1f3c296[m feature: nuevo mapa, menus y reservas
+[33mb598bbd[m feature: nuevo mapa, menus y reservas
+[33md32a373[m fix: align frontend and backend urls for railway
+[33m68e8ea7[m feature: nuevo mapa, menus y reservas
+[33m9724459[m feature: nuevo mapa, menus y reservas
+[33m64b7215[m feature: nuevo mapa, menus y reservas
+[33m93c493f[m feature: nuevo mapa, menus y reservas
+[33m521d37f[m feature: nuevo mapa, menus y reservas
+[33m0c256a7[m feature: nuevo mapa, menus y reservas
+[33mf0c8143[m 15/04/2026
+[33mca0409b[m[33m ([m[1;32mbackup-pre-fixes-2026-04-13[m[33m)[m chore: backup snapshot before fixes
+[33md024e8e[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m second commit
+[33m2b2fb86[m first commit
