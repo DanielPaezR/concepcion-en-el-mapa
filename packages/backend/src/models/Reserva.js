@@ -4,16 +4,15 @@ const pool = require('../config/database');
 const Reserva = {
     // Crear una nueva reserva
     async create(reservaData) {
-        const { turista_id, lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro } = reservaData;
+        const { turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro } = reservaData;
         
-        // Permitir turista_id NULL para visitantes anónimos
         const query = `
             INSERT INTO reservas_guia 
-            (turista_id, lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro, estado, fecha_solicitud)
-            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', CURRENT_TIMESTAMP)
+            (turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro, estado, fecha_solicitud)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente', CURRENT_TIMESTAMP)
             RETURNING *
         `;
-        const values = [turista_id, lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro];
+        const values = [turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro];
         const result = await pool.query(query, values);
         return result.rows[0];
     },
@@ -91,8 +90,7 @@ const Reserva = {
     async updateEstado(id, estado, motivo = null) {
         const query = `
             UPDATE reservas_guia 
-            SET estado = $1, 
-                fecha_actualizacion = CURRENT_TIMESTAMP
+            SET estado = $1
             WHERE id = $2
             RETURNING *
         `;

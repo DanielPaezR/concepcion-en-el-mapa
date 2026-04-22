@@ -1,22 +1,28 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-console.log('🔐 Credenciales de DB:');
-console.log('   Host:', process.env.DB_HOST);
-console.log('   User:', process.env.DB_USER);
-console.log('   Database:', process.env.DB_NAME);
-console.log('   Password length:', process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0);
+// Usar DATABASE_URL si existe, sino usar variables separadas
+const connectionString = process.env.DATABASE_URL;
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const pool = new Pool(
+  connectionString
+    ? {
+        connectionString,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 10000, // ← Aumentado a 10 segundos
+      }
+    : {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 10000, // ← Aumentado a 10 segundos
+        max: 20,
+        idleTimeoutMillis: 30000,
+      }
+);
 
 // Test database connection
 pool.on('connect', () => {

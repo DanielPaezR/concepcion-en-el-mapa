@@ -1,29 +1,32 @@
-// pages/SolicitarGuia.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Users, MapPin, MessageCircle, Clock } from 'lucide-react';
+import { Calendar, Users, MapPin, MessageCircle } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import api from '../services/api';
+import { getTuristaActual } from '../services/auth';
+import RegistroModal from '../components/RegistroModal';
 
 function SolicitarGuia() {
   const params = useParams();
   const lugarId = params.lugarId || params.id;
-  console.log('📍 lugarId recibido:', lugarId);
-  console.log('📦 Todos los params:', params);
   const navigate = useNavigate();
   const [lugar, setLugar] = useState(null);
-  const [guiasDisponibles, setGuiasDisponibles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [mostrarRegistro, setMostrarRegistro] = useState(false);
   const [mensajeAvatar, setMensajeAvatar] = useState('¡Te ayudo a encontrar un guía perfecto para ti!');
+  const usuario = getTuristaActual();
+  const esAnonimo = !usuario || usuario.anonimo === true;
+  const [horarioLugar, setHorarioLugar] = useState(null);
+
   
   const [formData, setFormData] = useState({
     fecha_encuentro: '',
     hora_encuentro: '',
     numero_personas: 1,
     intereses: [],
-    punto_encuentro: '',
-    guia_preferido: ''
+    punto_encuentro: ''
   });
 
   const opcionesIntereses = [
@@ -32,24 +35,22 @@ function SolicitarGuia() {
   ];
 
   useEffect(() => {
-    console.log('📍 lugarId recibido:', lugarId);
+    if (esAnonimo) {
+        setMensajeAvatar('📝 Debes registrarte para solicitar un guía');
+        setTimeout(() => navigate('/registro'), 2000);
+        return;
+    }
+    
     if (lugarId) {
-      cargarLugar();
-      cargarGuiasDisponibles();
-    } else {
-      console.error('❌ No se recibió lugarId');
-      setCargando(false);
+        cargarLugar();
     }
   }, [lugarId]);
 
   const cargarLugar = async () => {
     try {
-      setCargando(true);
-      console.log('🔍 Solicitando lugar:', lugarId);
       const response = await api.get(`/lugares/${lugarId}`);
-      console.log('✅ Lugar cargado:', response.data);
-      setLugar(response.data);
-      setMensajeAvatar(`Excelente elección! ${response.data.nombre} es maravilloso. ¿Para cuándo quieres tu recorrido?`);
+        setLugar(response.data);
+        setHorarioLugar(response.data.horario || '9:00-17:00');
     } catch (error) {
       console.error('Error al cargar lugar:', error);
       setMensajeAvatar('Hubo un error al cargar la información del lugar');
@@ -58,19 +59,34 @@ function SolicitarGuia() {
     }
   };
 
-  const cargarGuiasDisponibles = async () => {
-    try {
-      const response = await api.get('/reservas/disponibles').catch(err => {
-        if (err.response?.status === 401) {
-          console.log('ℹ️ Endpoint de guías requiere autenticación');
-          return { data: [] };
-        }
-        throw err;
-      });
-      setGuiasDisponibles(response.data || []);
-    } catch (error) {
-      console.error('Error al cargar guías:', error);
+  const validarFechaHora = (fecha, hora) => {
+    const hoy = new Date();
+    const fechaSeleccionada = new Date(`${fecha}T${hora}`);
+    
+    // No puede ser en el pasado
+    if (fechaSeleccionada < hoy) {
+        return { valido: false, error: 'No puedes seleccionar una fecha/hora pasada' };
     }
+    
+    // Solo hoy
+    const hoyStr = hoy.toISOString().split('T')[0];
+    if (fecha !== hoyStr) {
+        return { valido: false, error: 'Solo puedes agendar reservas para el día de hoy' };
+    }
+    
+    // Verificar horario del lugar (ej: "9:00-17:00")
+    if (horarioLugar) {
+        const [horaInicio, horaFin] = horarioLugar.split('-');
+        const horaSeleccionada = parseInt(hora.split(':')[0]);
+        const horaInicioInt = parseInt(horaInicio);
+        const horaFinInt = parseInt(horaFin);
+        
+        if (horaSeleccionada < horaInicioInt || horaSeleccionada >= horaFinInt) {
+            return { valido: false, error: `El horario de atención es de ${horaInicio}:00 a ${horaFin}:00` };
+        }
+    }
+    
+    return { valido: true };
   };
 
   const handleInputChange = (e) => {
@@ -89,39 +105,59 @@ function SolicitarGuia() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    
+    // Verificar si el usuario está registrado (no anónimo)
+    if (esAnonimo) {
+      setMensajeAvatar('📝 Debes registrarte para solicitar un guía');
+      setTimeout(() => navigate('/registro'), 2000);
+      return;
+    }
+    
+    if (!formData.fecha_encuentro || !formData.hora_encuentro) {
+        alert('Por favor selecciona fecha y hora');
+        return;
+    }
+    
+    // Validar fecha y hora
+    const validacion = validarFechaHora(formData.fecha_encuentro, formData.hora_encuentro);
+    if (!validacion.valido) {
+        alert(validacion.error);
+        return;
+    }
+    
+    if (enviando) return;
+    setEnviando(true);
     
     try {
-      // Validar que haya fecha y hora
-      if (!formData.fecha_encuentro || !formData.hora_encuentro) {
-        alert('Por favor selecciona fecha y hora');
-        setLoading(false);
-        return;
-      }
+        const fechaHora = `${formData.fecha_encuentro}T${formData.hora_encuentro}:00`;
+        
+        const reservaData = {
+            lugar_id: parseInt(lugarId),
+            fecha_encuentro: fechaHora,
+            numero_personas: parseInt(formData.numero_personas),
+            intereses: formData.intereses.join(', '),
+            punto_encuentro: formData.punto_encuentro || lugar?.direccion
+        };
 
-      // Combinar fecha y hora
-      const fechaHora = `${formData.fecha_encuentro}T${formData.hora_encuentro}:00`;
-      
-      const reservaData = {
-        lugar_id: parseInt(lugarId), // ✅ CORREGIDO: usar lugarId en lugar de id
-        fecha_encuentro: fechaHora,
-        numero_personas: parseInt(formData.numero_personas),
-        intereses: formData.intereses.join(', '),
-        punto_encuentro: formData.punto_encuentro || lugar?.direccion
-      };
-
-      console.log('📝 Enviando reserva:', reservaData);
-      await api.post('/reservas', reservaData);
-      
-      setMensajeAvatar('¡Solicitud enviada! Te notificaremos cuando un guía sea asignado.');
-      setTimeout(() => {
-        navigate(`/lugar/${lugarId}`); // Volver al detalle del lugar
-      }, 3000);
+        const response = await api.post('/reservas', reservaData);
+        
+        // ✅ GUARDAR LA RESERVA EN localStorage
+        const reserva = response.data.reserva;
+        localStorage.setItem('ultima_reserva', JSON.stringify({
+            id: reserva.id,
+            estado: reserva.estado,
+            lugar: lugar.nombre,
+            fecha: fechaHora
+        }));
+        
+        setMensajeAvatar('¡Solicitud enviada! Un guía te contactará pronto.');
+        setTimeout(() => {
+            navigate(`/lugar/${lugarId}`);
+        }, 3000);
     } catch (error) {
-      console.error('Error al crear reserva:', error);
-      setMensajeAvatar('Hubo un error. Por favor, intenta de nuevo.');
-    } finally {
-      setLoading(false);
+        console.error('Error al crear reserva:', error);
+        setMensajeAvatar('Hubo un error. Por favor, intenta de nuevo.');
+        setEnviando(false);
     }
   };
 
@@ -171,6 +207,15 @@ function SolicitarGuia() {
             <p className="text-gray-600 mt-1">{lugar.descripcion}</p>
           </div>
         </div>
+
+        {/* Mensaje si es anónimo */}
+        {usuario?.anonimo && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <p className="text-amber-800 text-sm text-center">
+              📝 Para solicitar un guía, necesitas registrarte. ¡Es rápido y gratis!
+            </p>
+          </div>
+        )}
 
         {/* Formulario de solicitud */}
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-6">
@@ -271,38 +316,15 @@ function SolicitarGuia() {
             </p>
           </div>
 
-          {/* Guías disponibles */}
-          {guiasDisponibles.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Clock className="inline w-4 h-4 mr-1" />
-                Guías disponibles (opcional)
-              </label>
-              <select
-                name="guia_preferido"
-                value={formData.guia_preferido}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Cualquier guía disponible</option>
-                {guiasDisponibles.map(guia => (
-                  <option key={guia.id} value={guia.id}>
-                    {guia.nombre} ⭐ {guia.calificacion_promedio || 'Nuevo'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Botón de envío */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={enviando || (usuario?.anonimo)}
             className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold
                      hover:bg-green-700 transition-colors disabled:bg-gray-400
                      flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {enviando ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                 Enviando solicitud...
@@ -313,6 +335,18 @@ function SolicitarGuia() {
           </button>
         </form>
       </div>
+
+      {/* Modal de registro */}
+      {mostrarRegistro && (
+        <RegistroModal
+          onClose={() => setMostrarRegistro(false)}
+          onSuccess={() => {
+            setMostrarRegistro(false);
+            // Recargar para que el usuario ya no sea anónimo
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

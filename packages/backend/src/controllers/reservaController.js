@@ -1,12 +1,16 @@
 // controllers/reservaController.js
 const Reserva = require('../models/Reserva');
+const pool = require('../config/database');
 
 const reservaController = {
     // Crear una nueva solicitud de guía
     async create(req, res) {
         try {
             const { lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro } = req.body;
-            
+            const turista_id = req.user?.id || null;
+
+            console.log('📝 Creando reserva:', { lugar_id, fecha_encuentro, numero_personas, turista_id });
+
             // Validar campos requeridos
             if (!lugar_id || !fecha_encuentro || !numero_personas) {
                 return res.status(400).json({ 
@@ -15,24 +19,33 @@ const reservaController = {
                 });
             }
 
-            // Crear reserva sin usuario (turista anónimo)
-            // O puedes asignar un usuario por defecto para turistas
-            const reserva = await Reserva.create({
-                turista_id: null, // O un ID de turista genérico
-                lugar_id,
-                fecha_encuentro,
-                numero_personas,
-                intereses,
-                punto_encuentro
-            });
+            // Buscar un guía disponible automáticamente
+            const guiaDisponible = await pool.query(`
+                SELECT id FROM usuarios 
+                WHERE rol = 'guia' AND disponible = true 
+                ORDER BY RANDOM() 
+                LIMIT 1
+            `);
+
+            const guia_id = guiaDisponible.rows[0]?.id || null;
+
+            const query = `
+                INSERT INTO reservas_guia 
+                (turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro, estado)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente')
+                RETURNING *
+            `;
+            const values = [turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro];
+            const result = await pool.query(query, values);
 
             res.status(201).json({
+                success: true,
                 message: 'Solicitud de guía creada exitosamente',
-                reserva
+                reserva: result.rows[0]
             });
         } catch (error) {
-            console.error('Error al crear reserva:', error);
-            res.status(500).json({ error: 'Error al crear la solicitud de guía' });
+            console.error('❌ Error al crear reserva:', error);
+            res.status(500).json({ error: error.message });
         }
     },
 
@@ -119,42 +132,40 @@ const reservaController = {
         try {
             const { id } = req.params;
             const { estado } = req.body;
+            const usuarioId = req.user.id;
+            const usuarioRol = req.user.rol;
 
-            const reserva = await Reserva.findById(id);
+            // Obtener reserva
+            const reserva = await pool.query(
+                'SELECT guia_id, estado FROM reservas_guia WHERE id = $1',
+                [id]
+            );
 
-            if (!reserva) {
+            if (reserva.rows.length === 0) {
                 return res.status(404).json({ error: 'Reserva no encontrada' });
             }
 
-            // Verificar permisos según el estado
-            if (estado === 'cancelada') {
-                // Puede cancelar el turista, el guía o el admin
-                if (req.user.rol !== 'admin' && 
-                    reserva.turista_id !== req.user.id && 
-                    reserva.guia_id !== req.user.id) {
-                    return res.status(403).json({ error: 'No autorizado para cancelar' });
+            const reservaActual = reserva.rows[0];
+
+            // Verificar permisos
+            if (usuarioRol === 'guia') {
+                if (reservaActual.guia_id !== usuarioId) {
+                    return res.status(403).json({ error: 'No puedes modificar reservas que no te pertenecen' });
                 }
-            } else if (estado === 'confirmada') {
-                // Solo el guía o admin pueden confirmar
-                if (req.user.rol !== 'admin' && reserva.guia_id !== req.user.id) {
-                    return res.status(403).json({ error: 'No autorizado para confirmar' });
-                }
-            } else if (estado === 'completada') {
-                // Solo admin puede marcar como completada
-                if (req.user.rol !== 'admin') {
-                    return res.status(403).json({ error: 'Solo admin puede completar reservas' });
-                }
+            } else if (usuarioRol !== 'admin') {
+                return res.status(403).json({ error: 'No tienes permiso para esta acción' });
             }
 
-            const reservaActualizada = await Reserva.updateEstado(id, estado);
+            // Actualizar
+            const result = await pool.query(
+                'UPDATE reservas_guia SET estado = $1, fecha_actualizacion = NOW() WHERE id = $2 RETURNING *',
+                [estado, id]
+            );
 
-            res.json({
-                message: 'Estado actualizado exitosamente',
-                reserva: reservaActualizada
-            });
+            res.json({ success: true, reserva: result.rows[0] });
         } catch (error) {
-            console.error('Error al actualizar estado:', error);
-            res.status(500).json({ error: 'Error al actualizar el estado' });
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al actualizar estado' });
         }
     },
 

@@ -6,26 +6,40 @@ const guardianController = {
         try {
             const { usuarioId } = req.params;
             
-            const perfil = await pool.query(`
+            // Obtener perfil
+            const perfilResult = await pool.query(`
                 SELECT 
                     p.*,
                     u.nombre as email_nombre,
                     u.nivel,
                     u.xp_total,
-                    COUNT(DISTINCT dp.lugar_id) as lugares_descubiertos
+                    COALESCE(
+                        (SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id),
+                        0
+                    ) as lugares_descubiertos
                 FROM perfiles_guardian p
                 JOIN usuarios u ON p.usuario_id = u.id
-                LEFT JOIN descubrimientos dp ON u.id = dp.usuario_id
                 WHERE p.usuario_id = $1 AND p.visible = true
-                GROUP BY p.usuario_id, u.nombre, u.nivel, u.xp_total
             `, [usuarioId]);
             
-            if (perfil.rows.length === 0) {
+            if (perfilResult.rows.length === 0) {
                 return res.status(404).json({ error: 'Perfil no encontrado' });
             }
             
+            const perfil = perfilResult.rows[0];
+            
+            // Calcular título según nivel
+            const nivel = perfil.nivel || 1;
+            let titulo = '🌱 Principiante';
+            if (nivel >= 5) titulo = '👑 Leyenda de Concepción';
+            else if (nivel >= 4) titulo = '🛡️ Guardián del Pueblo';
+            else if (nivel >= 3) titulo = '⭐ Aventurero';
+            else if (nivel >= 2) titulo = '🌟 Explorador';
+            
+            perfil.titulo = titulo;
+            
             // Obtener insignias del usuario
-            const insignias = await pool.query(`
+            const insigniasResult = await pool.query(`
                 SELECT i.*, ui.fecha_obtenida
                 FROM usuario_insignias ui
                 JOIN insignias i ON ui.insignia_id = i.id
@@ -33,21 +47,44 @@ const guardianController = {
                 ORDER BY ui.fecha_obtenida DESC
             `, [usuarioId]);
             
-            // Obtener lugar apadrinado actual
-            const guardian = await pool.query(`
+            // Obtener estadísticas de eventos
+            const eventosStats = await pool.query(`
+                SELECT total_completados, racha_actual, racha_maxima 
+                FROM estadisticas_eventos 
+                WHERE usuario_id = $1
+            `, [usuarioId]);
+            
+            const eventos = eventosStats.rows[0] || { total_completados: 0, racha_actual: 0, racha_maxima: 0 };
+            
+            // Calcular título de eventos
+            let tituloEventos = '🧳 Visitante';
+            if (eventos.total_completados >= 50) tituloEventos = '🏆 Leyenda Local';
+            else if (eventos.total_completados >= 30) tituloEventos = '🛡️ Guardián del Pueblo';
+            else if (eventos.total_completados >= 15) tituloEventos = '⭐ Explorador Local';
+            else if (eventos.total_completados >= 5) tituloEventos = '🌱 Aprendiz';
+            
+            // Obtener guardián activo
+            const guardianResult = await pool.query(`
                 SELECT * FROM guardianes_anclados 
                 WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()
             `, [usuarioId]);
             
             res.json({
                 success: true,
-                perfil: perfil.rows[0],
-                insignias: insignias.rows,
-                guardian_activo: guardian.rows[0] || null
+                perfil: perfil,
+                insignias: insigniasResult.rows,
+                guardian_activo: guardianResult.rows[0] || null,
+                eventos: {
+                    total_completados: parseInt(eventos.total_completados),
+                    racha_actual: parseInt(eventos.racha_actual),
+                    racha_maxima: parseInt(eventos.racha_maxima),
+                    titulo: tituloEventos,
+                    progreso: Math.min((eventos.total_completados / 50) * 100, 100)
+                }
             });
         } catch (error) {
-            console.error('Error:', error);
-            res.status(500).json({ error: 'Error al obtener perfil' });
+            console.error('Error en getPerfil:', error);
+            res.status(500).json({ error: error.message });
         }
     },
     

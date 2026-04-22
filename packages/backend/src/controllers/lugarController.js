@@ -41,7 +41,7 @@ const lugarController = {
     // Crear lugar (con imagen opcional)
     async create(req, res) {
         try {
-            const { nombre, descripcion, tipo, latitud, longitud, direccion } = req.body;
+            const { nombre, descripcion, tipo, latitud, longitud, direccion, horario, imagen_url_actual } = req.body;
             
             let imagen_url = null;
             
@@ -79,7 +79,7 @@ const lugarController = {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const { nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url_actual } = req.body;
+            const { nombre, descripcion, tipo, latitud, longitud, direccion, horario, imagen_url_actual } = req.body;
             
             let imagen_url = imagen_url_actual;
             

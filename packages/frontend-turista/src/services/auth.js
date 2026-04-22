@@ -24,7 +24,7 @@ const getTuristaId = () => {
     return id;
 };
 
-// Inicializar usuario anónimo (NUEVO)
+// Inicializar usuario anónimo
 export const initAnonymousUser = async () => {
     try {
         const sessionId = getSessionId();
@@ -41,16 +41,16 @@ export const initAnonymousUser = async () => {
         });
         
         token = response.data.token;
+        const usuario = response.data.usuario;
+        usuario.anonimo = true; // Asegurar que tenga la propiedad
         localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(response.data.usuario));
+        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         console.log('✅ Usuario anónimo inicializado');
         return token;
     } catch (error) {
         console.error('❌ Error al inicializar usuario:', error.response?.data || error.message);
-        
-        // Fallback: usar el método antiguo si el nuevo falla
         return autenticarTurista();
     }
 };
@@ -76,8 +76,10 @@ export const autenticarTurista = async () => {
         });
         
         token = response.data.token;
+        const usuario = response.data.usuario;
+        usuario.anonimo = true;
         localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(response.data.usuario));
+        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
         
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
@@ -93,10 +95,12 @@ export const autenticarTurista = async () => {
 export const registerUser = async (email, nombre, password) => {
     try {
         const response = await api.post('/turista/register', { email, nombre, password });
+        const usuario = response.data.usuario;
+        usuario.anonimo = false; // Ya no es anónimo
         localStorage.setItem(TOKEN_KEY, response.data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(response.data.usuario));
+        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
         api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        return { success: true, usuario: response.data.usuario };
+        return { success: true, usuario };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || 'Error al registrar' };
     }
@@ -106,10 +110,12 @@ export const registerUser = async (email, nombre, password) => {
 export const loginUser = async (email, password) => {
     try {
         const response = await api.post('/turista/login', { email, password });
+        const usuario = response.data.usuario;
+        usuario.anonimo = false;
         localStorage.setItem(TOKEN_KEY, response.data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(response.data.usuario));
+        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
         api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        return { success: true, usuario: response.data.usuario };
+        return { success: true, usuario };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || 'Error al iniciar sesión' };
     }
@@ -117,7 +123,13 @@ export const loginUser = async (email, password) => {
 
 export const getTuristaActual = () => {
     const userStr = localStorage.getItem(USER_KEY);
-    return userStr ? JSON.parse(userStr) : null;
+    if (!userStr) return null;
+    try {
+        return JSON.parse(userStr);
+    } catch (e) {
+        console.error('Error al parsear usuario:', e);
+        return null;
+    }
 };
 
 export const logoutTurista = () => {
