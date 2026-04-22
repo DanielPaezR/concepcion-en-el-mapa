@@ -1,7 +1,10 @@
-const express = require('express')
-const cors = require('cors')
-const lugarRoutes = require('./routes/lugarRoutes')
-const authRoutes = require('./routes/authRoutes')
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+require('dotenv').config();
+
+const lugarRoutes = require('./routes/lugarRoutes');
+const authRoutes = require('./routes/authRoutes');
 const reservaRoutes = require('./routes/reservaRoutes');
 const encuestaRoutes = require('./routes/encuestaRoutes');
 const galeriaRoutes = require('./routes/galeriaRoutes');
@@ -16,17 +19,29 @@ const turistaRoutes = require('./routes/turistaRoutes');
 const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
-const { corsOptions } = require('./config/cors');
 
-const app = express()
+const app = express();
 
 // Middlewares
-app.use(cors(corsOptions))
-app.use(express.json())
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://frontend-turista-production-ceem.up.railway.app',
+    'https://frontend-admin-one-jet.vercel.app',
+    'https://concepcion-turista.vercel.app',
+    'https://concepcion-admin.vercel.app'
+];
+
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true
+}));
+app.use(express.json());
+app.use(morgan('dev'));
 
 // Rutas
-app.use('/api/lugares', lugarRoutes)
-app.use('/api/auth', authRoutes)
+app.use('/api/lugares', lugarRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/reservas', reservaRoutes);
 app.use('/api/encuestas', encuestaRoutes);
 app.use('/api/galeria', galeriaRoutes);
@@ -42,34 +57,21 @@ app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
 
-
 // Ruta de prueba
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'API Concepción en el Mapa', 
-    version: '1.0.0', 
-    status: 'online' 
-  })
-})
+    res.json({
+        message: 'API Concepción en el Mapa',
+        version: '1.0.0',
+        status: 'online'
+    });
+});
 
-// Ruta para documentación (si existe)
-app.get('/api-docs', (req, res) => {
-  res.json({ 
-    message: 'Documentación de la API',
-    endpoints: {
-      auth: {
-        login: 'POST /api/auth/login',
-        verificar: 'GET /api/auth/verificar'
-      },
-      lugares: {
-        listar: 'GET /api/lugares',
-        crear: 'POST /api/lugares',
-        obtener: 'GET /api/lugares/:id',
-        actualizar: 'PUT /api/lugares/:id',
-        eliminar: 'DELETE /api/lugares/:id'
-      }
-    }
-  })
-})
+// Manejador de errores 404
+app.use('*', (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Ruta no encontrada'
+    });
+});
 
-module.exports = app
+module.exports = app;
