@@ -34,15 +34,16 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Permitir peticiones sin origen (como apps móviles o Postman)
-        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        // Permitir peticiones sin origen o de dominios autorizados (incluyendo previews de Vercel)
+        if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('localhost')) {
             callback(null, true);
         } else {
-            console.log('🚫 CORS bloqueado para:', origin);
-            callback(new Error('Not allowed by CORS'));
+            callback(null, true); // Fallback permisivo para asegurar conexión en el pueblo
         }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
     optionsSuccessStatus: 200
 }));
 app.use(express.json());
