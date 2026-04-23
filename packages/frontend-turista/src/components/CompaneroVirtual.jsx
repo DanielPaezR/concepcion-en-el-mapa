@@ -37,8 +37,8 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz' }) => {
 
   // Tamaño por nivel
   const getTamaño = () => {
-    const base = window.innerWidth < 640 ? 60 : 70;
-    return base + (nivel * 2);
+    const base = (typeof window !== 'undefined' && window.innerWidth < 640) ? 60 : 70;
+    return base + (Number(nivel) || 1) * 2;
   };
 
   const colores = getColores();
