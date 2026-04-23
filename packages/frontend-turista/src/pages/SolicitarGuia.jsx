@@ -35,12 +35,6 @@ function SolicitarGuia() {
   ];
 
   useEffect(() => {
-    if (esAnonimo) {
-        setMensajeAvatar('📝 Debes registrarte para solicitar un guía');
-        setTimeout(() => navigate('/registro'), 2000);
-        return;
-    }
-    
     if (lugarId) {
         cargarLugar();
     }
@@ -108,8 +102,8 @@ function SolicitarGuia() {
     
     // Verificar si el usuario está registrado (no anónimo)
     if (esAnonimo) {
-      setMensajeAvatar('📝 Debes registrarte para solicitar un guía');
-      setTimeout(() => navigate('/registro'), 2000);
+      setMensajeAvatar('¡Casi listo, Explorador! Regístrate para que el Pato de Torrentes te encuentre un guía.');
+      setMostrarRegistro(true);
       return;
     }
     

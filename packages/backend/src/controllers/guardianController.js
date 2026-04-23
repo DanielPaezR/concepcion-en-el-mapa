@@ -172,7 +172,7 @@ const guardianController = {
     // Obtener guardianes cercanos (visible en el mapa)
     async getGuardianesCercanos(req, res) {
         try {
-            const { lat, lng, radio = 0.02 } = req.query;s
+            const { lat, lng, radio = 0.02 } = req.query;
             
             const result = await pool.query(`
                 SELECT 

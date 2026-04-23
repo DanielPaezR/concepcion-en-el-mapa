@@ -46,14 +46,27 @@ export default function AnclarGuardian({ userPosition, onClose, onAnclado }) {
     
     setCargando(true);
     try {
-      await api.post('/guardianes/anclar', {
-        latitud: userPosition.lat,
-        longitud: userPosition.lng,
-        mensaje: mensaje
-      });
-      
-      alert('🛡️ ¡Guardián anclado exitosamente!');
-      onAnclado?.();
+      const data = {
+          latitud: userPosition.lat,
+          longitud: userPosition.lng,
+          mensaje: mensaje
+      };
+
+      if (!navigator.onLine) {
+          // Guardar en cola si no hay internet
+          const queue = JSON.parse(localStorage.getItem('sync_queue') || '[]');
+          queue.push({ 
+              type: 'ANCLAR_GUARDIAN', 
+              data, 
+              timestamp: new Date().toISOString() 
+          });
+          localStorage.setItem('sync_queue', JSON.stringify(queue));
+          alert('📡 Estás sin conexión. Tu guardián se anclará automáticamente apenas recuperes la señal.');
+      } else {
+          await api.post('/guardianes/anclar', data);
+          alert('🛡️ ¡Guardián anclado exitosamente!');
+          onAnclado?.();
+      }
       onClose();
     } catch (error) {
       console.error('Error:', error);

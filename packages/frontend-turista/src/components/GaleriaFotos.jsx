@@ -118,20 +118,41 @@ export default function GaleriaFotos({ nivelUsuario, onCerrar }) {
     }
 
     setCargando(true);
-    const formData = new FormData();
-    formData.append('imagen', archivoSeleccionado);
-    formData.append('mensaje', nuevaFoto.mensaje);
 
     try {
-      await api.post('/galeria', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setMostrarFormulario(false);
+      if (!navigator.onLine) {
+        // Convertir imagen a Base64 para guardarla en el queue
+        const reader = new FileReader();
+        reader.readAsDataURL(archivoSeleccionado);
+        reader.onloadend = () => {
+          const queue = JSON.parse(localStorage.getItem('sync_queue') || '[]');
+          queue.push({
+            type: 'SUBIR_FOTO',
+            data: {
+              imagenBase64: reader.result,
+              mensaje: nuevaFoto.mensaje
+            },
+            timestamp: new Date().toISOString()
+          });
+          localStorage.setItem('sync_queue', JSON.stringify(queue));
+          alert(idioma === 'es' ? '📡 Sin conexión. Tu foto se subirá automáticamente al recuperar señal.' : '📡 Offline. Your photo will upload automatically when online.');
+          setMostrarFormulario(false);
+        };
+      } else {
+        const formData = new FormData();
+        formData.append('imagen', archivoSeleccionado);
+        formData.append('mensaje', nuevaFoto.mensaje);
+        
+        await api.post('/galeria', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        alert(idioma === 'es' ? '📸 ¡Foto subida exitosamente!' : '📸 Photo uploaded successfully!');
+        setMostrarFormulario(false);
+        cargarFotos();
+      }
       setNuevaFoto({ mensaje: '' });
       setArchivoSeleccionado(null);
       setPreviewUrl(null);
-      cargarFotos();
-      alert(idioma === 'es' ? '📸 ¡Foto subida exitosamente!' : '📸 Photo uploaded successfully!');
     } catch (error) {
       console.error('Error al subir foto:', error);
       alert(error.response?.data?.error || (idioma === 'es' ? 'Error al subir la foto' : 'Error uploading photo'));

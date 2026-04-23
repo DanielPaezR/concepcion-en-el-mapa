@@ -2,21 +2,72 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     User, Settings, Globe, LogOut, X, ChevronRight,
-    Award, MapPin, Calendar, Shield, Star, Zap, Crown
+    Award, MapPin, Calendar, Shield, Star, Zap, Crown,
+    Wifi, WifiOff, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTuristaActual, logoutTurista } from '../services/auth';
+import api from '../services/api';
 
 export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLugares }) {
     const [isOpen, setIsOpen] = useState(false);
     const [usuario, setUsuario] = useState(null);
     const [idioma, setIdioma] = useState(localStorage.getItem('idioma') || 'es');
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isSyncing, setIsSyncing] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
         const user = getTuristaActual();
         setUsuario(user);
+
+        const handleOnline = () => {
+            setIsOnline(true);
+            procesarColaSincronizacion();
+        };
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, []);
+
+    const procesarColaSincronizacion = async () => {
+        const queue = JSON.parse(localStorage.getItem('sync_queue') || '[]');
+        if (queue.length === 0) return;
+
+        setIsSyncing(true);
+        const remainingQueue = [];
+
+        for (const item of queue) {
+            try {
+                if (item.type === 'ANCLAR_GUARDIAN') {
+                    await api.post('/guardianes/anclar', item.data);
+                } else if (item.type === 'SUBIR_FOTO') {
+                    // Reconstruir FormData para la foto
+                    const formData = new FormData();
+                    const response = await fetch(item.data.imagenBase64);
+                    const blob = await response.blob();
+                    formData.append('imagen', blob, 'foto_offline.jpg');
+                    formData.append('mensaje', item.data.mensaje);
+                    
+                    await api.post('/galeria', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                }
+                // Aquí puedes añadir más tipos como 'LIKE_FOTO', etc.
+            } catch (err) {
+                remainingQueue.push(item);
+            }
+        }
+
+        localStorage.setItem('sync_queue', JSON.stringify(remainingQueue));
+        setIsSyncing(false);
+    };
 
     const cambiarIdioma = (lang) => {
         setIdioma(lang);
@@ -29,17 +80,20 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
         navigate('/');
     };
 
-    const opciones = [
+    // Filtrar opciones según si el usuario es anónimo o no
+    const esAnonimo = !usuario || usuario.anonimo;
+    
+    const opciones = esAnonimo ? [
+        {
+            icon: <LogIn className="w-5 h-5" />,
+            label: 'Iniciar Sesión / Registrarse',
+            onClick: () => navigate('/registro')
+        }
+    ] : [
         { 
             icon: <User className="w-5 h-5" />, 
             label: 'Mi Perfil', 
-            onClick: () => {
-                if (usuario?.id) {
-                    navigate(`/perfil/${usuario.id}`);
-                } else {
-                    navigate('/registro');
-                }
-            }
+            onClick: () => navigate(`/perfil/${usuario.id}`)
         },
         { 
             icon: <Award className="w-5 h-5" />, 
@@ -54,13 +108,7 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
         { 
             icon: <Shield className="w-5 h-5" />, 
             label: 'Guardianes', 
-            onClick: () => {
-                if (usuario?.id) {
-                    navigate(`/perfil/${usuario.id}`);
-                } else {
-                    navigate('/registro');
-                }
-            }
+            onClick: () => navigate(`/perfil/${usuario.id}`)
         },
     ];
 
@@ -72,13 +120,28 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
 
     return (
         <>
-            {/* Botón para abrir menú */}
-            <button
-                onClick={() => setIsOpen(true)}
-                className="absolute top-4 right-16 z-[1000] bg-black/50 backdrop-blur-sm rounded-full p-2 border border-white/30 hover:bg-black/70 transition"
-            >
-                <User className="w-5 h-5 text-white" />
-            </button>
+            <div className="absolute top-4 right-16 z-[1000] flex items-center gap-2">
+                {/* Indicador de Sincronización */}
+                {isSyncing && (
+                    <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                        className="bg-blue-500 p-2 rounded-full shadow-lg"
+                    >
+                        <RefreshCw className="w-4 h-4 text-white" />
+                    </motion.div>
+                )}
+                
+                {/* Botón de Menú con indicador de red */}
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className={`relative backdrop-blur-sm rounded-full p-2 border border-white/30 transition shadow-lg
+                        ${isOnline ? 'bg-black/50 hover:bg-black/70' : 'bg-red-500/80 hover:bg-red-600'}`}
+                >
+                    {isOnline ? <User className="w-5 h-5 text-white" /> : <WifiOff className="w-5 h-5 text-white" />}
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                </button>
+            </div>
 
             {/* Menú lateral */}
             <AnimatePresence>
