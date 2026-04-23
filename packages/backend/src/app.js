@@ -27,7 +27,6 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'https://frontend-turista.vercel.app',
-    'https://frontend-turista.vercel.app',
     'https://frontend-admin-one-jet.vercel.app',
     'https://concepcion-turista.vercel.app',
     'https://concepcion-admin.vercel.app'
@@ -35,11 +34,11 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Permitir peticiones sin origen (como apps móviles o Postman)
+        // Permitir peticiones sin origen o de dominios autorizados (incluyendo previews de Vercel)
         if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('localhost')) {
             callback(null, true);
         } else {
-            callback(null, true); // Permitir temporalmente para pruebas de campo
+            callback(null, true); // Fallback permisivo para asegurar conexión en el pueblo
         }
     },
     credentials: true,

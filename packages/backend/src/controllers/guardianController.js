@@ -7,20 +7,19 @@ const guardianController = {
             const { usuarioId } = req.params;
             
             // Obtener perfil
-            const perfilResult = await pool.query(`
-                SELECT 
-                    p.*,
-                    u.nombre as email_nombre,
-                    u.nivel,
-                    u.xp_total,
-                    COALESCE(
-                        (SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id),
-                        0
-                    ) as lugares_descubiertos
-                FROM perfiles_guardian p
-                JOIN usuarios u ON p.usuario_id = u.id
-                WHERE p.usuario_id = $1 AND p.visible = true
-            `, [usuarioId]);
+            const queries = [
+                pool.query(`
+                    SELECT p.*, u.nombre as email_nombre, u.nivel, u.xp_total,
+                           COALESCE((SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id), 0) as lugares_descubiertos
+                    FROM perfiles_guardian p
+                    JOIN usuarios u ON p.usuario_id = u.id
+                    WHERE p.usuario_id = $1 AND p.visible = true`, [usuarioId]),
+                pool.query(`SELECT i.*, ui.fecha_obtenida FROM usuario_insignias ui JOIN insignias i ON ui.insignia_id = i.id WHERE ui.usuario_id = $1 ORDER BY ui.fecha_obtenida DESC`, [usuarioId]),
+                pool.query(`SELECT total_completados, racha_actual, racha_maxima FROM estadisticas_eventos WHERE usuario_id = $1`, [usuarioId]),
+                pool.query(`SELECT * FROM guardianes_anclados WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()`, [usuarioId])
+            ];
+
+            const [perfilResult, insigniasResult, eventosStats, guardianResult] = await Promise.all(queries);
             
             if (perfilResult.rows.length === 0) {
                 return res.status(404).json({ error: 'Perfil no encontrado' });
@@ -29,30 +28,8 @@ const guardianController = {
             const perfil = perfilResult.rows[0];
             
             // Calcular título según nivel
-            const nivel = perfil.nivel || 1;
-            let titulo = '🌱 Principiante';
-            if (nivel >= 5) titulo = '👑 Leyenda de Concepción';
-            else if (nivel >= 4) titulo = '🛡️ Guardián del Pueblo';
-            else if (nivel >= 3) titulo = '⭐ Aventurero';
-            else if (nivel >= 2) titulo = '🌟 Explorador';
-            
-            perfil.titulo = titulo;
-            
-            // Obtener insignias del usuario
-            const insigniasResult = await pool.query(`
-                SELECT i.*, ui.fecha_obtenida
-                FROM usuario_insignias ui
-                JOIN insignias i ON ui.insignia_id = i.id
-                WHERE ui.usuario_id = $1
-                ORDER BY ui.fecha_obtenida DESC
-            `, [usuarioId]);
-            
-            // Obtener estadísticas de eventos
-            const eventosStats = await pool.query(`
-                SELECT total_completados, racha_actual, racha_maxima 
-                FROM estadisticas_eventos 
-                WHERE usuario_id = $1
-            `, [usuarioId]);
+            const titulos = { 5: '👑 Leyenda de Concepción', 4: '🛡️ Guardián del Pueblo', 3: '⭐ Aventurero', 2: '🌟 Explorador' };
+            perfil.titulo = titulos[perfil.nivel] || '🌱 Principiante';
             
             const eventos = eventosStats.rows[0] || { total_completados: 0, racha_actual: 0, racha_maxima: 0 };
             
@@ -62,12 +39,6 @@ const guardianController = {
             else if (eventos.total_completados >= 30) tituloEventos = '🛡️ Guardián del Pueblo';
             else if (eventos.total_completados >= 15) tituloEventos = '⭐ Explorador Local';
             else if (eventos.total_completados >= 5) tituloEventos = '🌱 Aprendiz';
-            
-            // Obtener guardián activo
-            const guardianResult = await pool.query(`
-                SELECT * FROM guardianes_anclados 
-                WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()
-            `, [usuarioId]);
             
             res.json({
                 success: true,
@@ -180,7 +151,8 @@ const guardianController = {
                     p.nombre_publico,
                     p.foto_perfil_url,
                     u.id as usuario_id,
-                    u.nombre as usuario_nombre
+                    u.nombre as usuario_nombre,
+                    (SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id) as total_descubiertos
                 FROM guardianes_anclados g
                 JOIN perfiles_guardian p ON g.usuario_id = p.usuario_id
                 JOIN usuarios u ON g.usuario_id = u.id
@@ -190,22 +162,13 @@ const guardianController = {
                     AND ABS(g.longitud - $2) < $3
             `, [lat, lng, radio]);
             
-            // Calcular nivel para cada guardián (según lugares descubiertos)
-            const guardianesConNivel = await Promise.all(result.rows.map(async (guardian) => {
-                const lugaresDescubiertos = await pool.query(`
-                    SELECT COUNT(DISTINCT lugar_id) as total
-                    FROM descubrimientos
-                    WHERE usuario_id = $1
-                `, [guardian.usuario_id]);
-                
-                // Calcular nivel (cada 3 lugares = 1 nivel, máx 5)
-                const nivel = Math.min(Math.floor((lugaresDescubiertos.rows[0]?.total || 0) / 3) + 1, 5);
-                
+            const guardianesConNivel = result.rows.map(guardian => {
+                const nivel = Math.min(Math.floor((parseInt(guardian.total_descubiertos) || 0) / 3) + 1, 5);
                 return {
                     ...guardian,
                     nivel
                 };
-            }));
+            });
             
             res.json({ success: true, guardianes: guardianesConNivel });
         } catch (error) {
