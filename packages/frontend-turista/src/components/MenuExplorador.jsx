@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    User, Settings, Globe, LogOut, X, ChevronRight,
+    User, Settings, Globe, LogOut, X, ChevronRight, LogIn,
     Award, MapPin, Calendar, Shield, Star, Zap, Crown,
     Wifi, WifiOff, RefreshCw
 } from 'lucide-react';
