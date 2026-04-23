@@ -314,29 +314,32 @@ export default function PanelGuia() {
                 {/* Botones solo para reservas NO canceladas y que pertenecen al guía */}
                 {reserva.estado !== 'cancelada' && reserva.guia_id === user?.id && (
                   <div className="flex gap-2 mt-4">
-                    {reserva.estado === 'pendiente' && (
+                    {/* Solo mostrar botón CONFIRMAR si está pendiente Y es su reserva */}
+                    {reserva.estado === 'pendiente' && reserva.guia_id === user?.id && (
                       <button
                         onClick={() => cambiarEstado(reserva.id, 'confirmada')}
-                        className="flex-1 bg-emerald-500 text-white py-2 rounded-xl text-sm font-medium hover:bg-emerald-600 transition"
+                        className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-600 active:scale-95 transition shadow-sm"
                       >
                         Confirmar
                       </button>
                     )}
-                    {reserva.estado === 'confirmada' && (
-                      <button
-                        onClick={() => cambiarEstado(reserva.id, 'completada')}
-                        className="flex-1 bg-sky-500 text-white py-2 rounded-xl text-sm font-medium hover:bg-sky-600 transition"
-                      >
-                        Completar
-                      </button>
-                    )}
-                    {reserva.estado !== 'cancelada' && reserva.estado !== 'completada' && (
-                      <button
-                        onClick={() => cambiarEstado(reserva.id, 'cancelada')}
-                        className="flex-1 bg-rose-400 text-white py-2 rounded-xl text-sm font-medium hover:bg-rose-500 transition"
-                      >
-                        Cancelar
-                      </button>
+                    
+                    {/* Mostrar botones COMPLETAR y CANCELAR solo si está confirmada Y es su reserva */}
+                    {reserva.estado === 'confirmada' && reserva.guia_id === user?.id && (
+                      <>
+                        <button
+                          onClick={() => cambiarEstado(reserva.id, 'completada')}
+                          className="flex-1 bg-sky-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sky-600 active:scale-95 transition shadow-sm"
+                        >
+                          Completar
+                        </button>
+                        <button
+                          onClick={() => cambiarEstado(reserva.id, 'cancelada')}
+                          className="flex-1 bg-rose-400 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-rose-500 active:scale-95 transition shadow-sm"
+                        >
+                          Cancelar
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
