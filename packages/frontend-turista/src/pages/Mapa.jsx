@@ -394,6 +394,77 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
   </div>
 );
 
+// 🦆 Avatar del Jugador Estilo RPG (Inspirado en el Pato de Torrentes)
+const AvatarJugador = ({ level, isMobile }) => {
+  const size = isMobile ? 52 : 64;
+  
+  // Configuración de estilo según el nivel del jugador
+  const getTheme = () => {
+    if (level >= 5) return { 
+      bg: 'from-slate-900 to-slate-800', 
+      accent: '#dc2626', 
+      glow: 'shadow-[0_0_20px_rgba(220,38,38,0.6)]',
+      border: 'border-yellow-500',
+      label: '🔥 GUARDIÁN'
+    };
+    if (level >= 3) return { 
+      bg: 'from-amber-900 to-orange-900', 
+      accent: '#ef4444', 
+      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.5)]',
+      border: 'border-amber-500',
+      label: '🛡️ GUERRERO'
+    };
+    return { 
+      bg: 'from-emerald-800 to-green-900', 
+      accent: '#f87171', 
+      glow: 'shadow-lg',
+      border: 'border-white',
+      label: '🌲 EXPLORADOR'
+    };
+  };
+
+  const theme = getTheme();
+
+  return (
+    <div className="relative group flex flex-col items-center">
+      {/* Aura de poder dinámica que late detrás del personaje */}
+      <motion.div 
+        animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.4, 0.1] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className={`absolute inset-0 rounded-full ${level >= 5 ? 'bg-red-500' : level >= 3 ? 'bg-amber-500' : 'bg-emerald-500'} blur-xl -z-10`}
+      />
+
+      {/* Contenedor del Avatar con animación de flotado */}
+      <motion.div 
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className={`relative ${isMobile ? 'w-12 h-14' : 'w-16 h-20'} bg-gradient-to-br ${theme.bg} rounded-2xl border-2 ${theme.border} ${theme.glow} flex items-center justify-center overflow-hidden`}
+      >
+        <svg viewBox="0 0 100 120" className="w-full h-full p-1 drop-shadow-md">
+          {/* Cuerpo del Pato (Estilo dibujo minimalista) */}
+          <path d="M50 20 Q85 20 85 60 Q85 100 50 100 Q15 100 15 60 Q15 20 50 20" fill="white" />
+          {/* Capucha/Plumaje superior (Negro/Slate-800) */}
+          <path d="M50 20 Q85 20 85 55 L15 55 Q15 20 50 20" fill="#1e293b" />
+          {/* Ojos */}
+          <circle cx="35" cy="45" r="4" fill="white" />
+          <circle cx="65" cy="45" r="4" fill="white" />
+          {/* Pico Rojo del Pato de Torrentes */}
+          <path d="M42 55 L58 55 L50 75 Z" fill={theme.accent} />
+          
+          {/* Detalles de rango */}
+          {level >= 3 && <path d="M10 50 L25 50 L20 80 L10 80 Z" fill="#94a3b8" /> /* Mini Escudo */}
+          {level >= 5 && <path d="M75 40 L90 40 L82 10 Z" fill="#fbbf24" /> /* Punta de Corona/Casco */}
+        </svg>
+      </motion.div>
+
+      {/* Etiqueta de Rango estilo HUD de juego */}
+      <div className="absolute -bottom-6 bg-slate-950/90 backdrop-blur-md text-[8px] font-black text-white px-2 py-0.5 rounded border border-white/20 whitespace-nowrap tracking-widest shadow-2xl z-20">
+        {theme.label} <span className="text-yellow-400">NV.{level}</span>
+      </div>
+    </div>
+  );
+};
+
 // ============================================================
 // 🎮 COMPONENTE PRINCIPAL
 // ============================================================
@@ -831,24 +902,7 @@ function Mapa() {
             longitude={userPosition.lng}
             latitude={userPosition.lat}
           >
-            <div className="relative cursor-pointer">
-              <div 
-                className="rounded-full border-3 border-white shadow-lg flex items-center justify-center animate-bounce"
-                style={{
-                  width: isMobile ? 40 : 50,
-                  height: isMobile ? 40 : 50,
-                  background: `linear-gradient(135deg, ${playerLevel >= 5 ? '#F44336' : playerLevel >= 3 ? '#9C27B0' : '#4CAF50'}, ${playerLevel >= 5 ? '#D32F2F' : playerLevel >= 3 ? '#7B1FA2' : '#45a049'})`,
-                  boxShadow: `0 0 20px ${playerLevel >= 5 ? '#F44336' : playerLevel >= 3 ? '#9C27B0' : '#4CAF50'}`
-                }}
-              >
-                <span className="text-2xl">
-                  {playerLevel >= 5 ? '👑' : playerLevel >= 3 ? '⚡' : '🌟'}
-                </span>
-              </div>
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs rounded-full px-2 py-0.5 whitespace-nowrap">
-                Nv.{playerLevel}
-              </div>
-            </div>
+            <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
         
