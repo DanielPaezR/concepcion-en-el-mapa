@@ -25,8 +25,8 @@ const VISIT_RADIUS = 50; // metros
 // 📦 COMPONENTES INTERNOS (para mejor organización)
 // ============================================================
 
-// 🧭 Brújula funcional (reemplaza la falsa)
-const BrújulaFuncional = ({ bearing, onRotate }) => {
+// 🧭 Brujula funcional (reemplaza la falsa)
+const BrujulaFuncional = ({ bearing, onRotate }) => {
   const [angle, setAngle] = useState(bearing || 0);
   
   useEffect(() => {
@@ -564,12 +564,17 @@ function Mapa() {
 
   // Cargar datos guardados
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setDiscoveredPlaces(parsed);
-      const savedXp = localStorage.getItem('player_xp');
-      if (savedXp) setXp(parseInt(savedXp));
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setDiscoveredPlaces(parsed);
+        const savedXp = localStorage.getItem('player_xp');
+        if (savedXp) setXp(parseInt(savedXp));
+      }
+    } catch (e) {
+      console.error("Error cargando progreso guardado:", e);
+      localStorage.removeItem(STORAGE_KEY); // Limpiar si está corrupto
     }
   }, []);
 
@@ -727,6 +732,17 @@ function Mapa() {
           className="w-20 h-20 border-4 border-t-transparent border-white rounded-full"
         />
       </motion.div>
+    );
+  }
+
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-red-50 p-4">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-red-600">Error de Configuración</h2>
+          <p className="text-red-500">No se detectó el token de Mapbox (VITE_MAPBOX_TOKEN).</p>
+        </div>
+      </div>
     );
   }
 
