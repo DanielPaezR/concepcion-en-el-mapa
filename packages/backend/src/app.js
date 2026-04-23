@@ -36,10 +36,10 @@ const allowedOrigins = [
 app.use(cors({
     origin: function (origin, callback) {
         // Permitir peticiones sin origen (como apps móviles o Postman)
-        if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
+        if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('localhost')) {
             callback(null, true);
         } else {
-            callback(null, false);
+            callback(null, true); // Permitir temporalmente para pruebas de campo
         }
     },
     credentials: true,
