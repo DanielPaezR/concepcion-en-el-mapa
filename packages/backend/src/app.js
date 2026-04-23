@@ -27,6 +27,7 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'https://frontend-turista.vercel.app',
+    'https://frontend-turista.vercel.app',
     'https://frontend-admin-one-jet.vercel.app',
     'https://concepcion-turista.vercel.app',
     'https://concepcion-admin.vercel.app'
