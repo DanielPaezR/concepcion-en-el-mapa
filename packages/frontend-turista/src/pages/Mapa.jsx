@@ -763,6 +763,12 @@ function Mapa() {
         isMobile={isMobile}
       />
 
+      {/* 🧭 Brújula funcional */}
+      <BrujulaFuncional 
+        bearing={viewState.bearing} 
+        onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))} 
+      />
+
       {/* Compañero Virtual (Guía) */}
       <CompaneroVirtual 
         mensaje={mensajeGuia} 
