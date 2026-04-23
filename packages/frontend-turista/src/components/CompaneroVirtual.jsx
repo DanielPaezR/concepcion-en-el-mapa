@@ -26,11 +26,11 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz' }) => {
   // Colores por nivel (escala de verde/turquesa como la región)
   const getColores = () => {
     const colores = {
-      1: { principal: 'bg-emerald-300', secundario: 'bg-emerald-200', acento: 'bg-amber-300' },
-      2: { principal: 'bg-emerald-400', secundario: 'bg-emerald-300', acento: 'bg-amber-400' },
-      3: { principal: 'bg-teal-400', secundario: 'bg-teal-300', acento: 'bg-amber-500' },
-      4: { principal: 'bg-teal-500', secundario: 'bg-teal-400', acento: 'bg-orange-400' },
-      5: { principal: 'bg-cyan-500', secundario: 'bg-cyan-400', acento: 'bg-orange-500' }
+      1: { principal: 'bg-slate-100', secundario: 'bg-slate-300', acento: 'bg-red-500' },
+      2: { principal: 'bg-slate-200', secundario: 'bg-slate-400', acento: 'bg-red-500' },
+      3: { principal: 'bg-slate-100', secundario: 'bg-slate-800', acento: 'bg-red-600' },
+      4: { principal: 'bg-white', secundario: 'bg-black', acento: 'bg-red-600' },
+      5: { principal: 'bg-white', secundario: 'bg-black', acento: 'bg-red-700' }
     };
     return colores[nivel] || colores[1];
   };
@@ -134,7 +134,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz' }) => {
             {/* Cuerpo */}
             <div 
               className={`${colores.principal} rounded-t-full rounded-b-3xl 
-                         shadow-xl border-4 border-white
+                         shadow-xl border-4 border-slate-800
                          flex flex-col items-center justify-end pb-3
                          overflow-hidden`}
               style={{ 
@@ -143,7 +143,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz' }) => {
               }}
             >
               {/* Pancita */}
-              <div className={`${colores.secundario} w-4/5 h-2/5 rounded-t-full mb-2`} />
+              <div className={`${colores.secundario} w-full h-1/2 absolute bottom-0 opacity-40`} />
               
               {/* Cara */}
               <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 w-full">
@@ -158,18 +158,22 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz' }) => {
                 </div>
                 
                 {/* Boca */}
-                <div className={`text-2xl text-center ${expresion.color}`}>
-                  {expresion.boca}
+                <div className="flex justify-center -mt-1">
+                  <div className={`w-6 h-3 ${colores.acento} rounded-full shadow-sm`} />
                 </div>
               </div>
             </div>
 
-            {/* Orejas/antenas (crecen con nivel) */}
+            {/* Detalles de Pato de Torrentes (Marcas negras) */}
+            <div className="absolute top-4 left-1 w-1 h-6 bg-black/20 rounded-full rotate-12" />
+            <div className="absolute top-4 right-1 w-1 h-6 bg-black/20 rounded-full -rotate-12" />
+
+            {/* Alas/Orejas */}
             <div className="absolute -top-3 left-2">
-              <div className={`${colores.principal} w-4 h-6 rounded-t-full transform -rotate-12 border-2 border-white`} />
+              <div className={`${colores.principal} w-4 h-6 rounded-t-full transform -rotate-12 border-2 border-slate-800`} />
             </div>
             <div className="absolute -top-3 right-2">
-              <div className={`${colores.principal} w-4 h-6 rounded-t-full transform rotate-12 border-2 border-white`} />
+              <div className={`${colores.principal} w-4 h-6 rounded-t-full transform rotate-12 border-2 border-slate-800`} />
             </div>
 
             {/* Accesorios por nivel */}

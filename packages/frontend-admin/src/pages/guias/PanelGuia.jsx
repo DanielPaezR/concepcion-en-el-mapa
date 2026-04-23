@@ -64,7 +64,10 @@ export default function PanelGuia() {
         
         const socketIo = io(SOCKET_URL, {
             transports: ['websocket', 'polling'],
-            reconnection: true
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 2000,
+            timeout: 20000
         });
         setSocket(socketIo);
         

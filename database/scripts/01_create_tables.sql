@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS encuestas (
     comentarios TEXT,
     sugerencias TEXT,
     origen_turista VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_reserva_encuesta UNIQUE (reserva_id)
 );
 
 -- Tabla: Estadísticas de Acceso (Para el Dashboard)

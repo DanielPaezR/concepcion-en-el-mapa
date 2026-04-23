@@ -1,16 +1,12 @@
-// routes/encuestaRoutes.js
 const express = require('express');
 const router = express.Router();
 const encuestaController = require('../controllers/encuestaController');
-const authMiddleware = require('../middleware/auth');
+const { auth } = require('../middleware/auth'); // Asegúrate de que la ruta al middleware sea correcta
 
-// Todas las rutas requieren autenticación
-router.use(authMiddleware);
+router.post('/', auth, encuestaController.create);
+router.get('/reserva/:reserva_id', auth, encuestaController.getByReserva);
 
-// Rutas para encuestas
-router.post('/', encuestaController.create);
-router.get('/', encuestaController.getAll);
-router.get('/estadisticas', encuestaController.getEstadisticas);
-router.get('/reserva/:reserva_id', encuestaController.getByReserva);
+// Rutas administrativas (si usas un middleware de roles)
+router.get('/estadisticas', auth, encuestaController.getEstadisticas);
 
 module.exports = router;
