@@ -1,6 +1,5 @@
-// pages/LugarDetalle.jsx
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MapPin, Calendar, Users, Star, Clock, 
@@ -10,8 +9,9 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getTuristaActual } from '../services/auth';
+import toast from 'react-hot-toast';
 
 export default function LugarDetalle() {
   const { id } = useParams();
@@ -20,8 +20,26 @@ export default function LugarDetalle() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [mensajeCompanero, setMensajeCompanero] = useState('');
+  const queryClient = useQueryClient();
+  const usuario = getTuristaActual();
+  const esAnonimo = !usuario || usuario.anonimo;
 
-  console.log('🔍 ID desde URL:', id);
+  // Verificar si el lugar está en favoritos
+  const { data: favoritoData } = useQuery({
+    queryKey: ['favorito', id],
+    queryFn: async () => {
+      if (esAnonimo) return { esFavorito: false };
+      const response = await api.get(`/favoritos/verificar/${id}`);
+      return response.data;
+    },
+    enabled: !esAnonimo
+  });
+
+  useEffect(() => {
+    if (favoritoData) {
+      setIsFavorite(favoritoData.esFavorito);
+    }
+  }, [favoritoData]);
 
   const { data: lugar, isLoading } = useQuery({
     queryKey: ['lugar', id],
@@ -32,7 +50,6 @@ export default function LugarDetalle() {
       
       if (response.data?.success && response.data?.data) {
         console.log('✅ Usando response.data.data');
-        // Mensaje del compañero al cargar el lugar
         setMensajeCompanero(`¡${response.data.data.nombre} es un lugar increíble! Aquí puedes aprender más sobre su historia y belleza.`);
         return response.data.data;
       }
@@ -41,7 +58,34 @@ export default function LugarDetalle() {
     },
   });
 
-  // Array de imágenes (simulado por ahora, en el futuro vendrá del backend)
+  // Mutación para toggle favorito
+  const toggleFavoritoMutation = useMutation({
+    mutationFn: async () => {
+      if (esAnonimo) {
+        toast.error('Debes registrarte para guardar favoritos');
+        navigate('/registro');
+        return;
+      }
+      const response = await api.post(`/favoritos/toggle/${id}`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        setIsFavorite(data.favorito);
+        toast.success(data.favorito ? '❤️ Agregado a favoritos' : '💔 Eliminado de favoritos');
+        queryClient.invalidateQueries({ queryKey: ['favorito', id] });
+      }
+    },
+    onError: (error) => {
+      console.error('Error al cambiar favorito:', error);
+      toast.error('Error al procesar favorito');
+    }
+  });
+
+  const handleToggleFavorito = () => {
+    toggleFavoritoMutation.mutate();
+  };
+
   const imagenes = lugar?.imagen_url 
     ? [lugar.imagen_url, ...(lugar.imagenes_extra || [])] 
     : ['https://images.unsplash.com/photo-1589308078059-be1415eab4c3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80'];
@@ -77,9 +121,7 @@ export default function LugarDetalle() {
   };
 
   const handleSolicitarGuia = () => {
-    const usuario = getTuristaActual();
-    
-    if (!usuario || usuario.anonimo) {
+    if (esAnonimo) {
         setMensajeCompanero('📝 Para solicitar un guía, primero debes registrarte.');
         setTimeout(() => {
             navigate('/registro');
@@ -105,6 +147,7 @@ export default function LugarDetalle() {
     } else {
       navigator.clipboard.writeText(window.location.href);
       setMensajeCompanero('¡Enlace copiado al portapapeles!');
+      toast.success('Enlace copiado');
     }
   };
 
@@ -160,7 +203,6 @@ export default function LugarDetalle() {
 
       {/* Header con imagen de fondo y navegación */}
       <div className="relative h-96 bg-gray-900">
-        {/* Imagen principal */}
         <motion.img 
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
@@ -170,10 +212,8 @@ export default function LugarDetalle() {
           className="w-full h-full object-cover opacity-90"
         />
         
-        {/* Gradiente para mejorar legibilidad */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
         
-        {/* Botón de regreso */}
         <motion.button
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -183,29 +223,28 @@ export default function LugarDetalle() {
           <ChevronLeft className="w-6 h-6 text-white" />
         </motion.button>
 
-        {/* Botones de acción */}
         <div className="absolute top-12 right-4 flex space-x-2">
           <motion.button
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            onClick={() => setIsFavorite(!isFavorite)}
-            className="bg-black/50 backdrop-blur-sm rounded-full p-3 shadow-lg border border-white/30"
+            onClick={handleToggleFavorito}
+            disabled={toggleFavoritoMutation.isLoading}
+            className="bg-black/50 backdrop-blur-sm rounded-full p-3 shadow-lg border border-white/30 hover:bg-black/70 transition"
           >
-            <Heart className={`w-6 h-6 ${isFavorite ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+            <Heart className={`w-6 h-6 transition ${isFavorite ? 'text-red-500 fill-red-500' : 'text-white'} ${toggleFavoritoMutation.isLoading ? 'animate-pulse' : ''}`} />
           </motion.button>
           <motion.button
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
             onClick={handleShare}
-            className="bg-black/50 backdrop-blur-sm rounded-full p-3 shadow-lg border border-white/30"
+            className="bg-black/50 backdrop-blur-sm rounded-full p-3 shadow-lg border border-white/30 hover:bg-black/70 transition"
           >
             <Share2 className="w-6 h-6 text-white" />
           </motion.button>
         </div>
 
-        {/* Tipo de lugar y nombre */}
         <div className="absolute bottom-6 left-4 right-4">
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -231,7 +270,6 @@ export default function LugarDetalle() {
 
       {/* Contenido */}
       <div className="max-w-4xl mx-auto px-4 -mt-10 relative z-10">
-        {/* Galería de imágenes (si hay más de una) */}
         {imagenes.length > 1 && (
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -260,7 +298,6 @@ export default function LugarDetalle() {
           </motion.div>
         )}
 
-        {/* Descripción */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -276,9 +313,7 @@ export default function LugarDetalle() {
           </p>
         </motion.div>
 
-        {/* Información adicional */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Dirección */}
           {lugar.direccion && (
             <motion.div
               initial={{ y: 20, opacity: 0 }}
@@ -307,22 +342,21 @@ export default function LugarDetalle() {
 
           {lugar.horario && (
             <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="bg-white rounded-2xl shadow-xl p-6"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="bg-white rounded-2xl shadow-xl p-6"
             >
-                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Horario
-                </h3>
-                <p className="text-gray-600">{lugar.horario}</p>
-                <p className="text-xs text-gray-500 mt-2">*Horario sujeto a cambios</p>
+              <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Horario
+              </h3>
+              <p className="text-gray-600">{lugar.horario}</p>
+              <p className="text-xs text-gray-500 mt-2">*Horario sujeto a cambios</p>
             </motion.div>
           )}
         </div>
 
-        {/* Botón de solicitar guía */}
         <motion.button
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
