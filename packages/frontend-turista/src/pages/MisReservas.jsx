@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  Calendar, MapPin, Users, Clock, CheckCircle, XCircle, 
+  AlertCircle, Search 
+} from 'lucide-react';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
 
@@ -9,6 +11,7 @@ export default function MisReservas() {
     const [reservas, setReservas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filtro, setFiltro] = useState('todas');
+    const [busqueda, setBusqueda] = useState('');
     const navigate = useNavigate();
     const usuario = getTuristaActual();
 
@@ -31,22 +34,24 @@ export default function MisReservas() {
 
     const getEstadoInfo = (estado) => {
         switch(estado) {
-            case 'pendiente':
-                return { icon: <ClockIcon className="w-5 h-5 text-yellow-500" />, text: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' };
-            case 'confirmada':
-                return { icon: <CheckCircleIcon className="w-5 h-5 text-green-500" />, text: 'Confirmada', color: 'bg-green-100 text-green-800' };
-            case 'completada':
-                return { icon: <CheckCircleIcon className="w-5 h-5 text-blue-500" />, text: 'Completada', color: 'bg-blue-100 text-blue-800' };
-            case 'cancelada':
-                return { icon: <XCircleIcon className="w-5 h-5 text-red-500" />, text: 'Cancelada', color: 'bg-red-100 text-red-800' };
-            default:
+            case 'pendiente': 
+                return { icon: <Clock className="w-5 h-5 text-yellow-500" />, text: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' };
+            case 'confirmada': 
+                return { icon: <CheckCircle className="w-5 h-5 text-green-500" />, text: 'Confirmada', color: 'bg-green-100 text-green-800' };
+            case 'completada': 
+                return { icon: <CheckCircle className="w-5 h-5 text-blue-500" />, text: 'Completada', color: 'bg-blue-100 text-blue-800' };
+            case 'cancelada': 
+                return { icon: <XCircle className="w-5 h-5 text-red-500" />, text: 'Cancelada', color: 'bg-red-100 text-red-800' };
+            default: 
                 return { icon: <AlertCircle className="w-5 h-5 text-gray-500" />, text: estado, color: 'bg-gray-100 text-gray-800' };
         }
     };
 
-    const reservasFiltradas = filtro === 'todas' 
-        ? reservas 
-        : reservas.filter(r => r.estado === filtro);
+    const reservasFiltradas = reservas.filter(r => {
+        if (filtro !== 'todas' && r.estado !== filtro) return false;
+        if (busqueda && !r.lugar_nombre?.toLowerCase().includes(busqueda.toLowerCase())) return false;
+        return true;
+    });
 
     if (loading) {
         return (
@@ -70,13 +75,27 @@ export default function MisReservas() {
                 </div>
             </div>
 
+            {/* Buscador */}
+            <div className="p-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por lugar..."
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                </div>
+            </div>
+
             {/* Filtros */}
-            <div className="flex gap-2 p-4 overflow-x-auto">
+            <div className="flex gap-2 px-4 overflow-x-auto pb-2">
                 {['todas', 'pendiente', 'confirmada', 'completada', 'cancelada'].map((estado) => (
                     <button
                         key={estado}
                         onClick={() => setFiltro(estado)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap ${
                             filtro === estado
                                 ? 'bg-green-600 text-white'
                                 : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -98,16 +117,10 @@ export default function MisReservas() {
                         No tienes reservas {filtro !== 'todas' ? `en estado "${filtro}"` : ''}
                     </div>
                 ) : (
-                    reservasFiltradas.map((reserva, index) => {
+                    reservasFiltradas.map((reserva) => {
                         const estadoInfo = getEstadoInfo(reserva.estado);
                         return (
-                            <motion.div
-                                key={reserva.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
-                            >
+                            <div key={reserva.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1">
                                         <h3 className="font-semibold text-gray-800">{reserva.lugar_nombre}</h3>
@@ -120,7 +133,7 @@ export default function MisReservas() {
                                             <p className="text-xs text-gray-500">
                                                 {new Date(reserva.fecha_encuentro).toLocaleDateString()}
                                             </p>
-                                            <Clock className="w-3 h-3 text-gray-400 ml-1" />
+                                            <Clock className="w-3 h-3 text-gray-400" />
                                             <p className="text-xs text-gray-500">
                                                 {new Date(reserva.fecha_encuentro).toLocaleTimeString()}
                                             </p>
@@ -130,9 +143,7 @@ export default function MisReservas() {
                                             <p className="text-xs text-gray-500">{reserva.numero_personas} personas</p>
                                         </div>
                                         {reserva.guia_nombre && (
-                                            <p className="text-xs text-green-600 mt-2">
-                                                🧙‍♂️ Guía: {reserva.guia_nombre}
-                                            </p>
+                                            <p className="text-xs text-green-600 mt-2">🧙‍♂️ Guía: {reserva.guia_nombre}</p>
                                         )}
                                     </div>
                                     <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${estadoInfo.color}`}>
@@ -149,7 +160,7 @@ export default function MisReservas() {
                                         📝 Calificar experiencia
                                     </button>
                                 )}
-                            </motion.div>
+                            </div>
                         );
                     })
                 )}
