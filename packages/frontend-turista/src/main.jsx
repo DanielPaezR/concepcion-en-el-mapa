@@ -30,11 +30,11 @@ initAnonymousUser().then(() => {
     );
 });
 
-// Registro del Service Worker
+// Registro del Service Worker movido fuera para asegurar ejecución inmediata
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Service Worker registrado', reg))
-      .catch(err => console.error('Error al registrar Service Worker', err));
-  });
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(reg => console.log('✅ PWA: Service Worker registrado con éxito', reg.scope))
+            .catch(err => console.error('❌ PWA: Error al registrar Service Worker', err));
+    });
 }
