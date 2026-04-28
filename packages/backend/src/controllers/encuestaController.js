@@ -100,11 +100,12 @@ const encuestaController = {
 
             const encuesta = await Encuesta.findByReservaId(reserva_id);
             
+            // Si no hay encuesta, devolver null (NO 404)
             if (!encuesta) {
-                return res.status(404).json({ error: 'No hay encuesta para esta reserva' });
+                return res.json({ success: true, encuesta: null });
             }
 
-            res.json(encuesta);
+            res.json({ success: true, encuesta });
         } catch (error) {
             console.error('Error al obtener encuesta:', error);
             res.status(500).json({ error: 'Error al obtener la encuesta' });

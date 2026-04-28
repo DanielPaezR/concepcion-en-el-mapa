@@ -29,19 +29,24 @@ export default function MisReservas() {
             // Para cada reserva, verificar si ya tiene encuesta
             const reservasConEncuesta = await Promise.all(reservasData.map(async (reserva) => {
                 try {
-                    const encuestaRes = await api.get(`/encuestas/reserva/${reserva.id}`).catch(() => ({ data: null }));
+                    const encuestaRes = await api.get(`/encuestas/reserva/${reserva.id}`);
+                    // Si la respuesta tiene encuesta: { success: true, encuesta: {...} }
+                    // Si no hay encuesta: { success: true, encuesta: null }
+                    const tieneEncuesta = encuestaRes.data?.encuesta !== null;
                     return {
                         ...reserva,
-                        tieneEncuesta: encuestaRes.data !== null
+                        tieneEncuesta: tieneEncuesta
                     };
-                } catch {
+                } catch (error) {
+                    // Si hay error (ej. 404 antes de corregir), asumimos que no tiene encuesta
+                    console.log(`Error verificando encuesta para reserva ${reserva.id}:`, error.response?.status);
                     return { ...reserva, tieneEncuesta: false };
                 }
             }));
             
             setReservas(reservasConEncuesta);
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error al cargar reservas:', error);
         } finally {
             setLoading(false);
         }
