@@ -18,17 +18,22 @@ export default function Login() {
     const result = await login(email, password);
     
     if (result.success) {
-      // Obtener el rol del usuario desde el token
+      // Obtener el token y redirigir según el rol
       const token = localStorage.getItem('token');
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const rol = payload.rol;
-        
-        if (rol === 'admin') {
-          navigate('/admin', { replace: true });
-        } else if (rol === 'guia') {
-          navigate('/guia', { replace: true });
-        } else {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const rol = payload.rol;
+          
+          if (rol === 'admin') {
+            navigate('/admin', { replace: true });
+          } else if (rol === 'guia') {
+            navigate('/guia', { replace: true });
+          } else {
+            navigate('/', { replace: true });
+          }
+        } catch (err) {
+          console.error('Error al decodificar token:', err);
           navigate('/', { replace: true });
         }
       } else {

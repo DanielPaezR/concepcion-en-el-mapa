@@ -36,11 +36,14 @@ export const useAuth = () => {
       const response = await api.post('/auth/login', { email, password });
       const { token, usuario } = response.data;
       
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(usuario);
-      
-      return { success: true, user: usuario };
+      if (token) {
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(usuario);
+        return { success: true, user: usuario };
+      } else {
+        return { success: false, error: 'No se recibió token' };
+      }
     } catch (err) {
       return { success: false, error: err.response?.data?.error || 'Error al iniciar sesión' };
     } finally {
