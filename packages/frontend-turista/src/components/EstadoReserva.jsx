@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircleIcon, ClockIcon, XCircleIcon, MapPinIcon, RefreshIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ClockIcon, XCircleIcon, MapPinIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import api from '../services/api';
 
 export default function EstadoReserva() {
