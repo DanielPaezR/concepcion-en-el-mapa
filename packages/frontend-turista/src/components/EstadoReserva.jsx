@@ -163,14 +163,14 @@ export default function EstadoReserva() {
                 </div>
             </div>
             
-            {/* Botón de refrescar manual (solo si está pendiente) */}
+            {/* Botón de refrescar manual */}
             {reserva.estado === 'pendiente' && (
                 <button
                     onClick={handleRefresh}
                     disabled={verificando}
                     className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition"
                 >
-                    <RefreshIcon className={`w-3.5 h-3.5 ${verificando ? 'animate-spin' : ''}`} />
+                    <ArrowPathIcon className={`w-3.5 h-3.5 ${verificando ? 'animate-spin' : ''}`} />
                     {verificando ? 'Verificando...' : 'Verificar estado'}
                 </button>
             )}
