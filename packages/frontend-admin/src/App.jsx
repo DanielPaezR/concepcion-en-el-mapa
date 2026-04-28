@@ -42,6 +42,7 @@ function App() {
         <Route path="reservas" element={<ReservasList />} />
         <Route path="guias" element={<GuiasList />} />
         <Route path="eventos" element={<BancoPreguntas />} />
+        <Route path="encuestas" element={<EncuestasList />} />
       </Route>
 
       {/* Ruta protegida - Guía */}
