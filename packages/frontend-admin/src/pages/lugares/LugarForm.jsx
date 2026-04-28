@@ -103,7 +103,7 @@ export default function LugarForm() {
         });
         toast.success('Lugar creado');
       }
-      navigate('/lugares');
+      navigate('/admin/lugares');
     } catch (error) {
       console.error('Error:', error);
       toast.error(error.response?.data?.error || 'Error al guardar');

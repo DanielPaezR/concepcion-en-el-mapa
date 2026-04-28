@@ -79,7 +79,7 @@ export default function LugaresList() {
         </div>
         <div className="mt-4 sm:mt-0">
           <Link
-            to="/lugares/nuevo"
+            to="/admin/lugares/nuevo"
             className="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500"
           >
             <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
