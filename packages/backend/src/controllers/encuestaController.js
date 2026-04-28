@@ -84,17 +84,17 @@ const encuestaController = {
     // Obtener encuesta por reserva (para el turista)
     async getByReserva(req, res) {
         try {
-            const { reserva_id } = req.params;
+            const { reservaId } = req.params;  // ← CAMBIAR a reservaId
             const usuarioId = req.user.id;
             
-            console.log(`🔍 Buscando reserva ID: ${reserva_id} para usuario: ${usuarioId}`);
+            console.log(`🔍 Buscando reserva ID: ${reservaId} para usuario: ${usuarioId}`);
             
-            const reserva = await Reserva.findById(reserva_id);
+            const reserva = await Reserva.findById(reservaId);
             
             console.log(`📦 Reserva encontrada:`, reserva);
             
             if (!reserva) {
-                console.log(`❌ Reserva ${reserva_id} no encontrada`);
+                console.log(`❌ Reserva ${reservaId} no encontrada`);
                 return res.status(404).json({ error: 'Reserva no encontrada' });
             }
 
@@ -102,11 +102,10 @@ const encuestaController = {
             if (req.user.rol !== 'admin' && 
                 reserva.turista_id !== req.user.id && 
                 reserva.guia_id !== req.user.id) {
-                console.log(`❌ Usuario ${usuarioId} no autorizado para reserva ${reserva_id}`);
                 return res.status(403).json({ error: 'No autorizado' });
             }
 
-            const encuesta = await Encuesta.findByReservaId(reserva_id);
+            const encuesta = await Encuesta.findByReservaId(reservaId);
             
             if (!encuesta) {
                 return res.json({ success: true, encuesta: null });
