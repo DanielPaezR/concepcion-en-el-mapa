@@ -11,6 +11,7 @@ import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 function App() {
   const { user, loading } = useAuth();
@@ -44,7 +45,7 @@ function App() {
         <Route path="guias" element={<GuiasList />} />
         <Route path="eventos" element={<BancoPreguntas />} />
         <Route path="encuestas" element={<EncuestasList />} />
-        
+        <PWAInstallPrompt />
       </Route>
 
       {/* Ruta protegida - Guía */}

@@ -8,7 +8,11 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(ASSETS_TO_CACHE).catch(err => {
+        console.warn('⚠️ PWA: Algunos recursos no se pudieron cachear durante la instalación:', err);
+        // No bloqueamos la instalación si falla un recurso estático (como el manifest en entornos protegidos)
+        return Promise.resolve();
+      });
     })
   );
 });
