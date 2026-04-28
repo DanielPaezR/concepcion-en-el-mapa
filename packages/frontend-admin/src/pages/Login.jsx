@@ -18,6 +18,8 @@ export default function Login() {
       const response = await api.post('/auth/login', { email, password });
       const { token, usuario } = response.data;
       
+      console.log('Login response:', { token: token?.substring(0, 50), usuario });
+      
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
@@ -25,16 +27,20 @@ export default function Login() {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const rol = payload.rol;
       
+      console.log('Rol del usuario:', rol);
+      console.log('Redirigiendo a:', rol === 'admin' ? '/admin' : '/guia');
+      
+      // Redirigir según el rol
       if (rol === 'admin') {
-        navigate('/admin', { replace: true });
+        window.location.href = '/admin';
       } else if (rol === 'guia') {
-        navigate('/guia', { replace: true });
+        window.location.href = '/guia';
       } else {
-        navigate('/', { replace: true });
+        window.location.href = '/';
       }
     } catch (err) {
+      console.error('Error en login:', err);
       setError(err.response?.data?.error || 'Error al iniciar sesión');
-    } finally {
       setIsLoading(false);
     }
   };
