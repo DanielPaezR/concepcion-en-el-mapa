@@ -40,7 +40,7 @@ export const useAuth = () => {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(usuario);
       
-      return { success: true };
+      return { success: true, user: usuario };
     } catch (err) {
       return { success: false, error: err.response?.data?.error || 'Error al iniciar sesión' };
     } finally {
@@ -52,7 +52,6 @@ export const useAuth = () => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    setLoading(false);
   };
 
   return { user, loading, login, logout };

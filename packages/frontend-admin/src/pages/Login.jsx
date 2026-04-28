@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -7,27 +7,8 @@ export default function Login() {
   const [password, setPassword] = useState('admin123');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-
-  // Redirigir si ya hay usuario
-  useEffect(() => {
-    if (user) {
-      if (user.rol === 'admin') {
-        navigate('/admin');
-      } else if (user.rol === 'guia') {
-        navigate('/guia');
-      }
-    }
-  }, [user, navigate]);
-
-  if (user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,10 +17,24 @@ export default function Login() {
     
     const result = await login(email, password);
     
-    if (!result.success) {
+    if (result.success) {
+      // Redirigir según el rol después del login exitoso
+      // El rol viene en result.user o se obtiene del token
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.rol === 'admin') {
+          navigate('/admin');
+        } else if (payload.rol === 'guia') {
+          navigate('/guia');
+        } else {
+          navigate('/');
+        }
+      }
+    } else {
       setError(result.error);
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (

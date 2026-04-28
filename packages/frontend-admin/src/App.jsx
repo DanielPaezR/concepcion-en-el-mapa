@@ -24,44 +24,34 @@ function App() {
 
   return (
     <Routes>
-      {/* Rutas públicas */}
+      {/* Ruta pública - Landing Page */}
       <Route path="/" element={<LandingPage />} />
+      
+      {/* Ruta pública - Login */}
       <Route path="/login" element={<Login />} />
 
-      {/* Redirección automática si está logueado */}
-      {user && user.rol === 'admin' && (
-        <Route path="/admin/*" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="lugares" element={<LugaresList />} />
-          <Route path="lugares/nuevo" element={<LugarForm />} />
-          <Route path="lugares/editar/:id" element={<LugarForm />} />
-          <Route path="reservas" element={<ReservasList />} />
-          <Route path="guias" element={<GuiasList />} />
-          <Route path="eventos" element={<BancoPreguntas />} />
-        </Route>
-      )}
-
-      {user && user.rol === 'guia' && (
-        <Route path="/guia" element={<PanelGuia />} />
-      )}
-
-      {/* Si hay usuario pero no está en ninguna ruta válida, redirigir */}
+      {/* Rutas protegidas - Admin */}
       <Route
-        path="*"
-        element={
-          user ? (
-            user.rol === 'admin' ? (
-              <Navigate to="/admin" replace />
-            ) : user.rol === 'guia' ? (
-              <Navigate to="/guia" replace />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
+        path="/admin/*"
+        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="lugares" element={<LugaresList />} />
+        <Route path="lugares/nuevo" element={<LugarForm />} />
+        <Route path="lugares/editar/:id" element={<LugarForm />} />
+        <Route path="reservas" element={<ReservasList />} />
+        <Route path="guias" element={<GuiasList />} />
+        <Route path="eventos" element={<BancoPreguntas />} />
+      </Route>
+
+      {/* Ruta protegida - Guía */}
+      <Route
+        path="/guia"
+        element={user?.rol === 'guia' ? <PanelGuia /> : <Navigate to="/login" />}
       />
+
+      {/* Redirección por defecto */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
