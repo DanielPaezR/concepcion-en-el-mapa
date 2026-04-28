@@ -152,7 +152,7 @@ export default function MisReservas() {
                                     </div>
                                 </div>
                                 
-                                {reserva.estado === 'confirmada' && (
+                                {reserva.estado === 'completada' && (
                                     <button
                                         onClick={() => navigate(`/encuesta/${reserva.id}`)}
                                         className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
