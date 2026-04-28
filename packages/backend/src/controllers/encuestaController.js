@@ -87,39 +87,35 @@ const encuestaController = {
             const { reserva_id } = req.params;
             const usuarioId = req.user.id;
             
-            console.log(`🔍 Buscando reserva ${reserva_id} para usuario ${usuarioId}`);
+            console.log(`🔍 Buscando reserva ID: ${reserva_id} para usuario: ${usuarioId}`);
             
-            // Primero, buscar la reserva directamente con SQL para depurar
-            const reserva = await pool.query(
-                'SELECT * FROM reservas_guia WHERE id = $1',
-                [reserva_id]
-            );
+            const reserva = await Reserva.findById(reserva_id);
             
-            console.log('Reserva encontrada:', reserva.rows[0]);
+            console.log(`📦 Reserva encontrada:`, reserva);
             
-            if (reserva.rows.length === 0) {
+            if (!reserva) {
+                console.log(`❌ Reserva ${reserva_id} no encontrada`);
                 return res.status(404).json({ error: 'Reserva no encontrada' });
             }
-            
-            const reservaData = reserva.rows[0];
-            
+
             // Verificar permisos
             if (req.user.rol !== 'admin' && 
-                reservaData.turista_id !== usuarioId && 
-                reservaData.guia_id !== usuarioId) {
+                reserva.turista_id !== req.user.id && 
+                reserva.guia_id !== req.user.id) {
+                console.log(`❌ Usuario ${usuarioId} no autorizado para reserva ${reserva_id}`);
                 return res.status(403).json({ error: 'No autorizado' });
             }
-            
+
             const encuesta = await Encuesta.findByReservaId(reserva_id);
             
             if (!encuesta) {
                 return res.json({ success: true, encuesta: null });
             }
-            
+
             res.json({ success: true, encuesta });
         } catch (error) {
             console.error('Error al obtener encuesta:', error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'Error al obtener la encuesta' });
         }
     },
 
