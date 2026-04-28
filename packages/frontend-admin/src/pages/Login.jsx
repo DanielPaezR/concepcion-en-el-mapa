@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('admin@concepcion.cl');
   const [password, setPassword] = useState('admin123');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -15,34 +14,29 @@ export default function Login() {
     setIsLoading(true);
     setError('');
     
-    const result = await login(email, password);
-    
-    if (result.success) {
-      // Obtener el token y redirigir según el rol
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const rol = payload.rol;
-          
-          if (rol === 'admin') {
-            navigate('/admin', { replace: true });
-          } else if (rol === 'guia') {
-            navigate('/guia', { replace: true });
-          } else {
-            navigate('/', { replace: true });
-          }
-        } catch (err) {
-          console.error('Error al decodificar token:', err);
-          navigate('/', { replace: true });
-        }
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { token, usuario } = response.data;
+      
+      localStorage.setItem('token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Decodificar token para saber el rol
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const rol = payload.rol;
+      
+      if (rol === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (rol === 'guia') {
+        navigate('/guia', { replace: true });
       } else {
         navigate('/', { replace: true });
       }
-    } else {
-      setError(result.error);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
