@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LugaresList from './pages/lugares/LugaresList';
@@ -21,34 +22,36 @@ function App() {
     );
   }
 
-  // No hay usuario: mostrar login
-  if (!user) {
-    return <Login />;
-  }
+  return (
+    <Routes>
+      {/* Rutas públicas */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<Login />} />
 
-  // Admin: mostrar layout con todas las opciones
-  if (user.rol === 'admin') {
-    return (
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="lugares" element={<LugaresList />} />
-          <Route path="lugares/nuevo" element={<LugarForm />} />
-          <Route path="lugares/editar/:id" element={<LugarForm />} />
-          <Route path="reservas" element={<ReservasList />} />
-          <Route path="guias" element={<GuiasList />} />
-          <Route path="admin/eventos" element={<BancoPreguntas />} />
-        </Route>
-      </Routes>
-    );
-  }
+      {/* Rutas protegidas (solo admin) */}
+      <Route
+        path="/admin"
+        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="lugares" element={<LugaresList />} />
+        <Route path="lugares/nuevo" element={<LugarForm />} />
+        <Route path="lugares/editar/:id" element={<LugarForm />} />
+        <Route path="reservas" element={<ReservasList />} />
+        <Route path="guias" element={<GuiasList />} />
+        <Route path="eventos" element={<BancoPreguntas />} />
+      </Route>
 
-  // Guía: mostrar solo su panel (sin Layout)
-  if (user.rol === 'guia') {
-    return <PanelGuia />;
-  }
+      {/* Ruta para el panel del guía */}
+      <Route
+        path="/guia"
+        element={user?.rol === 'guia' ? <PanelGuia /> : <Navigate to="/login" />}
+      />
 
-  return <Navigate to="/login" />;
+      {/* Redirección por defecto */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
 }
 
 export default App;
