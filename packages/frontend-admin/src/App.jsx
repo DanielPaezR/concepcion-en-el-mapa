@@ -10,6 +10,7 @@ import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
+import EncuestasList from './pages/encuestas/EncuestasList';
 
 function App() {
   const { user, loading } = useAuth();
