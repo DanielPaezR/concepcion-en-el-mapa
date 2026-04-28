@@ -24,7 +24,22 @@ export default function MisReservas() {
     const cargarReservas = async () => {
         try {
             const response = await api.get(`/reservas?turista_id=${usuario?.id}`);
-            setReservas(response.data || []);
+            const reservasData = response.data || [];
+            
+            // Para cada reserva, verificar si ya tiene encuesta
+            const reservasConEncuesta = await Promise.all(reservasData.map(async (reserva) => {
+                try {
+                    const encuestaRes = await api.get(`/encuestas/reserva/${reserva.id}`).catch(() => ({ data: null }));
+                    return {
+                        ...reserva,
+                        tieneEncuesta: encuestaRes.data !== null
+                    };
+                } catch {
+                    return { ...reserva, tieneEncuesta: false };
+                }
+            }));
+            
+            setReservas(reservasConEncuesta);
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -152,13 +167,21 @@ export default function MisReservas() {
                                     </div>
                                 </div>
                                 
-                                {reserva.estado === 'completada' && (
+                                {/* Botón Calificar - solo si está completada Y NO tiene encuesta */}
+                                {reserva.estado === 'completada' && !reserva.tieneEncuesta && (
                                     <button
                                         onClick={() => navigate(`/encuesta/${reserva.id}`)}
                                         className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
                                     >
                                         📝 Calificar experiencia
                                     </button>
+                                )}
+
+                                {/* Mensaje si ya fue calificada */}
+                                {reserva.estado === 'completada' && reserva.tieneEncuesta && (
+                                    <div className="mt-3 w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-sm text-center">
+                                        ✅ Ya calificaste esta experiencia
+                                    </div>
                                 )}
                             </div>
                         );
