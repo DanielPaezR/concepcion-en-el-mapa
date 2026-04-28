@@ -3,14 +3,14 @@ import Map, { NavigationControl, Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Compass, Navigation, Award, Target, LocateFixed, 
-  Star, Zap, Crown, Shield, Sparkles, Menu, X,
+import {
+  Compass, Navigation, Award, LocateFixed,
+  Star, Zap, Crown, Sparkles, Menu, X,
   MapPin, Users, Landmark, TreePine, Utensils,
-  Crosshair, Eye, Footprints
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
+import AvatarJugador from '../components/AvatarJugador';
 import GaleriaFotos from '../components/GaleriaFotos';
 import Map3DEffect from '../components/Map3DEffect';
 import AnclarGuardian from '../components/AnclarGuardian';
@@ -19,266 +19,390 @@ import MenuExplorador from '../components/MenuExplorador';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY = 'concepcion_descubiertos';
-const VISIT_RADIUS = 50; // metros
+const VISIT_RADIUS = 50;
+
+// ─── Estilos globales inyectados una vez ────────────────────
+const GLOBAL_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap');
+
+  .hud-font { font-family: 'Rajdhani', system-ui, sans-serif; }
+
+  /* Scrollbar del quest log */
+  .quest-scroll::-webkit-scrollbar { width: 4px; }
+  .quest-scroll::-webkit-scrollbar-track { background: transparent; }
+  .quest-scroll::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.4); border-radius: 4px; }
+
+  /* Popup de Mapbox — override del fondo blanco por defecto */
+  .mapboxgl-popup-content {
+    background: rgba(2,6,18,0.97) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6) !important;
+  }
+  .mapboxgl-popup-tip { display: none !important; }
+  .mapboxgl-popup-close-button {
+    color: rgba(255,255,255,0.5) !important;
+    font-size: 18px !important;
+    top: 8px !important;
+    right: 10px !important;
+    background: none !important;
+  }
+  .mapboxgl-popup-close-button:hover { color: white !important; }
+
+  /* Pulso en marcadores no descubiertos */
+  @keyframes pin-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5), 0 4px 15px rgba(0,0,0,0.3); }
+    60%       { box-shadow: 0 0 0 10px rgba(239,68,68,0), 0 4px 15px rgba(0,0,0,0.3); }
+  }
+  @keyframes pin-glow {
+    0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.4), 0 4px 15px rgba(0,0,0,0.3); }
+    50%       { box-shadow: 0 0 16px 6px rgba(251,191,36,0.7), 0 4px 15px rgba(0,0,0,0.3); }
+  }
+  @keyframes scan-line {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    10%  { opacity: 0.15; }
+    90%  { opacity: 0.15; }
+    100% { transform: translateY(100vh); opacity: 0; }
+  }
+  .pin-undiscovered { animation: pin-pulse 2.2s ease-in-out infinite; }
+  .pin-discovered   { animation: pin-glow 2s ease-in-out infinite; }
+`;
+
+// ─── Inyector de estilos ────────────────────────────────────
+const StyleInjector = () => {
+  useEffect(() => {
+    const id = 'mapa-global-styles';
+    if (!document.getElementById(id)) {
+      const tag = document.createElement('style');
+      tag.id = id;
+      tag.textContent = GLOBAL_STYLES;
+      document.head.appendChild(tag);
+    }
+    return () => {};
+  }, []);
+  return null;
+};
 
 // ============================================================
-// 📦 COMPONENTES INTERNOS (para mejor organización)
+// COMPONENTES INTERNOS
 // ============================================================
 
-// 🧭 Brujula funcional (reemplaza la falsa)
+// 🧭 Brújula funcional
 const BrujulaFuncional = ({ bearing, onRotate }) => {
   const [angle, setAngle] = useState(bearing || 0);
-  
-  useEffect(() => {
-    setAngle(bearing || 0);
-  }, [bearing]);
-  
-  const handleClick = () => {
-    // Resetear orientación al norte
-    if (onRotate) onRotate(0);
-  };
-  
+  useEffect(() => setAngle(bearing || 0), [bearing]);
+
   return (
     <motion.button
       animate={{ rotate: angle }}
       transition={{ duration: 0.3 }}
-      onClick={handleClick}
-      className="brújula-btn"
+      onClick={() => onRotate?.(0)}
+      title="Orientar al norte"
       style={{
         position: 'absolute',
-        bottom: 20,
-        right: 20,
+        bottom: 80,
+        right: 16,
         width: 48,
         height: 48,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(2,6,18,0.85)',
+        backdropFilter: 'blur(10px)',
         borderRadius: '50%',
-        border: '2px solid #fbbf24',
+        border: '1.5px solid rgba(251,191,36,0.6)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        boxShadow: '0 0 12px rgba(251,191,36,0.2), 0 4px 12px rgba(0,0,0,0.4)',
       }}
-      title="Orientar al norte"
+      whileHover={{ scale: 1.08, boxShadow: '0 0 20px rgba(251,191,36,0.4)' }}
+      whileTap={{ scale: 0.94 }}
     >
-      <Compass className="text-yellow-400" size={24} />
+      <Compass color="#fbbf24" size={22} />
     </motion.button>
   );
 };
 
-// 🎛️ Panel HUD Superior
-const HUDHeader = ({ 
-  playerLevel, discoveredPlaces, totalLugares, xp, 
-  lugarEspecial, onOpenGaleria, onOpenAnclar, 
-  onToggleQuestLog, showQuestLog, isMobile 
-}) => (
-  <motion.div 
-    initial={{ y: -100 }} 
-    animate={{ y: 0 }} 
-    className="hud-header"
-    style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1000,
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      padding: isMobile ? 8 : 12,
-      gap: 8,
-      pointerEvents: 'none' // Los hijos tendrán pointer-events auto
-    }}
-  >
-    {/* Grupo izquierdo */}
-    <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
-      {/* Nivel */}
-      <div className="level-badge" style={{
-        background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-        borderRadius: 40,
-        padding: '6px 14px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6
-      }}>
-        <span style={{ color: 'white', fontWeight: 'bold', fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-          {playerLevel >= 5 ? <Crown size={14} /> : playerLevel >= 3 ? <Zap size={14} /> : <Star size={14} />}
-          Nv. {playerLevel}
-        </span>
-      </div>
-      
-      {/* Progreso descubrimientos */}
-      <div style={{
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(8px)',
-        borderRadius: 40,
-        padding: '6px 12px',
-        border: '1px solid #22c55e'
-      }}>
-        <span style={{ color: '#4ade80', fontWeight: 'bold', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Sparkles size={12} />
-          {discoveredPlaces.length}/{totalLugares}
-        </span>
-      </div>
-      
-      {/* XP */}
-      <div style={{
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(8px)',
-        borderRadius: 40,
-        padding: '6px 12px',
-        border: '1px solid #a855f7'
-      }}>
-        <span style={{ color: '#c084fc', fontWeight: 'bold', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Zap size={12} />
-          {xp} XP
-        </span>
-      </div>
-      
-      {/* Botones especiales */}
-      {playerLevel >= 5 && lugarEspecial && (
-        <button
-          onClick={onOpenGaleria}
-          style={{
-            background: 'linear-gradient(135deg, #eab308, #f59e0b)',
-            borderRadius: 40,
-            padding: '6px 12px',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          <Award size={18} color="white" />
-        </button>
-      )}
-      
-      {/* Anclar Guardián (solo nivel 5 y todos descubiertos) */}
-      {playerLevel >= 5 && discoveredPlaces.length === totalLugares && (
-        <button
-          onClick={onOpenAnclar}
-          style={{
-            background: '#7c3aed',
-            borderRadius: 40,
-            padding: '6px 12px',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-          title="Anclar Guardián"
-        >
-          🛡️
-        </button>
-      )}
-    </div>
-    
-    {/* Botón menú derecho */}
-    <button
-      onClick={onToggleQuestLog}
+// 🎛️ HUD Superior
+const HUDHeader = ({
+  playerLevel, discoveredPlaces, totalLugares, xp,
+  lugarEspecial, onOpenGaleria, onOpenAnclar,
+  onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
+}) => {
+  // XP para el nivel actual y el siguiente
+  const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
+  const xpAnterior = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
+  const progreso = xpParaSiguiente > 0
+    ? Math.min(((xp - xpAnterior) / (xpParaSiguiente - xpAnterior)) * 100, 100)
+    : 100;
+
+  const levelColors = {
+    1: { from: '#065f46', to: '#14532d', border: '#22c55e', text: '#4ade80' },
+    2: { from: '#1e3a5f', to: '#0f2d4a', border: '#60a5fa', text: '#93c5fd' },
+    3: { from: '#312e81', to: '#1e1b4b', border: '#818cf8', text: '#a5b4fc' },
+    4: { from: '#451a03', to: '#1c0900', border: '#f59e0b', text: '#fcd34d' },
+    5: { from: '#450a0a', to: '#1a0505', border: '#ef4444', text: '#fca5a5' },
+  };
+  const lc = levelColors[Math.min(playerLevel, 5)];
+  const LevelIcon = playerLevel >= 5 ? Crown : playerLevel >= 3 ? Zap : Star;
+
+  return (
+    <motion.div
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+      className="hud-font"
       style={{
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(8px)',
-        borderRadius: 40,
-        padding: 10,
-        border: '1px solid #eab308',
-        cursor: 'pointer',
-        pointerEvents: 'auto'
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        zIndex: 1000,
+        padding: isMobile ? '8px 10px' : '10px 14px',
+        pointerEvents: 'none',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 8,
       }}
     >
-      {showQuestLog ? <X size={20} color="#ef4444" /> : <Menu size={20} color="#4ade80" />}
-    </button>
-  </motion.div>
-);
+      {/* Grupo izquierdo */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+
+          {/* Badge de nivel con XP bar */}
+          <div style={{
+            background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
+            border: `1.5px solid ${lc.border}`,
+            borderRadius: 10,
+            padding: '5px 12px 6px',
+            boxShadow: `0 0 14px ${lc.border}44, 0 4px 12px rgba(0,0,0,0.4)`,
+            minWidth: 80,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+              <LevelIcon size={12} color={lc.text} />
+              <span style={{ color: lc.text, fontWeight: 700, fontSize: 13, letterSpacing: '.05em' }}>
+                NV. {playerLevel}
+              </span>
+            </div>
+            {/* XP bar */}
+            <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${progreso}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+                style={{ height: '100%', background: lc.border, borderRadius: 4 }}
+              />
+            </div>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '.06em' }}>
+              {xp} / {xpParaSiguiente} XP
+            </span>
+          </div>
+
+          {/* Descubrimientos */}
+          <div style={{
+            background: 'rgba(2,6,18,0.8)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(34,197,94,0.45)',
+            borderRadius: 10,
+            padding: '5px 11px',
+            boxShadow: '0 0 8px rgba(34,197,94,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Sparkles size={11} color="#4ade80" />
+              <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 13 }}>
+                {discoveredPlaces.length}<span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>/{totalLugares}</span>
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '.06em', marginTop: 1 }}>
+              EXPLORADOS
+            </div>
+          </div>
+
+          {/* Botones especiales nivel 5 */}
+          {playerLevel >= 5 && lugarEspecial && (
+            <motion.button
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
+              onClick={onOpenGaleria}
+              style={{
+                background: 'linear-gradient(135deg, #b45309, #92400e)',
+                border: '1px solid #f59e0b',
+                borderRadius: 10,
+                padding: '6px 10px',
+                cursor: 'pointer',
+                boxShadow: '0 0 12px rgba(245,158,11,0.3)',
+              }}
+            >
+              <Award size={16} color="#fcd34d" />
+            </motion.button>
+          )}
+
+          {playerLevel >= 5 && discoveredPlaces.length === totalLugares && (
+            <motion.button
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
+              onClick={onOpenAnclar}
+              title="Anclar Guardián"
+              style={{
+                background: 'linear-gradient(135deg, #3b0764, #1e1b4b)',
+                border: '1px solid #a855f7',
+                borderRadius: 10,
+                padding: '6px 10px',
+                cursor: 'pointer',
+                fontSize: 16,
+                boxShadow: '0 0 12px rgba(168,85,247,0.3)',
+              }}
+            >🛡️</motion.button>
+          )}
+        </div>
+      </div>
+
+      {/* Botón menú derecho */}
+      <motion.button
+        onClick={onToggleQuestLog}
+        whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
+        style={{
+          background: 'rgba(2,6,18,0.85)',
+          backdropFilter: 'blur(10px)',
+          border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
+          borderRadius: 10,
+          padding: '8px 10px',
+          cursor: 'pointer',
+          pointerEvents: 'auto',
+          boxShadow: showQuestLog
+            ? '0 0 12px rgba(239,68,68,0.3)'
+            : '0 0 10px rgba(251,191,36,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'border-color .2s, box-shadow .2s',
+        }}
+      >
+        {showQuestLog
+          ? <X size={20} color="#ef4444" />
+          : <Menu size={20} color="#fbbf24" />}
+      </motion.button>
+    </motion.div>
+  );
+};
 
 // 🗺️ Botón de ubicación actual
 const BotonUbicacion = ({ userPosition, onCenter }) => {
   if (!userPosition) return null;
-  
   return (
-    <button
+    <motion.button
       onClick={onCenter}
-      className="ubicacion-btn"
+      whileHover={{ scale: 1.08, boxShadow: '0 0 20px rgba(37,99,235,0.5)' }}
+      whileTap={{ scale: 0.94 }}
+      title="Centrar en mi ubicación"
       style={{
         position: 'absolute',
-        bottom: 20,
-        left: 20,
-        backgroundColor: '#2563eb',
-        borderRadius: 50,
-        padding: 12,
-        border: '2px solid white',
+        bottom: 80,
+        left: 16,
+        background: 'rgba(2,6,18,0.85)',
+        backdropFilter: 'blur(10px)',
+        border: '1.5px solid rgba(59,130,246,0.6)',
+        borderRadius: '50%',
+        width: 48, height: 48,
         cursor: 'pointer',
         zIndex: 1000,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
+        boxShadow: '0 0 12px rgba(59,130,246,0.2), 0 4px 12px rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
-      title="Centrar en mi ubicación"
     >
-      <Navigation size={20} color="white" />
-    </button>
+      <Navigation size={20} color="#60a5fa" />
+    </motion.button>
   );
 };
 
-// 📜 Panel de Quest Log (Descubrimientos)
+// 📜 Quest Log Panel
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, onSelectLugar, isMobile }) => (
   <AnimatePresence>
     {show && (
       <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
+        initial={{ x: '110%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: '110%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+        className="hud-font quest-scroll"
         style={{
           position: 'absolute',
-          top: isMobile ? 60 : 70,
+          top: isMobile ? 58 : 68,
           right: 10,
           zIndex: 1000,
-          backgroundColor: 'rgba(0,0,0,0.95)',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(2,6,18,0.97)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(34,197,94,0.3)',
           borderRadius: 16,
-          padding: 12,
-          border: '1px solid #22c55e',
-          width: isMobile ? 'calc(100% - 20px)' : 320,
-          maxWidth: 320,
-          maxHeight: '70vh',
-          overflowY: 'auto'
+          padding: '14px 12px',
+          width: isMobile ? 'calc(100% - 20px)' : 300,
+          maxWidth: 300,
+          maxHeight: '68vh',
+          overflowY: 'auto',
+          boxShadow: '0 0 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
         }}
       >
-        <h3 style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24', marginBottom: 12 }}>
-          📜 Descubrimientos ({discoveredPlaces.length}/{lugares.length})
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {lugares.map(lugar => {
-            const isDiscovered = discoveredPlaces.includes(lugar.id);
+        {/* Título */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10 }}>
+          <span style={{ fontSize: 16 }}>📜</span>
+          <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 15, letterSpacing: '.04em' }}>
+            DESCUBRIMIENTOS
+          </span>
+          <span style={{
+            marginLeft: 'auto',
+            background: 'rgba(34,197,94,0.15)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: 20,
+            padding: '1px 8px',
+            fontSize: 11,
+            color: '#4ade80',
+            fontWeight: 700,
+          }}>
+            {discoveredPlaces.length}/{lugares.length}
+          </span>
+        </div>
+
+        {/* Lista */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {lugares.map((lugar, i) => {
+            const found = discoveredPlaces.includes(lugar.id);
             return (
-              <div
+              <motion.div
                 key={lugar.id}
-                onClick={() => {
-                  onClose();
-                  onSelectLugar(lugar);
-                }}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.03 }}
+                onClick={() => { onClose(); onSelectLugar(lugar); }}
                 style={{
-                  padding: 10,
-                  borderRadius: 12,
+                  padding: '8px 10px',
+                  borderRadius: 10,
                   cursor: 'pointer',
-                  backgroundColor: isDiscovered ? 'rgba(34,197,94,0.2)' : 'rgba(55,65,81,0.5)',
-                  border: isDiscovered ? '1px solid #22c55e' : 'none'
+                  background: found ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
+                  border: found ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'background .15s',
                 }}
+                whileHover={{ background: found ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.07)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: found ? '#4ade80' : '#6b7280', fontSize: 14, opacity: found ? 1 : 0.7 }}>
                     {getTipoIcon(lugar.tipo)}
-                    <span style={{ color: 'white', fontSize: 14, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {lugar.nombre}
-                    </span>
-                  </div>
-                  {isDiscovered ? (
-                    <span style={{ color: '#4ade80', fontSize: 14 }}>✓</span>
-                  ) : (
-                    <span style={{ color: '#fbbf24', fontSize: 12 }}>⚔️</span>
-                  )}
+                  </span>
+                  <span style={{
+                    color: found ? '#e2e8f0' : '#6b7280',
+                    fontSize: 13,
+                    fontWeight: found ? 600 : 400,
+                    maxWidth: 160,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {found ? lugar.nombre : '???'}
+                  </span>
                 </div>
-              </div>
+                {found
+                  ? <span style={{ color: '#4ade80', fontSize: 13, fontWeight: 700 }}>✓</span>
+                  : <span style={{ fontSize: 11, color: '#6b7280' }}>⚔️</span>}
+              </motion.div>
             );
           })}
         </div>
@@ -292,47 +416,78 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
   <AnimatePresence>
     {show && (
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 40 }}
+        transition={{ type: 'spring', damping: 22 }}
+        className="hud-font"
         style={{
           position: 'absolute',
-          bottom: 100,
+          bottom: 110,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 2000,
-          backgroundColor: 'rgba(0,0,0,0.95)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: 16,
-          padding: 16,
-          border: '2px solid #22c55e',
-          width: '90%',
-          maxWidth: 350,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+          background: 'rgba(2,6,18,0.97)',
+          backdropFilter: 'blur(14px)',
+          border: '1.5px solid rgba(34,197,94,0.5)',
+          borderRadius: 20,
+          padding: '20px 24px',
+          width: '88%',
+          maxWidth: 340,
+          boxShadow: '0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(34,197,94,0.08)',
+          textAlign: 'center',
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <LocateFixed size={48} color="#4ade80" style={{ margin: '0 auto 12px' }} />
-          <h3 style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
-            ¿Activamos tu ubicación?
-          </h3>
-          <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
-            Necesitamos tu ubicación para descubrir lugares automáticamente cuando estés cerca.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={onAccept}
-              style={{ flex: 1, backgroundColor: '#16a34a', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-            >
-              Activar
-            </button>
-            <button
-              onClick={onDeny}
-              style={{ flex: 1, backgroundColor: '#4b5563', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-            >
-              Ahora no
-            </button>
-          </div>
+        {/* Icono animado */}
+        <motion.div
+          animate={{ scale: [1, 1.12, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          style={{ marginBottom: 12 }}
+        >
+          <LocateFixed size={44} color="#4ade80" style={{ margin: '0 auto' }} />
+        </motion.div>
+
+        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 17, marginBottom: 6, letterSpacing: '.03em' }}>
+          ¿ACTIVAMOS TU UBICACIÓN?
+        </h3>
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>
+          Necesitamos tu ubicación para descubrir lugares automáticamente cuando estés cerca.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={onAccept}
+            style={{
+              flex: 1,
+              background: 'linear-gradient(135deg, #16a34a, #14532d)',
+              color: 'white',
+              padding: '10px 0',
+              borderRadius: 12,
+              fontWeight: 700,
+              fontSize: 14,
+              border: '1px solid #22c55e',
+              cursor: 'pointer',
+              letterSpacing: '.04em',
+              boxShadow: '0 0 12px rgba(34,197,94,0.25)',
+            }}
+          >ACTIVAR</motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={onDeny}
+            style={{
+              flex: 1,
+              background: 'rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.5)',
+              padding: '10px 0',
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 14,
+              border: '1px solid rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+              letterSpacing: '.04em',
+            }}
+          >AHORA NO</motion.button>
         </div>
       </motion.div>
     )}
@@ -341,136 +496,292 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
 
 // 🎯 Modal de Evento
 const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
-  <div style={{
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2000,
-    padding: 16
-  }}>
-    <div style={{
-      backgroundColor: 'white',
-      borderRadius: 24,
-      maxWidth: 400,
-      width: '100%',
-      padding: 24
-    }}>
-      <h3 style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-        🎯 {evento.titulo}
-      </h3>
-      <p style={{ color: '#374151', marginBottom: 16 }}>{evento.pregunta}</p>
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.75)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 3000,
+      padding: 16,
+    }}
+    onClick={(e) => e.target === e.currentTarget && onClose()}
+  >
+    <motion.div
+      initial={{ scale: 0.88, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      exit={{ scale: 0.88, y: 20 }}
+      transition={{ type: 'spring', damping: 22 }}
+      className="hud-font"
+      style={{
+        background: 'rgba(2,6,18,0.99)',
+        border: '1.5px solid rgba(251,191,36,0.5)',
+        borderRadius: 22,
+        maxWidth: 380,
+        width: '100%',
+        padding: 26,
+        boxShadow: '0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(251,191,36,0.08)',
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{
+          width: 40, height: 40,
+          background: 'linear-gradient(135deg, #b45309, #78350f)',
+          borderRadius: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, border: '1px solid rgba(251,191,36,0.4)',
+        }}>🎯</div>
+        <div>
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: '.1em', marginBottom: 2 }}>EVENTO DIARIO</div>
+          <h3 style={{ color: '#fcd34d', fontWeight: 700, fontSize: 16, margin: 0 }}>{evento.titulo}</h3>
+        </div>
+        <button
+          onClick={onClose}
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+        >×</button>
+      </div>
+
+      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 16, lineHeight: 1.6, borderLeft: '2px solid rgba(251,191,36,0.3)', paddingLeft: 12 }}>
+        {evento.pregunta}
+      </p>
+
       <input
         type="text"
         value={respuesta}
         onChange={(e) => setRespuesta(e.target.value)}
         placeholder="Tu respuesta..."
+        onKeyPress={(e) => e.key === 'Enter' && onResponder()}
         style={{
           width: '100%',
-          padding: 12,
-          border: '1px solid #d1d5db',
+          padding: '11px 14px',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 12,
-          marginBottom: 16
+          marginBottom: 14,
+          color: 'white',
+          fontSize: 14,
+          outline: 'none',
+          boxSizing: 'border-box',
         }}
-        onKeyPress={(e) => e.key === 'Enter' && onResponder()}
       />
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={onResponder}
-          style={{ flex: 1, backgroundColor: '#16a34a', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-        >
-          Responder
-        </button>
-        <button
+          style={{
+            flex: 1,
+            background: 'linear-gradient(135deg, #16a34a, #14532d)',
+            color: 'white',
+            padding: '11px 0',
+            borderRadius: 12,
+            fontWeight: 700,
+            fontSize: 14,
+            border: '1px solid #22c55e',
+            cursor: 'pointer',
+            letterSpacing: '.04em',
+          }}
+        >RESPONDER</motion.button>
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={onClose}
-          style={{ flex: 1, backgroundColor: '#9ca3af', color: 'white', padding: 10, borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-        >
-          Cancelar
-        </button>
+          style={{
+            flex: 1,
+            background: 'rgba(255,255,255,0.05)',
+            color: 'rgba(255,255,255,0.45)',
+            padding: '11px 0',
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 14,
+            border: '1px solid rgba(255,255,255,0.1)',
+            cursor: 'pointer',
+            letterSpacing: '.04em',
+          }}
+        >CANCELAR</motion.button>
       </div>
+    </motion.div>
+  </motion.div>
+);
+
+// 📍 Pin de lugar en el mapa
+const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
+  const TIPO_EMOJI = {
+    historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️',
+  };
+  const size = isMobile ? 38 : 46;
+
+  return (
+    <motion.div
+      onClick={onClick}
+      whileHover={{ scale: 1.12 }}
+      whileTap={{ scale: 0.94 }}
+      style={{ cursor: 'pointer' }}
+    >
+      <div
+        className={discovered ? 'pin-discovered' : 'pin-undiscovered'}
+        style={{
+          width: size,
+          height: size,
+          background: discovered
+            ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+            : 'linear-gradient(135deg, #ef4444, #b91c1c)',
+          borderRadius: '50% 50% 50% 0',
+          transform: 'rotate(-45deg)',
+          border: `${discovered ? 2.5 : 2}px solid white`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span style={{ transform: 'rotate(45deg)', fontSize: isMobile ? 17 : 21 }}>
+          {TIPO_EMOJI[lugar.tipo] || '📍'}
+        </span>
+      </div>
+    </motion.div>
+  );
+};
+
+// 🏆 Popup del lugar seleccionado (dark glassmorphism)
+const LugarPopupContent = ({ lugar, onExplorar }) => (
+  <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
+    {/* Tipo badge */}
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      background: 'rgba(255,255,255,0.08)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 20,
+      padding: '2px 8px',
+      marginBottom: 8,
+      fontSize: 10,
+      color: 'rgba(255,255,255,0.5)',
+      letterSpacing: '.08em',
+      textTransform: 'uppercase',
+    }}>
+      {{historico:'🏛️',natural:'🌲',cultural:'🎭',gastronomico:'🍽️'}[lugar.tipo] || '📍'}
+      &nbsp;{lugar.tipo}
     </div>
+
+    <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6, margin: '0 0 6px' }}>
+      {lugar.nombre}
+    </h3>
+    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, margin: '0 0 12px',
+      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+      {lugar.descripcion}
+    </p>
+
+    <motion.button
+      whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+      onClick={onExplorar}
+      style={{
+        width: '100%',
+        background: 'linear-gradient(135deg, #15803d, #14532d)',
+        color: 'white',
+        padding: '9px 0',
+        borderRadius: 10,
+        fontWeight: 700,
+        fontSize: 13,
+        border: '1px solid rgba(34,197,94,0.4)',
+        cursor: 'pointer',
+        letterSpacing: '.05em',
+        boxShadow: '0 0 12px rgba(34,197,94,0.2)',
+      }}
+    >
+      EXPLORAR →
+    </motion.button>
   </div>
 );
 
-// 🦆 Avatar del Jugador Estilo RPG (Inspirado en el Pato de Torrentes)
-const AvatarJugador = ({ level, isMobile }) => {
-  const size = isMobile ? 52 : 64;
-  
-  // Configuración de estilo según el nivel del jugador
-  const getTheme = () => {
-    if (level >= 5) return { 
-      bg: 'from-slate-900 to-slate-800', 
-      accent: '#dc2626', 
-      glow: 'shadow-[0_0_20px_rgba(220,38,38,0.6)]',
-      border: 'border-yellow-500',
-      label: '🔥 GUARDIÁN'
-    };
-    if (level >= 3) return { 
-      bg: 'from-amber-900 to-orange-900', 
-      accent: '#ef4444', 
-      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.5)]',
-      border: 'border-amber-500',
-      label: '🛡️ GUERRERO'
-    };
-    return { 
-      bg: 'from-emerald-800 to-green-900', 
-      accent: '#f87171', 
-      glow: 'shadow-lg',
-      border: 'border-white',
-      label: '🌲 EXPLORADOR'
-    };
-  };
+// ⏳ Loading screen RPG
+const LoadingScreen = () => (
+  <div style={{
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'radial-gradient(ellipse at 50% 40%, #0f1e0f, #0a0e1a)',
+    position: 'relative',
+    overflow: 'hidden',
+  }}>
+    {/* Scan line decorativa */}
+    <motion.div
+      animate={{ y: ['-100%', '200vh'] }}
+      transition={{ duration: 3, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
+      style={{
+        position: 'absolute',
+        left: 0, right: 0,
+        height: 2,
+        background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.4), transparent)',
+        pointerEvents: 'none',
+      }}
+    />
 
-  const theme = getTheme();
-
-  return (
-    <div className="relative group flex flex-col items-center">
-      {/* Aura de poder dinámica que late detrás del personaje */}
-      <motion.div 
-        animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.4, 0.1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className={`absolute inset-0 rounded-full ${level >= 5 ? 'bg-red-500' : level >= 3 ? 'bg-amber-500' : 'bg-emerald-500'} blur-xl -z-10`}
+    {/* Anillo exterior */}
+    <div style={{ position: 'relative', marginBottom: 32 }}>
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+        style={{
+          width: 80, height: 80,
+          border: '2px solid transparent',
+          borderTopColor: '#22c55e',
+          borderRightColor: 'rgba(34,197,94,0.3)',
+          borderRadius: '50%',
+        }}
       />
-
-      {/* Contenedor del Avatar con animación de flotado */}
-      <motion.div 
-        animate={{ y: [0, -10, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        className={`relative ${isMobile ? 'w-12 h-14' : 'w-16 h-20'} bg-gradient-to-br ${theme.bg} rounded-2xl border-2 ${theme.border} ${theme.glow} flex items-center justify-center overflow-hidden`}
-      >
-        <svg viewBox="0 0 100 120" className="w-full h-full p-1 drop-shadow-md">
-          {/* Cuerpo del Pato (Estilo dibujo minimalista) */}
-          <path d="M50 20 Q85 20 85 60 Q85 100 50 100 Q15 100 15 60 Q15 20 50 20" fill="white" />
-          {/* Capucha/Plumaje superior (Negro/Slate-800) */}
-          <path d="M50 20 Q85 20 85 55 L15 55 Q15 20 50 20" fill="#1e293b" />
-          {/* Ojos */}
-          <circle cx="35" cy="45" r="4" fill="white" />
-          <circle cx="65" cy="45" r="4" fill="white" />
-          {/* Pico Rojo del Pato de Torrentes */}
-          <path d="M42 55 L58 55 L50 75 Z" fill={theme.accent} />
-          
-          {/* Detalles de rango */}
-          {level >= 3 && <path d="M10 50 L25 50 L20 80 L10 80 Z" fill="#94a3b8" /> /* Mini Escudo */}
-          {level >= 5 && <path d="M75 40 L90 40 L82 10 Z" fill="#fbbf24" /> /* Punta de Corona/Casco */}
-        </svg>
-      </motion.div>
-
-      {/* Etiqueta de Rango estilo HUD de juego */}
-      <div className="absolute -bottom-6 bg-slate-950/90 backdrop-blur-md text-[8px] font-black text-white px-2 py-0.5 rounded border border-white/20 whitespace-nowrap tracking-widest shadow-2xl z-20">
-        {theme.label} <span className="text-yellow-400">NV.{level}</span>
-      </div>
+      <motion.div
+        animate={{ rotate: -360 }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          inset: 10,
+          border: '1.5px solid transparent',
+          borderTopColor: '#4ade80',
+          borderLeftColor: 'rgba(74,222,128,0.3)',
+          borderRadius: '50%',
+        }}
+      />
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 28,
+      }}>🦆</div>
     </div>
-  );
-};
+
+    <div style={{ fontFamily: "'Rajdhani', system-ui", color: '#4ade80', fontWeight: 700, fontSize: 16, letterSpacing: '.18em', marginBottom: 6 }}>
+      CARGANDO MAPA
+    </div>
+    <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, letterSpacing: '.12em' }}>
+      CONCEPCIÓN · ANTIOQUIA
+    </div>
+
+    {/* Barra de progreso */}
+    <motion.div
+      style={{ width: 200, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 4, marginTop: 24 }}
+    >
+      <motion.div
+        animate={{ width: ['0%', '100%'] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ height: '100%', background: 'linear-gradient(90deg, #16a34a, #4ade80)', borderRadius: 4 }}
+      />
+    </motion.div>
+  </div>
+);
 
 // ============================================================
 // 🎮 COMPONENTE PRINCIPAL
 // ============================================================
-
 function Mapa() {
-  // ========== ESTADOS ==========
   const [lugares, setLugares] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLugar, setSelectedLugar] = useState(null);
@@ -487,7 +798,6 @@ function Mapa() {
   const [xp, setXp] = useState(0);
   const [mensajeGuia, setMensajeGuia] = useState('');
   const [tipoGuia, setTipoGuia] = useState('normal');
-  const [mostrarGuia, setMostrarGuia] = useState(false);
   const [sistemaExp, setSistemaExp] = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [lugarEspecial, setLugarEspecial] = useState(null);
@@ -501,52 +811,43 @@ function Mapa() {
     latitude: 6.3944,
     zoom: 18,
     pitch: 60,
-    bearing: 15
+    bearing: 15,
   });
-  
+
   const navigate = useNavigate();
 
-  // ========== FUNCIONES AUXILIARES ==========
+  // ── Helpers ────────────────────────────────────────────────
   const mostrarMensajeGuia = (mensaje, tipo = 'normal', duracion = 5000) => {
     setMensajeGuia(mensaje);
     setTipoGuia(tipo);
-    setMostrarGuia(true);
-    setTimeout(() => setMostrarGuia(false), duracion);
+    setTimeout(() => setMensajeGuia(''), duracion);
   };
 
   const getTipoIcon = (tipo) => {
     const icons = {
-      historico: <Landmark size={isMobile ? 16 : 20} />,
-      natural: <TreePine size={isMobile ? 16 : 20} />,
-      cultural: <Users size={isMobile ? 16 : 20} />,
-      gastronomico: <Utensils size={isMobile ? 16 : 20} />
+      historico: <Landmark size={isMobile ? 15 : 18} color="#94a3b8" />,
+      natural:   <TreePine size={isMobile ? 15 : 18} color="#4ade80" />,
+      cultural:  <Users    size={isMobile ? 15 : 18} color="#a78bfa" />,
+      gastronomico: <Utensils size={isMobile ? 15 : 18} color="#fb923c" />,
     };
-    return icons[tipo] || <MapPin size={isMobile ? 16 : 20} />;
+    return icons[tipo] || <MapPin size={isMobile ? 15 : 18} color="#94a3b8" />;
   };
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3;
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
   const calcularSistemaExp = (totalLugares) => {
     const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
     const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
     const expBase = 10;
-    const expRequerida = pesosPorNivel.map(peso => Math.round((peso / sumaPesos) * totalLugares * expBase));
+    const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos)*totalLugares*expBase));
     const expAcumulada = [];
-    expRequerida.reduce((acc, curr, i) => {
-      expAcumulada[i] = acc + curr;
-      return expAcumulada[i];
-    }, 0);
+    expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
     return { expRequerida, expAcumulada, expBase };
   };
 
@@ -557,11 +858,11 @@ function Mapa() {
     return expAcumulada.length + 1;
   };
 
-  // ========== EFECTOS ==========
+  // ── Efectos ────────────────────────────────────────────────
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
   }, []);
 
   useEffect(() => {
@@ -594,20 +895,12 @@ function Mapa() {
     }
   }, [playerLevel]);
 
-  // Detección automática de lugares cercanos
   useEffect(() => {
     if (userPosition && lugares.length > 0) {
-      const lugaresCerca = lugares.filter(lugar => {
-        if (discoveredPlaces.includes(lugar.id)) return false;
-        const distance = calcularDistancia(
-          userPosition.lat, userPosition.lng,
-          parseFloat(lugar.latitud), parseFloat(lugar.longitud)
-        );
-        return distance < VISIT_RADIUS;
-      });
-      
-      lugaresCerca.forEach(lugar => {
-        if (!discoveredPlaces.includes(lugar.id)) {
+      lugares.forEach(lugar => {
+        if (discoveredPlaces.includes(lugar.id)) return;
+        const d = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
+        if (d < VISIT_RADIUS) {
           setDiscoveredPlaces(prev => [...prev, lugar.id]);
           setLastVisitedPlace(lugar);
           setTimeout(() => setLastVisitedPlace(null), 3000);
@@ -616,48 +909,42 @@ function Mapa() {
     }
   }, [userPosition, lugares]);
 
-  // Consejos aleatorios cada 30 segundos
   useEffect(() => {
     const consejos = [
       'Los marcadores dorados son lugares que ya descubriste.',
       'Cada lugar descubierto te da 10 XP.',
-      'El avatar cambia de forma según tu nivel.',
+      'Tu avatar cambia de aspecto al subir de nivel.',
       'Usa el botón azul para volver a tu ubicación.',
-      '¡Los eventos diarios te dan XP extra!'
+      '¡Los eventos diarios te dan XP extra!',
     ];
-    const intervalo = setInterval(() => {
+    const id = setInterval(() => {
       if (!lastVisitedPlace && !showQuestLog) {
         mostrarMensajeGuia(consejos[Math.floor(Math.random() * consejos.length)], 'consejo', 4000);
       }
     }, 30000);
-    return () => clearInterval(intervalo);
+    return () => clearInterval(id);
   }, [lastVisitedPlace, showQuestLog]);
 
-  // Cargar datos guardados
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) setDiscoveredPlaces(parsed);
-        const savedXp = localStorage.getItem('player_xp');
-        if (savedXp) setXp(parseInt(savedXp));
       }
+      const savedXp = localStorage.getItem('player_xp');
+      if (savedXp) setXp(parseInt(savedXp));
     } catch (e) {
-      console.error("Error cargando progreso guardado:", e);
-      localStorage.removeItem(STORAGE_KEY); // Limpiar si está corrupto
+      console.error('Error cargando progreso:', e);
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
-  // Sistema de experiencia
   useEffect(() => {
     if (lugares.length > 0) {
       const sistema = calcularSistemaExp(lugares.length);
       setSistemaExp(sistema);
-      if (xp > 0) {
-        const nuevoNivel = calcularNivelPorXP(xp, sistema.expAcumulada);
-        setPlayerLevel(Math.min(nuevoNivel, 5));
-      }
+      if (xp > 0) setPlayerLevel(Math.min(calcularNivelPorXP(xp, sistema.expAcumulada), 5));
     }
   }, [lugares]);
 
@@ -667,116 +954,70 @@ function Mapa() {
       setXp(nuevoXP);
       localStorage.setItem('player_xp', nuevoXP);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(discoveredPlaces));
-      if (sistemaExp.expAcumulada.length > 0) {
-        const nuevoNivel = calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada);
-        setPlayerLevel(Math.min(nuevoNivel, 5));
-      }
+      if (sistemaExp.expAcumulada.length > 0)
+        setPlayerLevel(Math.min(calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada), 5));
     }
   }, [discoveredPlaces, sistemaExp]);
 
-  // Verificar estado de ubicación al inicio
   useEffect(() => {
-    const checkLocationStatus = async () => {
-      const savedResponse = localStorage.getItem('locationResponse');
-      if (savedResponse === 'granted') {
-        setShouldLocate(true);
-        setLocationPermission('granted');
-        setUserResponded(true);
-      } else if (savedResponse === 'denied') {
-        setLocationPermission('denied');
-        setUserResponded(true);
-        setShowLocationPrompt(false);
-      } else {
-        if (navigator.permissions?.query) {
-          try {
-            const result = await navigator.permissions.query({ name: 'geolocation' });
-            if (result.state === 'granted') {
-              setShouldLocate(true);
-              setLocationPermission('granted');
-              setUserResponded(true);
-              localStorage.setItem('locationResponse', 'granted');
-            } else if (result.state === 'denied') {
-              setLocationPermission('denied');
-              setUserResponded(true);
-              setShowLocationPrompt(false);
-              localStorage.setItem('locationResponse', 'denied');
-            } else {
-              setShowLocationPrompt(true);
-            }
-          } catch (error) {
-            setTimeout(() => setShowLocationPrompt(true), 1000);
-          }
-        } else {
-          setTimeout(() => setShowLocationPrompt(true), 1000);
-        }
-      }
+    const check = async () => {
+      const saved = localStorage.getItem('locationResponse');
+      if (saved === 'granted') { setShouldLocate(true); setLocationPermission('granted'); setUserResponded(true); return; }
+      if (saved === 'denied')  { setLocationPermission('denied'); setUserResponded(true); return; }
+      if (navigator.permissions?.query) {
+        try {
+          const r = await navigator.permissions.query({ name: 'geolocation' });
+          if (r.state === 'granted') { setShouldLocate(true); setLocationPermission('granted'); setUserResponded(true); localStorage.setItem('locationResponse','granted'); }
+          else if (r.state === 'denied') { setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse','denied'); }
+          else setTimeout(() => setShowLocationPrompt(true), 1000);
+        } catch { setTimeout(() => setShowLocationPrompt(true), 1000); }
+      } else { setTimeout(() => setShowLocationPrompt(true), 1000); }
     };
-    checkLocationStatus();
+    check();
   }, []);
 
-  // Obtener ubicación cuando shouldLocate cambie
   useEffect(() => {
     if (shouldLocate && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserPosition({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
+        (pos) => {
+          setUserPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocationPermission('granted');
-          setViewState(prev => ({
-            ...prev,
-            longitude: position.coords.longitude,
-            latitude: position.coords.latitude,
-            zoom: 16
-          }));
+          setViewState(prev => ({ ...prev, longitude: pos.coords.longitude, latitude: pos.coords.latitude, zoom: 16 }));
         },
-        (error) => {
-          console.error('Geolocation error:', error);
-          setLocationPermission('denied');
-        }
+        () => setLocationPermission('denied')
       );
     }
   }, [shouldLocate]);
 
-  // ========== FUNCIONES DE CARGA ==========
+  // ── Carga de datos ─────────────────────────────────────────
   const cargarLugares = async () => {
     try {
-      const response = await api.get('/lugares');
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        setLugares(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
+      const r = await api.get('/lugares');
+      if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   const cargarLugarEspecial = async () => {
     try {
-      const response = await api.get('/lugar-especial');
-      setLugarEspecial(response.data.lugar);
-      setLugarEspecialDesbloqueado(response.data.desbloqueado);
-    } catch (error) {
-      console.error('Error al cargar lugar especial:', error);
-    }
+      const r = await api.get('/lugar-especial');
+      setLugarEspecial(r.data.lugar);
+      setLugarEspecialDesbloqueado(r.data.desbloqueado);
+    } catch (e) { console.error(e); }
   };
 
   const cargarEventos = async () => {
     try {
-      const response = await api.get('/eventos/activos');
-      setEventos(response.data.eventos || []);
-    } catch (error) {
-      console.error('Error al cargar eventos:', error);
-    }
+      const r = await api.get('/eventos/activos');
+      setEventos(r.data.eventos || []);
+    } catch (e) { console.error(e); }
   };
 
   const handleCompletarEvento = async (eventoId, respuesta) => {
     try {
-      const response = await api.post('/eventos/completar', { eventoId, respuesta });
-      if (response.data.success) {
-        mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${response.data.xp_ganada} XP`, 'celebrando', 4000);
+      const r = await api.post('/eventos/completar', { eventoId, respuesta });
+      if (r.data.success) {
+        mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${r.data.xp_ganada} XP`, 'celebrando', 4000);
         setEventoSeleccionado(null);
         setRespuestaEvento('');
         cargarEventos();
@@ -785,47 +1026,37 @@ function Mapa() {
           mostrarMensajeGuia(`🏆 ¡NUEVO TÍTULO! Ahora eres ${stats.data.titulo}`, 'celebrando', 5000);
         }
       }
-    } catch (error) {
+    } catch {
       mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
     }
   };
 
-  useEffect(() => {
-    cargarLugares();
-  }, []);
+  useEffect(() => { cargarLugares(); }, []);
 
-  if (loading) {
-    return (
-      <motion.div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 to-purple-900">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="w-20 h-20 border-4 border-t-transparent border-white rounded-full"
-        />
-      </motion.div>
-    );
-  }
+  // ── Renders condicionales ──────────────────────────────────
+  if (loading) return <LoadingScreen />;
 
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-red-50 p-4">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-red-600">Error de Configuración</h2>
-          <p className="text-red-500">No se detectó el token de Mapbox (VITE_MAPBOX_TOKEN).</p>
-        </div>
+  if (!MAPBOX_TOKEN) return (
+    <div className="h-screen flex items-center justify-center bg-red-950 p-4">
+      <div className="text-center">
+        <h2 className="text-xl font-bold text-red-400">Error de Configuración</h2>
+        <p className="text-red-500 text-sm mt-1">No se detectó VITE_MAPBOX_TOKEN</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // ========== RENDER PRINCIPAL ==========
+  // ── Render principal ───────────────────────────────────────
   return (
     <div className="h-screen relative overflow-hidden">
+      <StyleInjector />
+
       {/* HUD Superior */}
       <HUDHeader
         playerLevel={playerLevel}
         discoveredPlaces={discoveredPlaces}
         totalLugares={lugares.length}
         xp={xp}
+        sistemaExp={sistemaExp}
         lugarEspecial={lugarEspecial}
         onOpenGaleria={() => setMostrarGaleria(true)}
         onOpenAnclar={() => setMostrarAnclar(true)}
@@ -834,28 +1065,26 @@ function Mapa() {
         isMobile={isMobile}
       />
 
-      {/* 🧭 Brújula funcional */}
-      <BrujulaFuncional 
-        bearing={viewState.bearing} 
-        onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))} 
+      {/* Brújula */}
+      <BrujulaFuncional
+        bearing={viewState.bearing}
+        onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))}
       />
 
-      {/* Compañero Virtual (Guía) */}
-      <CompaneroVirtual 
-        mensaje={mensajeGuia} 
-        nivel={playerLevel} 
-        emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'} 
+      {/* Compañero Virtual */}
+      <CompaneroVirtual
+        mensaje={mensajeGuia}
+        nivel={playerLevel}
+        tipo={tipoGuia}
+        emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
       />
 
-      {/* Galería de Fotos */}
+      {/* Galería */}
       {mostrarGaleria && (
-        <GaleriaFotos 
-          nivelUsuario={playerLevel} 
-          onCerrar={() => setMostrarGaleria(false)} 
-        />
+        <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />
       )}
 
-      {/* Prompt de ubicación */}
+      {/* Prompt ubicación */}
       <LocationPrompt
         show={showLocationPrompt && !userResponded}
         onAccept={() => {
@@ -895,18 +1124,15 @@ function Mapa() {
       >
         <Map3DEffect />
         <NavigationControl position="top-right" />
-        
-        {/* Avatar del jugador */}
+
+        {/* Avatar jugador */}
         {userPosition && (
-          <Marker
-            longitude={userPosition.lng}
-            latitude={userPosition.lat}
-          >
+          <Marker longitude={userPosition.lng} latitude={userPosition.lat}>
             <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
-        
-        {/* Marcadores de lugares */}
+
+        {/* Lugares */}
         {lugares.map((lugar) => (
           <Marker
             key={lugar.id}
@@ -914,48 +1140,36 @@ function Mapa() {
             latitude={parseFloat(lugar.latitud)}
             onClick={() => setSelectedLugar(lugar)}
           >
-            <div 
-              className="cursor-pointer transition-transform hover:scale-110"
-              style={{
-                width: isMobile ? 40 : 50,
-                height: isMobile ? 40 : 50,
-                background: discoveredPlaces.includes(lugar.id) 
-                  ? 'linear-gradient(135deg, gold, #FFA500)' 
-                  : 'linear-gradient(135deg, #FF6B6B, #FF4444)',
-                borderRadius: '50% 50% 50% 0',
-                transform: 'rotate(-45deg)',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '3px solid white'
-              }}
-            >
-              <span style={{ transform: 'rotate(45deg)', fontSize: isMobile ? 20 : 24 }}>
-                {lugar.tipo === 'historico' && '🏛️'}
-                {lugar.tipo === 'natural' && '🌲'}
-                {lugar.tipo === 'cultural' && '🎭'}
-                {lugar.tipo === 'gastronomico' && '🍽️'}
-              </span>
-            </div>
+            <LugarPin
+              lugar={lugar}
+              discovered={discoveredPlaces.includes(lugar.id)}
+              isMobile={isMobile}
+              onClick={() => setSelectedLugar(lugar)}
+            />
           </Marker>
         ))}
-        
-        {/* Marcador del lugar especial */}
+
+        {/* Lugar especial */}
         {lugarEspecial && lugarEspecialDesbloqueado && (
-          <Marker
-            longitude={parseFloat(lugarEspecial.longitud)}
-            latitude={parseFloat(lugarEspecial.latitud)}
-          >
-            <div className="cursor-pointer animate-pulse">
-              <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-2xl border-4 border-white">
-                <span className="text-3xl">👑</span>
-              </div>
-            </div>
+          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)}>
+            <motion.div
+              animate={{ scale: [1, 1.1, 1], y: [0, -4, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              style={{
+                width: 58, height: 58,
+                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                borderRadius: '50%',
+                border: '3px solid white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28,
+                boxShadow: '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)',
+                cursor: 'pointer',
+              }}
+            >👑</motion.div>
           </Marker>
         )}
 
-        {/* Marcadores de eventos diarios */}
+        {/* Eventos */}
         {eventos.map((evento) => (
           <Marker
             key={`evento_${evento.id}`}
@@ -963,15 +1177,24 @@ function Mapa() {
             latitude={parseFloat(evento.latitud)}
             onClick={() => setEventoSeleccionado(evento)}
           >
-            <div className="cursor-pointer animate-bounce">
-              <div className="w-12 h-12 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
-                <span className="text-2xl">❓</span>
-              </div>
-            </div>
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity }}
+              style={{
+                width: 44, height: 44,
+                background: 'linear-gradient(135deg, #b45309, #78350f)',
+                borderRadius: '50%',
+                border: '2px solid #fbbf24',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20,
+                cursor: 'pointer',
+                boxShadow: '0 0 14px rgba(251,191,36,0.4)',
+              }}
+            >❓</motion.div>
           </Marker>
         ))}
-        
-        {/* Popup del lugar seleccionado */}
+
+        {/* Popup */}
         {selectedLugar && (
           <Popup
             longitude={parseFloat(selectedLugar.longitud)}
@@ -980,67 +1203,58 @@ function Mapa() {
             closeButton={true}
             closeOnClick={false}
             anchor="bottom"
+            offset={16}
           >
-            <div className="p-3 max-w-[200px]">
-              <h3 className="font-bold text-gray-900">{selectedLugar.nombre}</h3>
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{selectedLugar.descripcion}</p>
-              <button
-                onClick={() => navigate(`/lugar/${selectedLugar.id}`)}
-                className="mt-3 w-full bg-green-600 text-white py-2 px-3 rounded-lg text-sm font-bold hover:bg-green-700 transition"
-              >
-                Explorar
-              </button>
-            </div>
+            <LugarPopupContent
+              lugar={selectedLugar}
+              onExplorar={() => navigate(`/lugar/${selectedLugar.id}`)}
+            />
           </Popup>
         )}
       </Map>
 
-      {/* Botón de ubicación actual */}
+      {/* Botón ubicación */}
       <BotonUbicacion
         userPosition={userPosition}
-        onCenter={() => {
-          if (userPosition) {
-            setViewState(prev => ({
-              ...prev,
-              longitude: userPosition.lng,
-              latitude: userPosition.lat,
-              zoom: 16
-            }));
-          }
-        }}
+        onCenter={() => userPosition && setViewState(prev => ({
+          ...prev,
+          longitude: userPosition.lng,
+          latitude: userPosition.lat,
+          zoom: 16,
+        }))}
       />
 
-      {/* Menú de explorador */}
-      <MenuExplorador 
+      {/* Menú explorador */}
+      <MenuExplorador
         nivel={playerLevel}
         xp={xp}
         lugaresDescubiertos={discoveredPlaces.length}
         totalLugares={lugares.length}
       />
 
-      {/* Modal Anclar Guardián */}
+      {/* Anclar Guardián */}
       {mostrarAnclar && (
         <AnclarGuardian
           userPosition={userPosition}
           onClose={() => setMostrarAnclar(false)}
-          onAnclado={() => {
-            setMostrarAnclar(false);
-          }}
+          onAnclado={() => setMostrarAnclar(false)}
         />
       )}
 
-      {/* Modal de Evento */}
-      {eventoSeleccionado && (
-        <EventoModal
-          evento={eventoSeleccionado}
-          respuesta={respuestaEvento}
-          setRespuesta={setRespuestaEvento}
-          onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
-          onClose={() => setEventoSeleccionado(null)}
-        />
-      )}
+      {/* Modal evento */}
+      <AnimatePresence>
+        {eventoSeleccionado && (
+          <EventoModal
+            evento={eventoSeleccionado}
+            respuesta={respuestaEvento}
+            setRespuesta={setRespuestaEvento}
+            onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
+            onClose={() => setEventoSeleccionado(null)}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Estado de Reserva */}
+      {/* Estado Reserva */}
       <EstadoReserva />
     </div>
   );
