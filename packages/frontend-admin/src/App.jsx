@@ -28,30 +28,42 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
 
-      {/* Rutas protegidas (solo admin) */}
-      <Route
-        path="/admin"
-        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="lugares" element={<LugaresList />} />
-        <Route path="lugares/nuevo" element={<LugarForm />} />
-        <Route path="lugares/editar/:id" element={<LugarForm />} />
-        <Route path="reservas" element={<ReservasList />} />
-        <Route path="guias" element={<GuiasList />} />
-        <Route path="eventos" element={<BancoPreguntas />} />
-      </Route>
+      {/* Si hay usuario, redirigir según su rol */}
+      {user && user.rol === 'admin' && (
+        <Route path="/admin/*" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="lugares" element={<LugaresList />} />
+          <Route path="lugares/nuevo" element={<LugarForm />} />
+          <Route path="lugares/editar/:id" element={<LugarForm />} />
+          <Route path="reservas" element={<ReservasList />} />
+          <Route path="guias" element={<GuiasList />} />
+          <Route path="eventos" element={<BancoPreguntas />} />
+        </Route>
+      )}
 
-      {/* Ruta para el panel del guía */}
+      {user && user.rol === 'guia' && (
+        <Route path="/guia" element={<PanelGuia />} />
+      )}
+
+      {/* Redirección después de login */}
       <Route
-        path="/guia"
-        element={user?.rol === 'guia' ? <PanelGuia /> : <Navigate to="/login" />}
+        path="*"
+        element={
+          user ? (
+            user.rol === 'admin' ? (
+              <Navigate to="/admin" replace />
+            ) : user.rol === 'guia' ? (
+              <Navigate to="/guia" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
       />
-
-      {/* Redirección por defecto */}
-      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
 
-export default App;
+export default App; 

@@ -1,12 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
   const [email, setEmail] = useState('admin@concepcion.cl');
   const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [error, setError] = useState('');
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirigir si ya hay usuario
+  useEffect(() => {
+    if (user) {
+      if (user.rol === 'admin') {
+        navigate('/admin');
+      } else if (user.rol === 'guia') {
+        navigate('/guia');
+      }
+    }
+  }, [user, navigate]);
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,10 +36,7 @@ export default function Login() {
     
     const result = await login(email, password);
     
-    if (result.success) {
-      // ✅ Recargar la página después del login
-      window.location.href = '/';
-    } else {
+    if (!result.success) {
       setError(result.error);
       setIsLoading(false);
     }
