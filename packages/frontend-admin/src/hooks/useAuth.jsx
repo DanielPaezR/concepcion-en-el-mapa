@@ -11,6 +11,7 @@ export const useAuth = () => {
       setLoading(false);
       return;
     }
+    
 
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
