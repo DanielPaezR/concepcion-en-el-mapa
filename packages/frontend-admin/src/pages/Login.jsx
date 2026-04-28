@@ -18,18 +18,21 @@ export default function Login() {
     const result = await login(email, password);
     
     if (result.success) {
-      // Redirigir según el rol después del login exitoso
-      // El rol viene en result.user o se obtiene del token
+      // Obtener el rol del usuario desde el token
       const token = localStorage.getItem('token');
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.rol === 'admin') {
-          navigate('/admin');
-        } else if (payload.rol === 'guia') {
-          navigate('/guia');
+        const rol = payload.rol;
+        
+        if (rol === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (rol === 'guia') {
+          navigate('/guia', { replace: true });
         } else {
-          navigate('/');
+          navigate('/', { replace: true });
         }
+      } else {
+        navigate('/', { replace: true });
       }
     } else {
       setError(result.error);

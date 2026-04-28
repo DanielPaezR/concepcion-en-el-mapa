@@ -33,7 +33,7 @@ function App() {
       {/* Rutas protegidas - Admin */}
       <Route
         path="/admin/*"
-        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/admin" />}
+        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
       >
         <Route index element={<Dashboard />} />
         <Route path="lugares" element={<LugaresList />} />
