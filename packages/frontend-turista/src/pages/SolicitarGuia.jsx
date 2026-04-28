@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Users, MapPin, MessageCircle } from 'lucide-react';
-import Avatar from '../components/Avatar';
+import Avatar from '../components/AvatarJugador';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
 import RegistroModal from '../components/RegistroModal';

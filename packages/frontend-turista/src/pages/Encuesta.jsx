@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../services/api'
-import Avatar from '../components/Avatar'
+import Avatar from '../components/AvatarJugador'
 import toast from 'react-hot-toast'
 import { getTuristaActual } from '../services/auth';
 
