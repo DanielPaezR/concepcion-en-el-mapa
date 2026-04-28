@@ -53,5 +53,6 @@ export const useAuth = () => {
     setLoading(false); // ← Ocultar loading después
   };
 
+  
   return { user, loading, login, logout };
 };
