@@ -48,7 +48,7 @@ const authController = {
                     nombre: usuario.nombre
                 },
                 process.env.JWT_SECRET || 'tu_secreto_jwt',
-                { expiresIn: '8h' }
+                { expiresIn: '7d' } // Aumentado a 7 días para mayor persistencia
             );
 
             // No enviar el password_hash en la respuesta

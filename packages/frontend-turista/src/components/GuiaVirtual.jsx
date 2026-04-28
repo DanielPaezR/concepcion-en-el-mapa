@@ -1,126 +1,111 @@
 // components/GuiaVirtual.jsx
+//
+// Este componente maneja los toasts de notificación del mapa
+// (descubrimientos, consejos, subida de nivel, etc.)
+// Reemplaza la lógica duplicada que antes existía en GuiaVirtual
+// y en el CompaneroVirtual. Úsalo así desde Mapa.jsx:
+//
+//   import GuiaVirtual from '../components/GuiaVirtual';
+//   <GuiaVirtual mensaje={mensajeGuia} tipo={tipoGuia} />
+//
+// Los tipos disponibles son:
+//   'bienvenida' | 'consejo' | 'descubrimiento' | 'celebrando' | 'nivel' | 'normal'
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const TIPO_CONFIG = {
+  bienvenida:    { icon: '🧭', color: '#22c55e',  bg: 'rgba(5,46,22,0.97)',   border: '#16a34a' },
+  consejo:       { icon: '📜', color: '#60a5fa',  bg: 'rgba(12,28,64,0.97)',  border: '#2563eb' },
+  descubrimiento:{ icon: '✨', color: '#fbbf24',  bg: 'rgba(28,20,0,0.97)',   border: '#d97706' },
+  celebrando:    { icon: '🎉', color: '#a78bfa',  bg: 'rgba(30,10,60,0.97)',  border: '#7c3aed' },
+  nivel:         { icon: '⭐', color: '#f472b6',  bg: 'rgba(40,4,28,0.97)',   border: '#db2777' },
+  normal:        { icon: '🗺️', color: '#94a3b8',  bg: 'rgba(10,14,26,0.97)', border: '#475569' },
+};
+
 const GuiaVirtual = ({ mensaje, tipo = 'normal', duracion = 5000 }) => {
-  const [visible, setVisible] = useState(true);
-  const [mensajeActual, setMensajeActual] = useState(mensaje);
+  const [visible, setVisible] = useState(false);
+  const [mensajeActual, setMensajeActual] = useState('');
+  const config = TIPO_CONFIG[tipo] || TIPO_CONFIG.normal;
 
   useEffect(() => {
-    setVisible(true);
-    setMensajeActual(mensaje);
-    
-    const timer = setTimeout(() => {
-      setVisible(false);
-    }, duracion);
+    if (!mensaje) return;
 
+    setMensajeActual(mensaje);
+    setVisible(true);
+
+    const timer = setTimeout(() => setVisible(false), duracion);
     return () => clearTimeout(timer);
   }, [mensaje, duracion]);
-
-  const getAvatarPorTipo = (tipo) => {
-    switch(tipo) {
-      case 'bienvenida':
-        return '🧙‍♂️';
-      case 'consejo':
-        return '📜';
-      case 'descubrimiento':
-        return '🎉';
-      case 'cerca':
-        return '🔍';
-      case 'nivel':
-        return '⭐';
-      default:
-        return '🧭';
-    }
-  };
-
-  const getColorPorTipo = (tipo) => {
-    switch(tipo) {
-      case 'bienvenida':
-        return 'from-green-500 to-green-600';
-      case 'consejo':
-        return 'from-blue-500 to-blue-600';
-      case 'descubrimiento':
-        return 'from-yellow-500 to-yellow-600';
-      case 'cerca':
-        return 'from-purple-500 to-purple-600';
-      case 'nivel':
-        return 'from-pink-500 to-pink-600';
-      default:
-        return 'from-gray-500 to-gray-600';
-    }
-  };
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.5 }}
+          key={mensajeActual}
+          initial={{ opacity: 0, y: 24, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -50, scale: 0.5 }}
-          transition={{ type: 'spring', damping: 20 }}
-          className="fixed bottom-32 right-4 z-[2000] pointer-events-none"
+          exit={{ opacity: 0, y: -16, scale: 0.92 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+          style={{
+            position: 'fixed',
+            bottom: 140,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1800,
+            pointerEvents: 'none',
+            width: 'max-content',
+            maxWidth: 300,
+          }}
         >
-          {/* Burbuja de diálogo */}
-          <motion.div
-            animate={{ y: [0, -5, 0] }}
-            transition={{ duration: 3, repeat: Infinity }}
-            className="relative"
-          >
-            {/* Triángulo de la burbuja */}
-            <div className="absolute -bottom-2 right-10 w-4 h-4 bg-white transform rotate-45 shadow-lg" />
-            
-            {/* Contenido de la burbuja */}
-            <div className={`bg-gradient-to-r ${getColorPorTipo(tipo)} rounded-2xl shadow-2xl p-4 max-w-xs`}>
-              <div className="flex items-start space-x-3">
-                {/* Avatar del guía */}
-                <div className="text-4xl animate-bounce">
-                  {getAvatarPorTipo(tipo)}
-                </div>
-                
-                {/* Mensaje */}
-                <div className="flex-1">
-                  <p className="text-white font-medium text-sm leading-relaxed">
-                    {mensajeActual}
-                  </p>
-                  
-                  {/* Barra de progreso del mensaje */}
-                  <motion.div
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ duration: duracion / 1000, ease: 'linear' }}
-                    className="h-1 bg-white/30 rounded-full mt-2"
-                  />
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          <div style={{
+            background: config.bg,
+            backdropFilter: 'blur(10px)',
+            border: `1px solid ${config.border}`,
+            borderRadius: 14,
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}>
+            {/* Icono */}
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{config.icon}</span>
 
-          {/* Efecto de partículas alrededor del guía */}
-          <div className="absolute -top-4 -right-4">
-            <div className="relative">
-              {[...Array(5)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  animate={{
-                    scale: [1, 1.5, 1],
-                    opacity: [0.5, 0.8, 0.5],
-                    rotate: [0, 180, 360]
-                  }}
-                  transition={{
-                    duration: 3,
-                    delay: i * 0.5,
-                    repeat: Infinity
-                  }}
-                  className="absolute w-2 h-2 bg-yellow-400 rounded-full"
-                  style={{
-                    top: Math.random() * 20 - 10,
-                    left: Math.random() * 20 - 10,
-                  }}
-                />
-              ))}
-            </div>
+            {/* Mensaje */}
+            <p style={{
+              margin: 0,
+              fontSize: 12,
+              fontWeight: 500,
+              color: '#f1f5f9',
+              lineHeight: 1.5,
+            }}>
+              {mensajeActual}
+            </p>
+
+            {/* Dot de color del tipo */}
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: config.color,
+              flexShrink: 0,
+            }} />
           </div>
+
+          {/* Barra de progreso de expiración */}
+          <motion.div
+            initial={{ width: '100%' }}
+            animate={{ width: '0%' }}
+            transition={{ duration: duracion / 1000, ease: 'linear' }}
+            style={{
+              height: 2,
+              background: config.color,
+              borderRadius: '0 0 14px 14px',
+              opacity: 0.5,
+              marginTop: -1,
+            }}
+          />
         </motion.div>
       )}
     </AnimatePresence>

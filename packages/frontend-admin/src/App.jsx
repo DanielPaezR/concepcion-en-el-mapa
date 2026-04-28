@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LugaresList from './pages/lugares/LugaresList';
@@ -9,6 +10,7 @@ import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
+import EncuestasList from './pages/encuestas/EncuestasList';
 
 function App() {
   const { user, loading } = useAuth();
@@ -21,34 +23,40 @@ function App() {
     );
   }
 
-  // No hay usuario: mostrar login
-  if (!user) {
-    return <Login />;
-  }
+  return (
+    <Routes>
+      {/* Ruta pública - Landing Page */}
+      <Route path="/" element={<LandingPage />} />
+      
+      {/* Ruta pública - Login */}
+      <Route path="/login" element={<Login />} />
 
-  // Admin: mostrar layout con todas las opciones
-  if (user.rol === 'admin') {
-    return (
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="lugares" element={<LugaresList />} />
-          <Route path="lugares/nuevo" element={<LugarForm />} />
-          <Route path="lugares/editar/:id" element={<LugarForm />} />
-          <Route path="reservas" element={<ReservasList />} />
-          <Route path="guias" element={<GuiasList />} />
-          <Route path="admin/eventos" element={<BancoPreguntas />} />
-        </Route>
-      </Routes>
-    );
-  }
+      {/* Rutas protegidas - Admin */}
+      <Route
+        path="/admin/*"
+        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="lugares" element={<LugaresList />} />
+        <Route path="lugares/nuevo" element={<LugarForm />} />
+        <Route path="lugares/editar/:id" element={<LugarForm />} />
+        <Route path="reservas" element={<ReservasList />} />
+        <Route path="guias" element={<GuiasList />} />
+        <Route path="eventos" element={<BancoPreguntas />} />
+        <Route path="encuestas" element={<EncuestasList />} />
+        
+      </Route>
 
-  // Guía: mostrar solo su panel (sin Layout)
-  if (user.rol === 'guia') {
-    return <PanelGuia />;
-  }
+      {/* Ruta protegida - Guía */}
+      <Route
+        path="/guia"
+        element={user?.rol === 'guia' ? <PanelGuia /> : <Navigate to="/login" />}
+      />
 
-  return <Navigate to="/login" />;
+      {/* Redirección por defecto */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;

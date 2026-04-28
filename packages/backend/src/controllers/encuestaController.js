@@ -84,10 +84,17 @@ const encuestaController = {
     // Obtener encuesta por reserva (para el turista)
     async getByReserva(req, res) {
         try {
-            const { reserva_id } = req.params;
+            const { reservaId } = req.params;  // ← CAMBIAR a reservaId
+            const usuarioId = req.user.id;
             
-            const reserva = await Reserva.findById(reserva_id);
+            console.log(`🔍 Buscando reserva ID: ${reservaId} para usuario: ${usuarioId}`);
+            
+            const reserva = await Reserva.findById(reservaId);
+            
+            console.log(`📦 Reserva encontrada:`, reserva);
+            
             if (!reserva) {
+                console.log(`❌ Reserva ${reservaId} no encontrada`);
                 return res.status(404).json({ error: 'Reserva no encontrada' });
             }
 
@@ -98,13 +105,13 @@ const encuestaController = {
                 return res.status(403).json({ error: 'No autorizado' });
             }
 
-            const encuesta = await Encuesta.findByReservaId(reserva_id);
+            const encuesta = await Encuesta.findByReservaId(reservaId);
             
             if (!encuesta) {
-                return res.status(404).json({ error: 'No hay encuesta para esta reserva' });
+                return res.json({ success: true, encuesta: null });
             }
 
-            res.json(encuesta);
+            res.json({ success: true, encuesta });
         } catch (error) {
             console.error('Error al obtener encuesta:', error);
             res.status(500).json({ error: 'Error al obtener la encuesta' });

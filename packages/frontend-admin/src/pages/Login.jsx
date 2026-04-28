@@ -1,25 +1,46 @@
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('admin@concepcion.cl');
   const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     
-    const result = await login(email, password);
-    
-    if (result.success) {
-      // ✅ Recargar la página después del login
-      window.location.href = '/';
-    } else {
-      setError(result.error);
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { token, usuario } = response.data;
+      
+      console.log('Login response:', { token: token?.substring(0, 50), usuario });
+      
+      localStorage.setItem('token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Decodificar token para saber el rol
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const rol = payload.rol;
+      
+      console.log('Rol del usuario:', rol);
+      console.log('Redirigiendo a:', rol === 'admin' ? '/admin' : '/guia');
+      
+      // Redirigir según el rol
+      if (rol === 'admin') {
+        window.location.href = '/admin';
+      } else if (rol === 'guia') {
+        window.location.href = '/guia';
+      } else {
+        window.location.href = '/';
+      }
+    } catch (err) {
+      console.error('Error en login:', err);
+      setError(err.response?.data?.error || 'Error al iniciar sesión');
       setIsLoading(false);
     }
   };
