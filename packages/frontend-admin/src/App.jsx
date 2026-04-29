@@ -11,7 +11,7 @@ import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
-import PWAInstallPrompt from './components/PwaPrompt';
+import PwaPrompt from './components/PwaPrompt';
 
 function App() {
   const { user, loading } = useAuth();
