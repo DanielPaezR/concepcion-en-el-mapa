@@ -19,7 +19,7 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
-          { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
+          { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png', purpose: 'any maskable' },
           { src: '/icons/icon-96x96.png', sizes: '96x96', type: 'image/png' },
           { src: '/icons/icon-128x128.png', sizes: '128x128', type: 'image/png' },
           { src: '/icons/icon-144x144.png', sizes: '144x144', type: 'image/png' },
@@ -27,6 +27,10 @@ export default defineConfig({
           { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }
+        ],
+        shortcuts: [
+          { name: 'Mapa', short_name: 'Mapa', url: '/mapa', icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }] },
+          { name: 'Mis Reservas', short_name: 'Reservas', url: '/mis-reservas', icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }] }
         ]
       },
       workbox: {
@@ -46,7 +50,5 @@ export default defineConfig({
       }
     })
   ],
-  build: {
-    outDir: 'dist'
-  }
+  build: { outDir: 'dist' }
 })

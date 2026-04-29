@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Concepción en el Mapa - Administración',
         short_name: 'ConceMap Admin',
-        description: 'Panel de administración de Concepción en el Mapa',
+        description: 'Panel de administración para gestionar Concepción en el Mapa',
         theme_color: '#16a34a',
         background_color: '#020612',
         display: 'standalone',
@@ -27,12 +27,40 @@ export default defineConfig({
           { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }
+        ],
+        shortcuts: [
+          {
+            name: 'Dashboard',
+            short_name: 'Dashboard',
+            description: 'Panel de control',
+            url: '/admin',
+            icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }]
+          },
+          {
+            name: 'Reservas',
+            short_name: 'Reservas',
+            description: 'Gestionar reservas',
+            url: '/admin/reservas',
+            icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }]
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/backend-production-ceem\.up\.railway\.app\/api\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 }
+            }
+          }
         ]
       }
     })
   ],
-  server: {
-    port: 5173,
-    open: true
-  }
+  server: { port: 5173, open: true },
+  build: { outDir: 'dist' }
 })
