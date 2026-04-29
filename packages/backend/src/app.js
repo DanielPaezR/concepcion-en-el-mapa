@@ -20,6 +20,7 @@ const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
+const descubrimientoRoutes = require('./routes/descubrimientoRoutes');
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/favoritos', favoritoRoutes);
+app.use('/api/descubrimientos', descubrimientoRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

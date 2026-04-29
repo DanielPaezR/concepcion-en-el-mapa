@@ -46,37 +46,38 @@ export default function PerfilGuardian() {
     }
   };
 
+  // Reemplaza la función cargarTodo completa con esta versión:
   const cargarTodo = async () => {
     try {
       setLoading(true);
       
-      // Cargar perfil del guardián
+      // Solo cargar perfil del guardián (este sí funciona)
       const perfilResponse = await api.get(`/guardianes/perfil/${id}`);
       setPerfil(perfilResponse.data.perfil);
       setInsignias(perfilResponse.data.insignias || []);
       
-      // Cargar estadísticas del usuario (descubrimientos reales)
-      const [descubrimientosRes, usuarioRes] = await Promise.all([
-        api.get(`/descubrimientos/mis-descubrimientos`),
-        api.get(`/usuarios/${id}`)
-      ]);
+      // Cargar datos del usuario desde el endpoint que funciona
+      const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // Actualizar el perfil con datos reales
+      // Calcular lugares desde otro lugar o usar placeholder
+      const lugaresDescubiertos = perfilResponse.data.perfil?.lugares_descubiertos || 0;
+      
+      // Actualizar el perfil con datos reales del usuario
       setPerfil(prev => ({
         ...prev,
-        lugares_descubiertos_real: descubrimientosRes.data?.length || 0,
+        lugares_descubiertos_real: lugaresDescubiertos,
         nivel_real: usuarioRes.data?.nivel || 1,
         xp_total_real: usuarioRes.data?.xp_total || 0,
         email: usuarioRes.data?.email
       }));
       
-      // Cargar estadísticas de eventos
+      // Cargar estadísticas de eventos (si existe)
       try {
         const eventosResponse = await api.get('/eventos/mis-estadisticas');
         setEstadisticasEventos(eventosResponse.data.estadisticas);
         setTitulo(eventosResponse.data.titulo);
       } catch (error) {
-        console.log('No se pudieron cargar estadísticas de eventos');
+        console.log('Estadísticas de eventos no disponibles');
       }
       
     } catch (error) {
