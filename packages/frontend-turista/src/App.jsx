@@ -11,7 +11,6 @@ import MisLogros from './pages/MisLogros';
 import MisReservas from './pages/MisReservas';
 import PerfilGuardian from './pages/PerfilGuardian';
 import MisFavoritos from './pages/MisFavoritos';
-import PWAInstallPrompt from './components/PwaPrompt';
 
 function App() {
   useEffect(() => {
@@ -32,7 +31,6 @@ function App() {
       <Route path="/mis-reservas" element={<MisReservas />} />
       <Route path="/perfil/:id" element={<PerfilGuardian />} />
       <Route path="/mis-favoritos" element={<MisFavoritos />} />
-      <PwaPrompt />
     </Routes>
   );
 }
