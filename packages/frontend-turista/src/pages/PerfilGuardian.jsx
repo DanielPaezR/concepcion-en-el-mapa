@@ -13,6 +13,7 @@ export default function PerfilGuardian() {
   const [estadisticasEventos, setEstadisticasEventos] = useState(null);
   const [titulo, setTitulo] = useState('');
   const [loading, setLoading] = useState(true);
+  const [lugaresDescubiertos, setLugaresDescubiertos] = useState(0);
   const [editando, setEditando] = useState(false);
   const [formData, setFormData] = useState({
     nombre_publico: '',
@@ -35,8 +36,6 @@ export default function PerfilGuardian() {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setUsuarioActual(payload);
-        
-        // Verificar si es su propio perfil
         if (payload.id === parseInt(id)) {
           setEsMiPerfil(true);
         }
@@ -46,7 +45,6 @@ export default function PerfilGuardian() {
     }
   };
 
-  // Reemplaza la función cargarTodo completa con esta versión:
   const cargarTodo = async () => {
     try {
       setLoading(true);
@@ -56,26 +54,22 @@ export default function PerfilGuardian() {
       setPerfil(perfilResponse.data.perfil);
       setInsignias(perfilResponse.data.insignias || []);
       
-      // 2. Cargar datos del usuario (nivel, XP, email)
+      // 2. Cargar datos del usuario
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // 3. 🔥 Cargar los DESCUBRIMIENTOS REALES desde el backend
-      let lugaresDescubiertos = 0;
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
-          lugaresDescubiertos = discResponse.data?.length || 0;
-          console.log('✅ Lugares descubiertos desde backend:', lugaresDescubiertos);
-        }
-      } catch (error) {
-        console.error('Error al cargar descubrimientos:', error);
+      // 3. 🔥 Cargar DESCUBRIMIENTOS directamente desde el backend
+      const token = localStorage.getItem('token');
+      if (token) {
+        const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
+        const count = discResponse.data?.length || 0;
+        setLugaresDescubiertos(count);
+        console.log('✅ Lugares descubiertos en backend:', count);
+        console.log('📋 Lista de IDs:', discResponse.data?.map(d => d.lugar_id));
       }
       
-      // 4. Actualizar el perfil con todos los datos reales
+      // 4. Actualizar perfil con datos del usuario
       setPerfil(prev => ({
         ...prev,
-        lugares_descubiertos_real: lugaresDescubiertos,
         nivel_real: usuarioRes.data?.nivel || 1,
         xp_total_real: usuarioRes.data?.xp_total || 0,
         email: usuarioRes.data?.email
@@ -115,7 +109,7 @@ export default function PerfilGuardian() {
       await api.put('/guardianes/perfil', formData);
       toast.success('Perfil actualizado');
       setEditando(false);
-      cargarTodo(); // Recargar datos
+      cargarTodo();
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al guardar perfil');
@@ -126,7 +120,6 @@ export default function PerfilGuardian() {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Validar tipo y tamaño
     if (!file.type.startsWith('image/')) {
       toast.error('Solo se permiten imágenes');
       return;
@@ -191,19 +184,16 @@ export default function PerfilGuardian() {
     );
   }
 
-  const nivelData = getNivelTitulo(perfil.nivel_real || perfil.nivel || 1);
-  const lugaresReales = perfil.lugares_descubiertos_real || perfil.lugares_descubiertos || 0;
+  const nivelData = getNivelTitulo(perfil.nivel_real || 1);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header con foto de perfil */}
       <div className="bg-gradient-to-r from-purple-700 to-purple-500 text-white p-6">
         <button onClick={() => navigate(-1)} className="text-white mb-4 flex items-center gap-1 hover:opacity-80 transition">
           ← Volver
         </button>
         
         <div className="flex items-center gap-4">
-          {/* Foto de perfil con opción de editar */}
           <div className="relative group">
             <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center overflow-hidden border-3 border-white">
               {formData.foto_perfil_url || perfil.foto_perfil_url ? (
@@ -268,7 +258,6 @@ export default function PerfilGuardian() {
           )}
         </div>
         
-        {/* Botones de guardar/cancelar en modo edición */}
         {editando && esMiPerfil && (
           <div className="flex gap-2 mt-4">
             <button
@@ -287,71 +276,65 @@ export default function PerfilGuardian() {
         )}
       </div>
 
-      {/* Contenido */}
       <div className="p-4">
-        {/* Biografía editable */}
-        <div className="bg-white rounded-xl p-4 mb-4 shadow">
-          {editando && esMiPerfil ? (
-            <textarea
-              value={formData.biografia}
-              onChange={(e) => setFormData({ ...formData, biografia: e.target.value })}
-              placeholder="Cuéntanos sobre ti, tus aventuras favoritas..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              rows="3"
-            />
-          ) : (
-            perfil.biografia && <p className="text-gray-600">{perfil.biografia}</p>
-          )}
-          {!perfil.biografia && !editando && (
+        {editando && esMiPerfil ? (
+          <textarea
+            value={formData.biografia}
+            onChange={(e) => setFormData({ ...formData, biografia: e.target.value })}
+            placeholder="Cuéntanos sobre ti, tus aventuras favoritas..."
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 mb-4"
+            rows="3"
+          />
+        ) : (
+          perfil.biografia && <div className="bg-white rounded-xl p-4 mb-4 shadow">
+            <p className="text-gray-600">{perfil.biografia}</p>
+          </div>
+        )}
+        {!perfil.biografia && !editando && (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow">
             <p className="text-gray-400 text-center italic">
               {esMiPerfil ? '✨ Edita tu perfil para compartir tu historia' : 'Este aventurero aún no ha escrito su biografía'}
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Estadísticas generales (DATOS REALES) */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{perfil.nivel_real || perfil.nivel || 1}</div>
+            <div className="text-2xl font-bold text-purple-600">{perfil.nivel_real || 1}</div>
             <div className="text-xs text-gray-500">Nivel</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{lugaresReales}</div>
+            <div className="text-2xl font-bold text-purple-600">{lugaresDescubiertos}</div>
             <div className="text-xs text-gray-500">Lugares descubiertos</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{perfil.xp_total_real || perfil.xp_total || 0}</div>
+            <div className="text-2xl font-bold text-purple-600">{perfil.xp_total_real || 0}</div>
             <div className="text-xs text-gray-500">XP total</div>
           </div>
         </div>
 
-        {/* Título del nivel */}
         <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-3 text-center mb-4 shadow">
           <p className={`text-lg font-bold ${nivelData.color}`}>
             {nivelData.titulo}
           </p>
         </div>
 
-        {/* Barra de progreso al siguiente nivel */}
         <div className="bg-white rounded-xl p-3 shadow mb-4">
           <div className="flex justify-between text-xs text-gray-600 mb-1">
             <span>Progreso al siguiente nivel</span>
-            <span>{((perfil.xp_total_real || perfil.xp_total || 0) % 100)}/100 XP</span>
+            <span>{((perfil.xp_total_real || 0) % 100)}/100 XP</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all"
-              style={{ width: `${((perfil.xp_total_real || perfil.xp_total || 0) % 100)}%` }}
+              style={{ width: `${((perfil.xp_total_real || 0) % 100)}%` }}
             />
           </div>
         </div>
 
-        {/* Estadísticas de eventos */}
         {estadisticasEventos && (
           <div className="bg-white rounded-xl p-4 shadow mb-4">
-            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              🎯 Retos del Pueblo
-            </h3>
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">🎯 Retos del Pueblo</h3>
             <div className="grid grid-cols-3 gap-3 text-center mb-3">
               <div>
                 <div className="text-2xl font-bold text-purple-600">{estadisticasEventos.total_completados || 0}</div>
@@ -366,35 +349,12 @@ export default function PerfilGuardian() {
                 <div className="text-xs text-gray-500">Mejor racha</div>
               </div>
             </div>
-            
             <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3 text-center mb-3">
-              <span className="text-lg font-bold text-purple-800">
-                {getTituloEmoji(titulo)} {titulo || 'Visitante'}
-              </span>
-            </div>
-            
-            <div>
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                <span>Próximo título:</span>
-                <span>
-                  {estadisticasEventos.total_completados >= 50 ? '🏆 ¡Máximo!' : 
-                   estadisticasEventos.total_completados >= 30 ? '50 eventos para Leyenda' :
-                   estadisticasEventos.total_completados >= 15 ? '30 eventos para Guardián' :
-                   estadisticasEventos.total_completados >= 5 ? '15 eventos para Explorador' :
-                   '5 eventos para Aprendiz'}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-purple-600 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min((estadisticasEventos.total_completados / 50) * 100, 100)}%` }}
-                />
-              </div>
+              <span className="text-lg font-bold text-purple-800">{getTituloEmoji(titulo)} {titulo || 'Visitante'}</span>
             </div>
           </div>
         )}
 
-        {/* Insignias */}
         <div className="bg-white rounded-xl p-4 shadow">
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-yellow-500" />
@@ -404,11 +364,7 @@ export default function PerfilGuardian() {
           {insignias.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {insignias.map((insignia) => (
-                <div 
-                  key={insignia.id} 
-                  className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg px-3 py-2 text-sm flex items-center gap-2 shadow-sm hover:shadow-md transition cursor-help"
-                  title={`Obtenida el ${new Date(insignia.fecha_obtenida).toLocaleDateString()}`}
-                >
+                <div key={insignia.id} className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg px-3 py-2 text-sm flex items-center gap-2 shadow-sm">
                   <span className="text-xl">{insignia.icono || '🏅'}</span>
                   <span className="font-medium">{insignia.nombre}</span>
                 </div>
@@ -418,9 +374,6 @@ export default function PerfilGuardian() {
             <div className="text-center py-8">
               <Award className="w-12 h-12 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">Aún no hay insignias</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {esMiPerfil ? 'Completa eventos y descubre lugares para ganar insignias' : 'Este aventurero aún no ha ganado insignias'}
-              </p>
             </div>
           )}
         </div>

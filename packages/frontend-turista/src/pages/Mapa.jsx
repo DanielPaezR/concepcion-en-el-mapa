@@ -937,6 +937,8 @@ function Mapa() {
     const registrado = await registrarDescubrimiento(lugar);
     if (registrado) {
       setSelectedLugar(null);
+      // 🔥 Navegar a la página de detalle del lugar
+      navigate(`/lugar/${lugar.id}`);
     }
   };
 
