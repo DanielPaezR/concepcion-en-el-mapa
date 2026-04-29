@@ -1,6 +1,7 @@
 {
   "short_name": "Concepción Turista",
   "name": "Concepción en el Mapa - Explorador",
+  "id": "/?source=pwa",
   "description": "Descubre y explora la belleza de Concepción, Antioquia.",
   "icons": [
     {

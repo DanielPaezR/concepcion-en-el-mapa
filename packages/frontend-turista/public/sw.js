@@ -41,3 +41,18 @@ self.addEventListener('activate', (event) => {
     )
   );
 });
+
+// Manejo de notificaciones push
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : { title: 'Nueva notificación', body: 'Tienes una actualización en ConceMap' };
+  
+  const options = {
+    body: data.body,
+    icon: '/logo192.png',
+    badge: '/favicon.ico',
+    data: data.url || '/',
+    vibrate: [100, 50, 100]
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
