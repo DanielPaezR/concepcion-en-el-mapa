@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Users, MapPin, MessageCircle } from 'lucide-react';
-import Avatar from '../components/Avatar';
+import Avatar from '../components/AvatarJugador';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
 import RegistroModal from '../components/RegistroModal';
@@ -100,11 +100,10 @@ function SolicitarGuia() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Verificar si el usuario está registrado (no anónimo)
     if (esAnonimo) {
-      setMensajeAvatar('¡Casi listo, Explorador! Regístrate para que el Pato de Torrentes te encuentre un guía.');
-      setMostrarRegistro(true);
-      return;
+        setMensajeAvatar('¡Casi listo, Explorador! Regístrate para que el Pato de Torrentes te encuentre un guía.');
+        setMostrarRegistro(true);
+        return;
     }
     
     if (!formData.fecha_encuentro || !formData.hora_encuentro) {
@@ -112,7 +111,6 @@ function SolicitarGuia() {
         return;
     }
     
-    // Validar fecha y hora
     const validacion = validarFechaHora(formData.fecha_encuentro, formData.hora_encuentro);
     if (!validacion.valido) {
         alert(validacion.error);
@@ -125,17 +123,25 @@ function SolicitarGuia() {
     try {
         const fechaHora = `${formData.fecha_encuentro}T${formData.hora_encuentro}:00`;
         
+        // Obtener el ID del usuario desde el token
+        const token = localStorage.getItem('turista_token');
+        let turistaId = null;
+        if (token) {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            turistaId = payload.id;
+        }
+        
         const reservaData = {
             lugar_id: parseInt(lugarId),
             fecha_encuentro: fechaHora,
             numero_personas: parseInt(formData.numero_personas),
             intereses: formData.intereses.join(', '),
-            punto_encuentro: formData.punto_encuentro || lugar?.direccion
+            punto_encuentro: formData.punto_encuentro || lugar?.direccion,
+            turista_id: turistaId  // ← AGREGAR ESTA LÍNEA
         };
 
         const response = await api.post('/reservas', reservaData);
         
-        // ✅ GUARDAR LA RESERVA EN localStorage
         const reserva = response.data.reserva;
         localStorage.setItem('ultima_reserva', JSON.stringify({
             id: reserva.id,

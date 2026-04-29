@@ -14,13 +14,13 @@ import {
 import { useAuth } from '../hooks/useAuth'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Lugares', href: '/lugares', icon: MapPinIcon },
-  { name: 'Reservas', href: '/reservas', icon: CalendarIcon },
-  { name: 'Guías', href: '/guias', icon: UsersIcon },
-  { name: 'Encuestas', href: '/encuestas', icon: ClipboardDocumentListIcon },
+  { name: 'Dashboard', href: '/admin', icon: HomeIcon },
+  { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
+  { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
+  { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
+  { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },
   { name: 'Banco Eventos', href: '/admin/eventos', icon: ClipboardDocumentListIcon },
-]
+];
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')

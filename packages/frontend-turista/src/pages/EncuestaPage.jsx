@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Star, Send, ArrowLeft, MessageSquare } from 'lucide-react';
 import api from '../services/api';
-import Avatar from '../components/Avatar';
+import Avatar from '../components/AvatarJugador';
 
 export default function EncuestaPage() {
     const { reservaId } = useParams();

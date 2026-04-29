@@ -6,51 +6,55 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    const loadUser = async () => {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    
-    api.get('/auth/verificar')
-      .then(response => {
+      try {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const response = await api.get('/auth/verificar');
         setUser(response.data.usuario);
-      })
-      .catch(() => {
+      } catch (error) {
+        console.error('Error al verificar token:', error);
         localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadUser();
   }, []);
 
   const login = async (email, password) => {
-    setLoading(true); // ← Mostrar loading mientras se loguea
+    setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
       const { token, usuario } = response.data;
       
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(usuario);
-      
-      return { success: true };
+      if (token) {
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(usuario);
+        return { success: true, user: usuario };
+      } else {
+        return { success: false, error: 'No se recibió token' };
+      }
     } catch (err) {
       return { success: false, error: err.response?.data?.error || 'Error al iniciar sesión' };
     } finally {
-      setLoading(false); // ← Ocultar loading después
+      setLoading(false);
     }
   };
 
   const logout = () => {
-    setLoading(true); // ← Mostrar loading mientras cierra sesión
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    setLoading(false); // ← Ocultar loading después
   };
 
   return { user, loading, login, logout };

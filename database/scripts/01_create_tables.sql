@@ -73,6 +73,16 @@ CREATE TABLE IF NOT EXISTS encuestas (
     CONSTRAINT unique_reserva_encuesta UNIQUE (reserva_id)
 );
 
+-- Tabla: Escaneos QR / Registro de Visitas
+CREATE TABLE IF NOT EXISTS escaneos_qr (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER REFERENCES usuarios(id),
+    session_id VARCHAR(255),
+    user_agent TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tabla: Estadísticas de Acceso (Para el Dashboard)
 CREATE TABLE IF NOT EXISTS metricas_acceso (
     id SERIAL PRIMARY KEY,

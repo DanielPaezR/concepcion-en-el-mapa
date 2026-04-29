@@ -19,6 +19,7 @@ const turistaRoutes = require('./routes/turistaRoutes');
 const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
+const favoritoRoutes = require('./routes/favoritoRoutes');
 
 const app = express();
 
@@ -33,8 +34,18 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-    origin: allowedOrigins,
-    credentials: true
+    origin: function (origin, callback) {
+        // Permitir peticiones sin origen o de dominios autorizados (incluyendo previews de Vercel)
+        if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('localhost')) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Fallback permisivo para asegurar conexión en el pueblo
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+    optionsSuccessStatus: 200
 }));
 app.use(express.json());
 app.use(morgan('dev'));
@@ -56,6 +67,7 @@ app.use('/api/turista', turistaRoutes);
 app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
+app.use('/api/favoritos', favoritoRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

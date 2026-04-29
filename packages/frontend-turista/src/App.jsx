@@ -10,6 +10,7 @@ import LoginTurista from './pages/LoginTurista';
 import MisLogros from './pages/MisLogros';
 import MisReservas from './pages/MisReservas';
 import PerfilGuardian from './pages/PerfilGuardian';
+import MisFavoritos from './pages/MisFavoritos';
 
 function App() {
   useEffect(() => {
@@ -29,6 +30,7 @@ function App() {
       <Route path="/mis-logros" element={<MisLogros />} />
       <Route path="/mis-reservas" element={<MisReservas />} />
       <Route path="/perfil/:id" element={<PerfilGuardian />} />
+      <Route path="/mis-favoritos" element={<MisFavoritos />} />
     </Routes>
   );
 }

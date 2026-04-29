@@ -6,10 +6,12 @@ const reservaController = {
     // Crear una nueva solicitud de guía
     async create(req, res) {
         try {
-            const { lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro } = req.body;
-            const turista_id = req.user?.id || null;
+            const { lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro, turista_id } = req.body;
+            
+            // Usar turista_id del body si existe, sino del token, sino null
+            const turistaId = turista_id || req.user?.id || null;
 
-            console.log('📝 Creando reserva:', { lugar_id, fecha_encuentro, numero_personas, turista_id });
+            console.log('📝 Creando reserva:', { lugar_id, fecha_encuentro, numero_personas, turista_id: turistaId });
 
             // Validar campos requeridos
             if (!lugar_id || !fecha_encuentro || !numero_personas) {
@@ -35,7 +37,7 @@ const reservaController = {
                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente')
                 RETURNING *
             `;
-            const values = [turista_id, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro];
+            const values = [turistaId, lugar_id, guia_id, fecha_encuentro, numero_personas, intereses, punto_encuentro];
             const result = await pool.query(query, values);
 
             res.status(201).json({
