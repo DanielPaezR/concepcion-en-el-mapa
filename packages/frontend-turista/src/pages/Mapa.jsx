@@ -649,56 +649,153 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
 };
 
 // 🏆 Popup del lugar seleccionado (dark glassmorphism)
-const LugarPopupContent = ({ lugar, onExplorar }) => (
-  <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
-    {/* Tipo badge */}
-    <div style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
-      background: 'rgba(255,255,255,0.08)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 20,
-      padding: '2px 8px',
-      marginBottom: 8,
-      fontSize: 10,
-      color: 'rgba(255,255,255,0.5)',
-      letterSpacing: '.08em',
-      textTransform: 'uppercase',
-    }}>
-      {{historico:'🏛️',natural:'🌲',cultural:'🎭',gastronomico:'🍽️'}[lugar.tipo] || '📍'}
-      &nbsp;{lugar.tipo}
+// Dentro del componente Mapa, modifica LugarPopupContent (líneas ~255-300)
+const LugarPopupContent = ({ lugar, discovered, isWithinRange, userPosition, onExplorar }) => {
+  const distance = userPosition ? calcularDistancia(
+    userPosition.lat, userPosition.lng,
+    parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+  ) : null;
+  
+  const canExplore = distance !== null && distance <= 20; // 20 metros máximo
+  const metersToGo = distance ? Math.round(distance) : null;
+  
+  return (
+    <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
+      {/* Tipo badge */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 20, padding: '2px 8px', marginBottom: 8,
+        fontSize: 10, color: 'rgba(255,255,255,0.5)',
+      }}>
+        {getTipoEmoji(lugar.tipo)} {lugar.tipo}
+      </div>
+
+      <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
+        {lugar.nombre}
+      </h3>
+      
+      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
+        {lugar.descripcion}
+      </p>
+
+      {/* Mostrar distancia si no está dentro del rango */}
+      {!canExplore && distance !== null && (
+        <div style={{
+          background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: 8, padding: '6px', marginBottom: 12, textAlign: 'center'
+        }}>
+          <span style={{ color: '#fca5a5', fontSize: 11 }}>
+            📍 A {metersToGo} metros del lugar
+          </span>
+        </div>
+      )}
+
+      <motion.button
+        whileHover={canExplore ? { scale: 1.03 } : {}}
+        whileTap={canExplore ? { scale: 0.97 } : {}}
+        onClick={canExplore ? onExplorar : null}
+        disabled={!canExplore}
+        style={{
+          width: '100%',
+          background: canExplore 
+            ? 'linear-gradient(135deg, #15803d, #14532d)'
+            : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
+          color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
+          padding: '9px 0',
+          borderRadius: 10,
+          fontWeight: 700,
+          fontSize: 13,
+          border: canExplore ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(255,255,255,0.1)',
+          cursor: canExplore ? 'pointer' : 'not-allowed',
+          opacity: canExplore ? 1 : 0.6,
+        }}
+      >
+        {canExplore ? '✨ EXPLORAR AHORA' : '🔒 ACERCATE MÁS'}
+      </motion.button>
+      
+      {!canExplore && distance && (
+        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
+          Necesitas estar a menos de 20 metros
+        </p>
+      )}
     </div>
+  );
+};
 
-    <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6, margin: '0 0 6px' }}>
-      {lugar.nombre}
-    </h3>
-    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, margin: '0 0 12px',
-      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-      {lugar.descripcion}
-    </p>
+// Reemplaza el useEffect de descubrimiento automático (líneas 524-536) por esto:
+// Ya NO se descubre automáticamente, solo se muestra el marcador
 
-    <motion.button
-      whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-      onClick={onExplorar}
-      style={{
-        width: '100%',
-        background: 'linear-gradient(135deg, #15803d, #14532d)',
-        color: 'white',
-        padding: '9px 0',
-        borderRadius: 10,
-        fontWeight: 700,
-        fontSize: 13,
-        border: '1px solid rgba(34,197,94,0.4)',
-        cursor: 'pointer',
-        letterSpacing: '.05em',
-        boxShadow: '0 0 12px rgba(34,197,94,0.2)',
-      }}
-    >
-      EXPLORAR →
-    </motion.button>
-  </div>
-);
+// Agrega esta función para registrar descubrimiento manual
+const registrarDescubrimiento = async (lugar) => {
+  try {
+    // Verificar distancia real antes de registrar
+    if (!userPosition) {
+      mostrarMensajeGuia('📍 Activa tu ubicación para explorar lugares', 'pensativo', 3000);
+      return false;
+    }
+    
+    const distance = calcularDistancia(
+      userPosition.lat, userPosition.lng,
+      parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+    );
+    
+    if (distance > 20) {
+      mostrarMensajeGuia(`❌ Debes acercarte más al lugar (${Math.round(distance)} metros de distancia)`, 'pensativo', 3000);
+      return false;
+    }
+    
+    // Verificar si ya fue descubierto
+    if (discoveredPlaces.includes(lugar.id)) {
+      mostrarMensajeGuia(`📖 Ya descubriste ${lugar.nombre}`, 'normal', 2000);
+      return false;
+    }
+    
+    // Registrar en backend
+    const response = await api.post('/descubrimientos/registrar', {
+      lugar_id: lugar.id,
+      latitud: userPosition.lat,
+      longitud: userPosition.lng
+    });
+    
+    if (response.data.success) {
+      // Actualizar estado local
+      setDiscoveredPlaces(prev => [...prev, lugar.id]);
+      setLastVisitedPlace(lugar);
+      
+      // Actualizar XP y nivel
+      const nuevaXP = xp + sistemaExp.expBase;
+      setXp(nuevaXP);
+      localStorage.setItem('player_xp', nuevaXP);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...discoveredPlaces, lugar.id]));
+      
+      // Recalcular nivel
+      if (sistemaExp.expAcumulada.length > 0) {
+        const nuevoNivel = Math.min(calcularNivelPorXP(nuevaXP, sistemaExp.expAcumulada), 5);
+        if (nuevoNivel > playerLevel) {
+          setPlayerLevel(nuevoNivel);
+          mostrarMensajeGuia(`🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}! 🎉`, 'celebrando', 5000);
+        }
+      }
+      
+      return true;
+    }
+  } catch (error) {
+    console.error('Error al registrar descubrimiento:', error);
+    mostrarMensajeGuia(error.response?.data?.error || 'Error al registrar descubrimiento', 'error', 3000);
+    return false;
+  }
+};
+
+// Modifica la función onExplorar en el Popup
+const handleExplorarLugar = async (lugar) => {
+  const registrado = await registrarDescubrimiento(lugar);
+  if (registrado) {
+    setSelectedLugar(null);
+    // Opcional: navegar a detalle después de registrar
+    // navigate(`/lugar/${lugar.id}`);
+  }
+};
 
 // ⏳ Loading screen RPG
 const LoadingScreen = () => (
@@ -1207,7 +1304,13 @@ function Mapa() {
           >
             <LugarPopupContent
               lugar={selectedLugar}
-              onExplorar={() => navigate(`/lugar/${selectedLugar.id}`)}
+              discovered={discoveredPlaces.includes(selectedLugar.id)}
+              isWithinRange={userPosition && calcularDistancia(
+                userPosition.lat, userPosition.lng,
+                parseFloat(selectedLugar.latitud), parseFloat(selectedLugar.longitud)
+              ) <= 20}
+              userPosition={userPosition}
+              onExplorar={() => handleExplorarLugar(selectedLugar)}
             />
           </Popup>
         )}
