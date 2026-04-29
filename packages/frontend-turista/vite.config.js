@@ -7,16 +7,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Concepción en el Mapa - Explorador',
+        name: 'Concepción en el Mapa',
         short_name: 'ConceMap',
-        description: 'Descubre y explora la belleza de Concepción, Antioquia',
+        description: 'Explora Concepción, Antioquia',
         theme_color: '#16a34a',
-        background_color: '#020612',
+        background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
         start_url: '/',
         icons: [
           { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
@@ -28,25 +26,8 @@ export default defineConfig({
           { src: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }
         ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'mapbox-cache', expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 } }
-          },
-          {
-            urlPattern: /^https:\/\/backend-production-ceem\.up\.railway\.app\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache', networkTimeoutSeconds: 10, expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 } }
-          }
-        ]
       }
     })
   ],
-  build: {
-    outDir: 'dist'
-  }
+  build: { outDir: 'dist' }
 })

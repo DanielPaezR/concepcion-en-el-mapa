@@ -36,5 +36,12 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(reg => console.log('✅ PWA: Service Worker registrado con éxito', reg.scope))
             .catch(err => console.error('❌ PWA: Error al registrar Service Worker', err));
+
+        // Solicitar permiso para notificaciones
+        if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+                console.log('🔔 Permiso de notificaciones:', permission);
+            });
+        }
     });
 }

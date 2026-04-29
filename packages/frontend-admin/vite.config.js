@@ -9,14 +9,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Concepción en el Mapa - Administración',
+        name: 'Concepción en el Mapa - Admin',
         short_name: 'ConceMap Admin',
-        description: 'Panel de administración de Concepción en el Mapa',
+        description: 'Panel de administración',
         theme_color: '#16a34a',
-        background_color: '#020612',
+        background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
         start_url: '/',
         icons: [
           { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
@@ -31,8 +29,6 @@ export default defineConfig({
       }
     })
   ],
-  server: {
-    port: 5173,
-    open: true
-  }
+  server: { port: 5173, open: true },
+  build: { outDir: 'dist' }
 })
