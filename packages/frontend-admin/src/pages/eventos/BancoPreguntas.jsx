@@ -8,7 +8,7 @@ export default function BancoPreguntas() {
   const [ubicaciones, setUbicaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [tipoEvento, setTipoEvento] = useState('pregunta'); // 'pregunta', 'pistas', 'reto', 'reunion', 'ubicacion'
+  const [tipoEvento, setTipoEvento] = useState('pregunta'); // 'pregunta', 'pistas', 'reto', 'reunion', 'ubicacion', 'temporal'
   const [usarMapa, setUsarMapa] = useState(true);
   
   // Estado para nueva ubicación
@@ -20,7 +20,7 @@ export default function BancoPreguntas() {
     descripcion: ''
   });
   
-  // Estado para nueva pregunta
+  // Estado para nueva pregunta/evento
   const [nuevaPregunta, setNuevaPregunta] = useState({ 
     pregunta: '', 
     respuesta: '', 
@@ -28,7 +28,14 @@ export default function BancoPreguntas() {
     pistas: [{ lugar: '', texto: '' }],
     duracion: 30,
     puntos: 50,
-    ubicacion_id: ''
+    ubicacion_id: '',
+    // Campos para eventos temporales
+    es_temporal: false,
+    fecha_inicio: '',
+    fecha_fin: '',
+    evento_temporal_tipo: 'navidad', // navidad, fiestas, semana_santa, reto_pueblo
+    requiere_visitas: 1,
+    lugares_requeridos: []
   });
 
   useEffect(() => {
@@ -80,14 +87,30 @@ export default function BancoPreguntas() {
     e.preventDefault();
     try {
       let data;
-      if (tipoEvento === 'pregunta') {
+      
+      if (tipoEvento === 'temporal') {
+        // Evento temporal especial
+        data = {
+          tipo: 'temporal',
+          pregunta: nuevaPregunta.pregunta,
+          respuesta: nuevaPregunta.respuesta,
+          puntos: nuevaPregunta.puntos,
+          es_temporal: true,
+          fecha_inicio: nuevaPregunta.fecha_inicio,
+          fecha_fin: nuevaPregunta.fecha_fin,
+          evento_temporal_tipo: nuevaPregunta.evento_temporal_tipo,
+          requiere_visitas: nuevaPregunta.requiere_visitas,
+          lugares_requeridos: nuevaPregunta.lugares_requeridos,
+          ubicacion_id: nuevaPregunta.ubicacion_id || null
+        };
+      } else if (tipoEvento === 'pregunta') {
         data = {
           tipo: 'pregunta',
           pregunta: nuevaPregunta.pregunta,
           respuesta: nuevaPregunta.respuesta,
           dificultad: nuevaPregunta.dificultad,
           puntos: nuevaPregunta.puntos,
-          ubicacion_id: nuevaPregunta.ubicacion_id
+          ubicacion_id: nuevaPregunta.ubicacion_id || null
         };
       } else if (tipoEvento === 'pistas') {
         data = {
@@ -104,7 +127,7 @@ export default function BancoPreguntas() {
           respuesta: nuevaPregunta.respuesta,
           duracion: nuevaPregunta.duracion,
           puntos: nuevaPregunta.puntos,
-          ubicacion_id: nuevaPregunta.ubicacion_id
+          ubicacion_id: nuevaPregunta.ubicacion_id || null
         };
       } else if (tipoEvento === 'reunion') {
         data = {
@@ -112,16 +135,17 @@ export default function BancoPreguntas() {
           pregunta: nuevaPregunta.pregunta,
           respuesta: 'asistencia',
           puntos: nuevaPregunta.puntos,
-          ubicacion_id: nuevaPregunta.ubicacion_id
+          ubicacion_id: nuevaPregunta.ubicacion_id || null
         };
       }
       
       await api.post('/admin/eventos/preguntas', data);
-      toast.success(`${getTipoTexto()} agregado`);
+      toast.success(`${getTipoTexto()} agregado ${nuevaPregunta.es_temporal ? 'como evento temporal 🎪' : ''}`);
       resetFormulario();
       cargarDatos();
     } catch (error) {
-      toast.error('Error al agregar');
+      console.error('Error:', error);
+      toast.error(error.response?.data?.error || 'Error al agregar');
     }
   };
 
@@ -172,6 +196,15 @@ export default function BancoPreguntas() {
     }));
   };
 
+  const toggleLugarRequerido = (ubicacionId) => {
+    setNuevaPregunta(prev => ({
+      ...prev,
+      lugares_requeridos: prev.lugares_requeridos.includes(ubicacionId)
+        ? prev.lugares_requeridos.filter(id => id !== ubicacionId)
+        : [...prev.lugares_requeridos, ubicacionId]
+    }));
+  };
+
   const resetFormulario = () => {
     setNuevaPregunta({ 
       pregunta: '', 
@@ -180,7 +213,13 @@ export default function BancoPreguntas() {
       pistas: [{ lugar: '', texto: '' }],
       duracion: 30,
       puntos: 50,
-      ubicacion_id: ''
+      ubicacion_id: '',
+      es_temporal: false,
+      fecha_inicio: '',
+      fecha_fin: '',
+      evento_temporal_tipo: 'navidad',
+      requiere_visitas: 1,
+      lugares_requeridos: []
     });
     setMostrarForm(false);
     setTipoEvento('pregunta');
@@ -193,11 +232,15 @@ export default function BancoPreguntas() {
       case 'reto': return 'Reto contrarreloj';
       case 'reunion': return 'Punto de encuentro';
       case 'ubicacion': return 'Ubicación';
+      case 'temporal': return 'Evento Temporal';
       default: return 'Evento';
     }
   };
 
-  const getTipoBadge = (tipo) => {
+  const getTipoBadge = (tipo, esTemporal) => {
+    if (esTemporal) {
+      return <span className="bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full text-xs">🎪 Temporal</span>;
+    }
     switch(tipo) {
       case 'pregunta': return <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">❓ Pregunta</span>;
       case 'pistas': return <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">🔍 Pistas</span>;
@@ -209,6 +252,132 @@ export default function BancoPreguntas() {
 
   const renderFormularioEvento = () => {
     switch(tipoEvento) {
+      case 'temporal':
+        return (
+          <>
+            <div className="bg-pink-50 p-4 rounded-lg mb-4">
+              <h4 className="font-bold text-pink-800 mb-2">🎪 Evento Temporal Especial</h4>
+              <p className="text-sm text-pink-600">Los eventos temporales solo están disponibles en fechas específicas</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo de evento temporal</label>
+              <select
+                value={nuevaPregunta.evento_temporal_tipo}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, evento_temporal_tipo: e.target.value })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="navidad">🎄 Navidad (1-31 Diciembre)</option>
+                <option value="fiestas">🎉 Fiestas Patronales (1-15 Agosto)</option>
+                <option value="semana_santa">🌿 Semana Santa (marzo/abril)</option>
+                <option value="reto_pueblo">🏃‍♂️ Reto del Pueblo (enero)</option>
+                <option value="personalizado">📅 Personalizado</option>
+              </select>
+            </div>
+
+            {nuevaPregunta.evento_temporal_tipo === 'personalizado' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fecha de inicio</label>
+                  <input
+                    type="date"
+                    value={nuevaPregunta.fecha_inicio}
+                    onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, fecha_inicio: e.target.value })}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fecha de fin</label>
+                  <input
+                    type="date"
+                    value={nuevaPregunta.fecha_fin}
+                    onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, fecha_fin: e.target.value })}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Nombre del evento temporal *</label>
+              <input
+                type="text"
+                value={nuevaPregunta.pregunta}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, pregunta: e.target.value })}
+                className="w-full p-2 border rounded"
+                placeholder="Ej: Navidad Mágica en Concepción"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Descripción / Misión</label>
+              <textarea
+                value={nuevaPregunta.respuesta}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, respuesta: e.target.value })}
+                className="w-full p-2 border rounded"
+                rows="2"
+                placeholder="Describe la misión especial de este evento temporal..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo de requerimiento</label>
+              <select
+                value={nuevaPregunta.requiere_visitas}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, requiere_visitas: parseInt(e.target.value) })}
+                className="w-full p-2 border rounded"
+              >
+                <option value={1}>Visitar 1 lugar especial</option>
+                <option value={3}>Visitar 3 lugares especiales</option>
+                <option value={5}>Visitar 5 lugares especiales</option>
+                <option value={10}>Ruta completa (10 lugares)</option>
+              </select>
+            </div>
+
+            {/* Selección de lugares para visitar */}
+            {nuevaPregunta.requiere_visitas > 1 && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Selecciona los lugares para completar el evento:
+                </label>
+                <div className="border rounded-lg max-h-48 overflow-y-auto p-2">
+                  {ubicaciones.map(ubicacion => (
+                    <label key={ubicacion.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={nuevaPregunta.lugares_requeridos.includes(ubicacion.id)}
+                        onChange={() => toggleLugarRequerido(ubicacion.id)}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{ubicacion.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Selecciona {nuevaPregunta.requiere_visitas} lugares para completar la misión
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Puntos / Recompensa</label>
+              <input
+                type="number"
+                value={nuevaPregunta.puntos}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, puntos: parseInt(e.target.value) })}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+
+            <div className="bg-yellow-50 p-3 rounded-lg">
+              <p className="text-sm text-yellow-800">🏅 Los eventos temporales otorgan insignias exclusivas automáticamente</p>
+            </div>
+          </>
+        );
+      
       case 'pregunta':
         return (
           <>
@@ -515,7 +684,7 @@ export default function BancoPreguntas() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Banco de Eventos</h1>
-          <p className="text-sm text-gray-500 mt-1">Crea preguntas, retos y puntos de encuentro para los eventos diarios</p>
+          <p className="text-sm text-gray-500 mt-1">Crea preguntas, retos, puntos de encuentro y eventos temporales especiales</p>
         </div>
         <button
           onClick={() => setMostrarForm(!mostrarForm)}
@@ -572,6 +741,15 @@ export default function BancoPreguntas() {
               >
                 📍 Punto de encuentro
               </button>
+              <button
+                type="button"
+                onClick={() => setTipoEvento('temporal')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  tipoEvento === 'temporal' ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-800 hover:bg-pink-200'
+                }`}
+              >
+                🎪 Evento Temporal
+              </button>
             </div>
           </div>
 
@@ -586,6 +764,7 @@ export default function BancoPreguntas() {
                   tipoEvento === 'pistas' ? 'bg-purple-600 hover:bg-purple-700' :
                   tipoEvento === 'reto' ? 'bg-orange-600 hover:bg-orange-700' :
                   tipoEvento === 'reunion' ? 'bg-green-600 hover:bg-green-700' :
+                  tipoEvento === 'temporal' ? 'bg-pink-600 hover:bg-pink-700' :
                   'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
@@ -636,14 +815,20 @@ export default function BancoPreguntas() {
             <div key={p.id} className="bg-white p-4 rounded shadow flex justify-between items-start">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  {getTipoBadge(p.tipo || 'pregunta')}
+                  {getTipoBadge(p.tipo, p.es_temporal)}
                   <p className="font-medium">{p.pregunta}</p>
                 </div>
                 <p className="text-sm text-gray-500">
                   Respuesta: {p.respuesta} | {p.puntos || 50} XP
                   {p.dificultad && ` | Dificultad: ${p.dificultad}`}
-                  {p.duracion && ` | ⏱️ {p.duracion} min`}
+                  {p.duracion && ` | ⏱️ ${p.duracion} min`}
                 </p>
+                {p.es_temporal && (
+                  <div className="mt-2 text-sm text-pink-600">
+                    🎪 Evento temporal {p.fecha_inicio && p.fecha_fin && `(${new Date(p.fecha_inicio).toLocaleDateString()} - ${new Date(p.fecha_fin).toLocaleDateString()})`}
+                    {p.requiere_visitas && ` | Requiere: ${p.requiere_visitas} visitas`}
+                  </div>
+                )}
                 {p.pistas && p.pistas.length > 0 && (
                   <div className="mt-2">
                     <p className="text-xs font-medium text-gray-600">📜 Pistas:</p>

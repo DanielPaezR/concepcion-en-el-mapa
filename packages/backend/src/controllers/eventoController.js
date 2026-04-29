@@ -104,16 +104,39 @@ const eventoController = {
                 return res.status(404).json({ error: 'Evento no disponible' });
             }
             
-            // Obtener pregunta y verificar respuesta
-            const pregunta = await pool.query(
-                'SELECT respuesta FROM bancos_preguntas WHERE id = $1',
-                [evento.rows[0].pregunta_id]
-            );
+            const eventoData = evento.rows[0];
             
-            const esCorrecto = pregunta.rows[0]?.respuesta === respuesta;
+            // 🔥 VALIDACIÓN PARA EVENTOS TEMPORALES
+            if (eventoData.es_temporal === true) {
+                const fechaActual = new Date();
+                const fechaInicio = new Date(eventoData.fecha_inicio);
+                const fechaFin = new Date(eventoData.fecha_fin);
+                
+                if (fechaActual < fechaInicio) {
+                    return res.status(400).json({ 
+                        error: `⏰ Este evento comienza el ${fechaInicio.toLocaleDateString()}. ¡Vuelve pronto!` 
+                    });
+                }
+                
+                if (fechaActual > fechaFin) {
+                    return res.status(400).json({ 
+                        error: `📅 Este evento terminó el ${fechaFin.toLocaleDateString()}. ¡Espera la próxima temporada!` 
+                    });
+                }
+            }
             
-            if (!esCorrecto) {
-                return res.status(400).json({ error: 'Respuesta incorrecta' });
+            // Verificar respuesta (si aplica)
+            if (respuesta && eventoData.pregunta_id) {
+                const pregunta = await pool.query(
+                    'SELECT respuesta FROM bancos_preguntas WHERE id = $1',
+                    [eventoData.pregunta_id]
+                );
+                
+                const esCorrecto = pregunta.rows[0]?.respuesta === respuesta;
+                
+                if (!esCorrecto) {
+                    return res.status(400).json({ error: '❌ Respuesta incorrecta' });
+                }
             }
             
             // Registrar progreso
@@ -123,30 +146,66 @@ const eventoController = {
                 [usuarioId, eventoId]
             );
             
-            // Actualizar estadísticas
-            await pool.query(`
-                INSERT INTO estadisticas_eventos (usuario_id, total_completados, racha_actual, racha_maxima)
-                VALUES ($1, 1, 1, 1)
+            // Actualizar estadísticas del evento
+            const statsResult = await pool.query(`
+                INSERT INTO estadisticas_eventos (usuario_id, total_completados, racha_actual, racha_maxima, ultimo_evento)
+                VALUES ($1, 1, 1, 1, NOW())
                 ON CONFLICT (usuario_id) DO UPDATE SET
                     total_completados = estadisticas_eventos.total_completados + 1,
-                    racha_actual = estadisticas_eventos.racha_actual + 1,
-                    racha_maxima = GREATEST(estadisticas_eventos.racha_maxima, estadisticas_eventos.racha_actual + 1),
+                    racha_actual = CASE 
+                        WHEN estadisticas_eventos.ultimo_evento >= NOW() - INTERVAL '1 day' 
+                        THEN estadisticas_eventos.racha_actual + 1 
+                        ELSE 1 
+                    END,
+                    racha_maxima = GREATEST(
+                        estadisticas_eventos.racha_maxima, 
+                        CASE 
+                            WHEN estadisticas_eventos.ultimo_evento >= NOW() - INTERVAL '1 day' 
+                            THEN estadisticas_eventos.racha_actual + 1 
+                            ELSE 1 
+                        END
+                    ),
                     ultimo_evento = NOW()
+                RETURNING total_completados, racha_actual, racha_maxima
             `, [usuarioId]);
             
+            const stats = statsResult.rows[0];
+            
             // Otorgar XP
-            await pool.query(
-                'UPDATE usuarios SET xp_total = COALESCE(xp_total, 0) + $1 WHERE id = $2',
-                [evento.rows[0].xp_recompensa, usuarioId]
-            );
+            const xpGanada = eventoData.xp_recompensa || 50;
+            const nivelResult = await pool.query(`
+                UPDATE usuarios 
+                SET xp_total = COALESCE(xp_total, 0) + $1,
+                    nivel = FLOOR((COALESCE(xp_total, 0) + $1) / 100) + 1
+                WHERE id = $2
+                RETURNING nivel, xp_total
+            `, [xpGanada, usuarioId]);
+            
+            const nivelActual = nivelResult.rows[0]?.nivel || 1;
+            
+            // 🔥 VERIFICAR INSIGNIAS
+            const { verificarYOtorgarInsignias } = require('../services/insigniaService');
+            const nuevasInsignias = await verificarYOtorgarInsignias(usuarioId);
             
             res.json({ 
                 success: true, 
-                message: '¡Evento completado!',
-                xp_ganada: evento.rows[0].xp_recompensa
+                message: '🎉 ¡Evento completado!',
+                xp_ganada: xpGanada,
+                nivel_actual: nivelActual,
+                estadisticas: {
+                    total_completados: parseInt(stats.total_completados),
+                    racha_actual: parseInt(stats.racha_actual),
+                    racha_maxima: parseInt(stats.racha_maxima)
+                },
+                nuevas_insignias: nuevasInsignias.map(i => ({
+                    id: i.id,
+                    nombre: i.nombre,
+                    descripcion: i.descripcion,
+                    icono: i.icono || '🏅'
+                }))
             });
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error en completarEvento:', error);
             res.status(500).json({ error: error.message });
         }
     }
