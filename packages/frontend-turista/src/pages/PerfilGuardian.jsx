@@ -51,18 +51,28 @@ export default function PerfilGuardian() {
     try {
       setLoading(true);
       
-      // Solo cargar perfil del guardián (este sí funciona)
+      // 1. Cargar perfil del guardián
       const perfilResponse = await api.get(`/guardianes/perfil/${id}`);
       setPerfil(perfilResponse.data.perfil);
       setInsignias(perfilResponse.data.insignias || []);
       
-      // Cargar datos del usuario desde el endpoint que funciona
+      // 2. Cargar datos del usuario (nivel, XP, email)
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // Calcular lugares desde otro lugar o usar placeholder
-      const lugaresDescubiertos = perfilResponse.data.perfil?.lugares_descubiertos || 0;
+      // 3. 🔥 Cargar los DESCUBRIMIENTOS REALES desde el backend
+      let lugaresDescubiertos = 0;
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
+          lugaresDescubiertos = discResponse.data?.length || 0;
+          console.log('✅ Lugares descubiertos desde backend:', lugaresDescubiertos);
+        }
+      } catch (error) {
+        console.error('Error al cargar descubrimientos:', error);
+      }
       
-      // Actualizar el perfil con datos reales del usuario
+      // 4. Actualizar el perfil con todos los datos reales
       setPerfil(prev => ({
         ...prev,
         lugares_descubiertos_real: lugaresDescubiertos,
@@ -71,7 +81,7 @@ export default function PerfilGuardian() {
         email: usuarioRes.data?.email
       }));
       
-      // Cargar estadísticas de eventos (si existe)
+      // 5. Cargar estadísticas de eventos
       try {
         const eventosResponse = await api.get('/eventos/mis-estadisticas');
         setEstadisticasEventos(eventosResponse.data.estadisticas);
