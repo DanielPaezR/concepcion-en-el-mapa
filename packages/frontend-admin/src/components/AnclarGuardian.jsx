@@ -7,36 +7,37 @@ import toast from 'react-hot-toast';
 
 export default function AnclarGuardian({ userPosition, onClose, onAnclado }) {
   const [mensaje, setMensaje] = useState('');
-  const [lugaresCompletados, setLugaresCompletados] = useState(false);
+  const [nivelSuficiente, setNivelSuficiente] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [totalLugares, setTotalLugares] = useState(0);
-  const [descubiertos, setDescubiertos] = useState(0);
+  const [nivelActual, setNivelActual] = useState(0);
+  const [nivelRequerido] = useState(5);
 
   useEffect(() => {
-    verificarProgreso();
+    verificarNivel();
   }, []);
 
-  const verificarProgreso = async () => {
+  const verificarNivel = async () => {
     try {
-      const [lugaresRes, descubiertosRes] = await Promise.all([
-        api.get('/lugares'),
-        api.get('/descubrimientos/mis-descubrimientos')
-      ]);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Debes iniciar sesión para anclar un guardián');
+        return;
+      }
+
+      const res = await api.get('/usuarios/mi-perfil');
+      const nivel = res.data.nivel || 0;
       
-      const total = lugaresRes.data.data?.length || lugaresRes.data.length || 0;
-      const descubiertosCount = descubiertosRes.data.length || 0;
-      
-      setTotalLugares(total);
-      setDescubiertos(descubiertosCount);
-      setLugaresCompletados(descubiertosCount >= total);
+      setNivelActual(nivel);
+      setNivelSuficiente(nivel >= nivelRequerido);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error al verificar nivel:', error);
+      toast.error('Error al verificar tu nivel');
     }
   };
 
   const handleAnclar = async () => {
-    if (!lugaresCompletados) {
-      toast.error('Debes descubrir todos los lugares primero');
+    if (!nivelSuficiente) {
+      toast.error(`Debes alcanzar el nivel ${nivelRequerido} para anclar un guardián (Nivel actual: ${nivelActual})`);
       return;
     }
     
@@ -53,7 +54,7 @@ export default function AnclarGuardian({ userPosition, onClose, onAnclado }) {
         mensaje: mensaje
       });
       
-      toast.success('¡Guardian anclado exitosamente!');
+      toast.success('¡Guardián anclado exitosamente!');
       onAnclado?.();
       onClose();
     } catch (error) {
@@ -84,21 +85,32 @@ export default function AnclarGuardian({ userPosition, onClose, onAnclado }) {
           </div>
 
           <div className="space-y-4">
-            {/* Progreso de lugares */}
+            {/* Progreso de nivel */}
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="flex justify-between text-sm mb-1">
-                <span>Progreso</span>
-                <span>{descubiertos}/{totalLugares} lugares</span>
+                <span>Nivel Requerido</span>
+                <span className="font-bold text-primary-600">Nivel {nivelRequerido}</span>
+              </div>
+              <div className="flex justify-between text-sm mb-1 mt-2">
+                <span>Tu Nivel Actual</span>
+                <span className={`font-bold ${nivelSuficiente ? 'text-green-600' : 'text-amber-600'}`}>
+                  Nivel {nivelActual}
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-primary-600 h-2 rounded-full transition-all"
-                  style={{ width: `${(descubiertos / totalLugares) * 100}%` }}
+                  className={`h-2 rounded-full transition-all ${nivelSuficiente ? 'bg-green-600' : 'bg-amber-600'}`}
+                  style={{ width: `${Math.min((nivelActual / nivelRequerido) * 100, 100)}%` }}
                 />
               </div>
-              {!lugaresCompletados && (
+              {!nivelSuficiente && (
                 <p className="text-xs text-amber-600 mt-2">
-                  🔒 Debes descubrir los {totalLugares} lugares para anclar un guardián
+                  🔒 Necesitas {nivelRequerido - nivelActual} niveles más para anclar un guardián
+                </p>
+              )}
+              {nivelSuficiente && (
+                <p className="text-xs text-green-600 mt-2">
+                  ✅ ¡Ya puedes anclar guardianes!
                 </p>
               )}
             </div>
@@ -134,7 +146,7 @@ export default function AnclarGuardian({ userPosition, onClose, onAnclado }) {
 
             <button
               onClick={handleAnclar}
-              disabled={!lugaresCompletados || cargando}
+              disabled={!nivelSuficiente || cargando}
               className="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 transition-colors"
             >
               {cargando ? 'Anclando...' : '🛡️ Anclar Guardián'}

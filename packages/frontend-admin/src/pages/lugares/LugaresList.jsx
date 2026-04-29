@@ -129,7 +129,7 @@ export default function LugaresList() {
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                         <Link
-                          to={`/lugares/editar/${lugar.id}`}
+                          to={`/admin/lugares/editar/${lugar.id}`}
                           className="text-indigo-600 hover:text-indigo-900 mr-3"
                         >
                           <PencilIcon className="h-5 w-5 inline" />

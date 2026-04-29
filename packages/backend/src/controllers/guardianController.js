@@ -1,3 +1,4 @@
+// controllers/guardianController.js
 const pool = require('../config/database');
 
 const guardianController = {
@@ -101,16 +102,18 @@ const guardianController = {
                 return res.status(400).json({ error: 'Ya tienes un guardián activo' });
             }
             
-            // Verificar si completó todos los lugares
-            const totalLugares = await pool.query('SELECT COUNT(*) FROM lugares WHERE activo = true');
-            const lugaresDescubiertos = await pool.query(`
-                SELECT COUNT(DISTINCT lugar_id) as total
-                FROM descubrimientos
-                WHERE usuario_id = $1
+            // 🔥 NUEVA VALIDACIÓN: Verificar nivel del usuario (mínimo nivel 5)
+            const usuarioInfo = await pool.query(`
+                SELECT nivel FROM usuarios WHERE id = $1
             `, [usuarioId]);
             
-            if (lugaresDescubiertos.rows[0].total < totalLugares.rows[0].count) {
-                return res.status(400).json({ error: 'Debes descubrir todos los lugares primero' });
+            const nivelUsuario = usuarioInfo.rows[0]?.nivel || 1;
+            const NIVEL_REQUERIDO = 5;
+            
+            if (nivelUsuario < NIVEL_REQUERIDO) {
+                return res.status(400).json({ 
+                    error: `Debes alcanzar el nivel ${NIVEL_REQUERIDO} para anclar un guardián. Tu nivel actual es ${nivelUsuario}` 
+                });
             }
             
             // Anclar guardián
