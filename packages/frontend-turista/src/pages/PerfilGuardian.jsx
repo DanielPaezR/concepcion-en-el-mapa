@@ -32,7 +32,10 @@ export default function PerfilGuardian() {
 
   const obtenerUsuarioActual = async () => {
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        token = localStorage.getItem('turista_token');
+      }
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setUsuarioActual(payload);
@@ -57,15 +60,44 @@ export default function PerfilGuardian() {
       // 2. Cargar datos del usuario
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // 3. 🔥 Cargar DESCUBRIMIENTOS directamente desde el backend
-      const token = localStorage.getItem('token');
-      if (token) {
-        const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
-        const count = discResponse.data?.length || 0;
-        setLugaresDescubiertos(count);
-        console.log('✅ Lugares descubiertos en backend:', count);
-        console.log('📋 Lista de IDs:', discResponse.data?.map(d => d.lugar_id));
+      // 3. 🔥 Cargar DESCUBRIMIENTOS - Usar localStorage como fuente principal (como el mapa)
+      let count = 0;
+      try {
+        // Primero intentar desde localStorage (misma fuente que el mapa)
+        const saved = localStorage.getItem('concepcion_descubiertos');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          count = Array.isArray(parsed) ? parsed.length : 0;
+          console.log('✅ Lugares desde localStorage:', count);
+        }
+      } catch (e) {
+        console.error('Error leyendo localStorage:', e);
       }
+      
+      // También consultar backend para sincronizar (opcional)
+      try {
+        let token = localStorage.getItem('token');
+        if (!token) {
+          token = localStorage.getItem('turista_token');
+        }
+        if (token) {
+          const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
+          const backendCount = discResponse.data?.length || 0;
+          console.log('✅ Lugares desde backend:', backendCount);
+          
+          // Si hay más en backend, usar ese (y sincronizar localStorage)
+          if (backendCount > count) {
+            count = backendCount;
+            // Sincronizar localStorage con backend
+            const ids = discResponse.data.map(d => d.lugar_id);
+            localStorage.setItem('concepcion_descubiertos', JSON.stringify(ids));
+          }
+        }
+      } catch (error) {
+        console.log('No se pudo consultar backend para descubrimientos');
+      }
+      
+      setLugaresDescubiertos(count);
       
       // 4. Actualizar perfil con datos del usuario
       setPerfil(prev => ({
