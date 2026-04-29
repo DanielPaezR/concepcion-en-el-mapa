@@ -24,11 +24,25 @@ const usuarioController = {
         }
     },
 
-    // Obtener un usuario por ID
+    // Asegúrate que obtenerPorId devuelva nivel y xp_total
     async obtenerPorId(req, res) {
         try {
             const { id } = req.params;
-            const query = 'SELECT id, nombre, email, telefono, rol, disponible, calificacion_promedio, created_at FROM usuarios WHERE id = $1';
+            const query = `
+                SELECT 
+                    id, 
+                    nombre, 
+                    email, 
+                    telefono, 
+                    rol, 
+                    disponible, 
+                    calificacion_promedio,
+                    COALESCE(nivel, 1) as nivel,
+                    COALESCE(xp_total, 0) as xp_total,
+                    created_at 
+                FROM usuarios 
+                WHERE id = $1
+            `;
             const result = await pool.query(query, [id]);
             
             if (result.rows.length === 0) {
