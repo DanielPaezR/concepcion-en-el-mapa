@@ -13,5 +13,6 @@ router.get('/mis-insignias', guardianController.getInsignias);
 router.put('/perfil', guardianController.updatePerfil);
 router.post('/anclar', guardianController.anclarGuardian);
 router.post('/visitar/:guardianId', guardianController.visitarGuardian);
+router.post('/subir-foto', authMiddleware, guardianController.subirFoto);
 
 module.exports = router;

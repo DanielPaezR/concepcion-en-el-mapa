@@ -218,6 +218,41 @@ const guardianController = {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener insignias' });
         }
+    },
+
+    async subirFoto(req, res) {
+        try {
+            const usuarioId = req.user.id;
+            
+            if (!req.files || !req.files.foto) {
+                return res.status(400).json({ error: 'No se envió ninguna foto' });
+            }
+            
+            const foto = req.files.foto;
+            
+            // Subir a Cloudinary o guardar localmente
+            // Aquí asumo que usas Cloudinary
+            const cloudinary = require('cloudinary').v2;
+            
+            const result = await cloudinary.uploader.upload(foto.tempFilePath, {
+                folder: `perfiles_guardian/${usuarioId}`,
+                width: 300,
+                height: 300,
+                crop: 'fill'
+            });
+            
+            // Actualizar perfil con la nueva foto
+            await pool.query(`
+                UPDATE perfiles_guardian 
+                SET foto_perfil_url = $1, fecha_actualizacion = NOW()
+                WHERE usuario_id = $2
+            `, [result.secure_url, usuarioId]);
+            
+            res.json({ success: true, url: result.secure_url });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al subir foto' });
+        }
     }
 };
 
