@@ -1,9 +1,48 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Camera, Edit2, Save, X, User, CheckCircle } from 'lucide-react';
+import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Crown, Camera, Edit2, Save, X, User, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+
+// ─── Función para calcular sistema de EXP (misma que Mapa.jsx) ───
+const calcularSistemaExp = (totalLugares) => {
+  const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
+  const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
+  const expBase = 10;
+  const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos)*totalLugares*expBase));
+  const expAcumulada = [];
+  expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
+  return { expRequerida, expAcumulada, expBase };
+};
+
+// Colores por nivel (mismos que Mapa.jsx)
+const levelColors = {
+  1: { from: '#065f46', to: '#14532d', border: '#22c55e', text: '#4ade80' },
+  2: { from: '#1e3a5f', to: '#0f2d4a', border: '#60a5fa', text: '#93c5fd' },
+  3: { from: '#312e81', to: '#1e1b4b', border: '#818cf8', text: '#a5b4fc' },
+  4: { from: '#451a03', to: '#1c0900', border: '#f59e0b', text: '#fcd34d' },
+  5: { from: '#450a0a', to: '#1a0505', border: '#ef4444', text: '#fca5a5' },
+};
+
+// Etiquetas por nivel (mismas que Mapa.jsx)
+const getNivelEtiqueta = (nivel) => {
+  const etiquetas = {
+    1: 'Principiante',
+    2: 'Explorador',
+    3: 'Aventurero',
+    4: 'Guardián',
+    5: 'Leyenda',
+  };
+  return etiquetas[nivel] || 'Principiante';
+};
+
+// Icono según nivel (mismos que Mapa.jsx)
+const getNivelIcon = (nivel) => {
+  if (nivel >= 5) return Crown;
+  if (nivel >= 3) return Zap;
+  return Star;
+};
 
 export default function PerfilGuardian() {
   const { id } = useParams();
@@ -60,9 +99,10 @@ export default function PerfilGuardian() {
       // 2. Cargar datos del usuario (email, etc.)
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // 3. 🔥 Calcular NIVEL usando la misma fórmula del mapa
+      // 3. 🔥 Calcular NIVEL usando la MISMA fórmula del mapa
       let nivelCalculado = 1;
       let xpActual = 0;
+      let sistemaExp = null;
       
       try {
         // Obtener XP desde localStorage (misma fuente que el mapa)
@@ -72,25 +112,21 @@ export default function PerfilGuardian() {
         const lugaresRes = await api.get('/lugares');
         const totalLugares = lugaresRes.data.data?.length || 8;
         
-        // Misma fórmula que usa el mapa en calcularSistemaExp
-        const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
-        const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
-        const expBase = 10;
-        const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos) * totalLugares * expBase));
-        const expAcumulada = [];
-        expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
+        // Usar la MISMA función que el mapa
+        sistemaExp = calcularSistemaExp(totalLugares);
         
         // Calcular nivel igual que en el mapa
-        for (let i = 0; i < expAcumulada.length; i++) {
-          if (xpActual < expAcumulada[i]) {
+        for (let i = 0; i < sistemaExp.expAcumulada.length; i++) {
+          if (xpActual < sistemaExp.expAcumulada[i]) {
             nivelCalculado = i + 1;
             break;
           }
         }
-        if (xpActual >= expAcumulada[expAcumulada.length - 1]) nivelCalculado = 5;
+        if (xpActual >= sistemaExp.expAcumulada[sistemaExp.expAcumulada.length - 1]) nivelCalculado = 5;
         
         console.log('✅ XP desde localStorage:', xpActual);
         console.log('✅ Nivel calculado:', nivelCalculado);
+        console.log('✅ Sistema EXP:', sistemaExp);
       } catch(e) {
         console.error('Error calculando nivel:', e);
       }
@@ -195,11 +231,11 @@ export default function PerfilGuardian() {
   };
 
   const getNivelTitulo = (nivel) => {
-    if (nivel >= 20) return { titulo: '👑 Leyenda de Concepción', color: 'text-yellow-600' };
-    if (nivel >= 10) return { titulo: '🛡️ Guardián del Pueblo', color: 'text-purple-600' };
-    if (nivel >= 5) return { titulo: '⭐ Aventurero Estrella', color: 'text-blue-600' };
-    if (nivel >= 3) return { titulo: '🌟 Explorador', color: 'text-green-600' };
-    return { titulo: '🌱 Principiante', color: 'text-gray-600' };
+    if (nivel >= 5) return { titulo: '👑 Leyenda', color: 'text-red-400' };
+    if (nivel >= 4) return { titulo: '🛡️ Guardián', color: 'text-amber-400' };
+    if (nivel >= 3) return { titulo: '⚡ Aventurero', color: 'text-indigo-400' };
+    if (nivel >= 2) return { titulo: '⭐ Explorador', color: 'text-blue-400' };
+    return { titulo: '🌱 Principiante', color: 'text-green-400' };
   };
 
   if (loading) {
@@ -339,16 +375,16 @@ export default function PerfilGuardian() {
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{perfil.nivel_real || 1}</div>
+            <div className="text-2xl font-bold" style={{ color: levelColors[Math.min(perfil.nivel_real || 1, 5)].text }}>{perfil.nivel_real || 1}</div>
             <div className="text-xs text-gray-500">Nivel</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{lugaresDescubiertos}</div>
-            <div className="text-xs text-gray-500">Lugares descubiertos</div>
+            <div className="text-2xl font-bold text-green-500">{lugaresDescubiertos}</div>
+            <div className="text-xs text-gray-500">Lugares</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-purple-600">{perfil.xp_total_real || 0}</div>
-            <div className="text-xs text-gray-500">XP total</div>
+            <div className="text-2xl font-bold text-amber-500">{perfil.xp_total_real || 0}</div>
+            <div className="text-xs text-gray-500">XP</div>
           </div>
         </div>
 
@@ -358,18 +394,54 @@ export default function PerfilGuardian() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl p-3 shadow mb-4">
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>Progreso al siguiente nivel</span>
-            <span>{((perfil.xp_total_real || 0) % 100)}/100 XP</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+        {/* Barra de progreso consistente con el mapa */}
+        {(() => {
+          const nivel = perfil.nivel_real || 1;
+          const xp = perfil.xp_total_real || 0;
+          const totalLugares = 8; // Valor por defecto, se puede obtener de la API
+          const sistema = calcularSistemaExp(totalLugares);
+          const xpParaSiguiente = sistema?.expAcumulada?.[nivel - 1] ?? (nivel * 10);
+          const xpAnterior = nivel > 1 ? (sistema?.expAcumulada?.[nivel - 2] ?? 0) : 0;
+          const progreso = xpParaSiguiente > xpAnterior 
+            ? Math.min(((xp - xpAnterior) / (xpParaSiguiente - xpAnterior)) * 100, 100)
+            : 100;
+          const lc = levelColors[Math.min(nivel, 5)];
+          
+          return (
             <div 
-              className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all"
-              style={{ width: `${((perfil.xp_total_real || 0) % 100)}%` }}
-            />
-          </div>
-        </div>
+              className="rounded-xl p-3 shadow mb-4"
+              style={{
+                background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
+                border: `1px solid ${lc.border}`,
+              }}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {React.createElement(getNivelIcon(nivel), { 
+                  size: 16, 
+                  color: lc.text 
+                })}
+                <span 
+                  className="font-bold text-sm"
+                  style={{ color: lc.text, letterSpacing: '.05em' }}
+                >
+                  NV. {nivel} · {getNivelEtiqueta(nivel)}
+                </span>
+              </div>
+              <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1">
+                <div 
+                  className="h-full rounded-full transition-all"
+                  style={{ 
+                    width: `${progreso}%`,
+                    background: lc.border
+                  }}
+                />
+              </div>
+              <div className="text-center text-xs text-white/60">
+                {xp} / {xpParaSiguiente} XP
+              </div>
+            </div>
+          );
+        })()}
 
         {estadisticasEventos && (
           <div className="bg-white rounded-xl p-4 shadow mb-4">
