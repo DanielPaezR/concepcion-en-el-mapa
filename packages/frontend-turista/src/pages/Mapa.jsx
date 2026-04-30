@@ -636,24 +636,21 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// Función auxiliar para obtener emoji del tipo de lugar
-const getTipoEmoji = (tipo) => {
-  const emojis = {
-    historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️',
-  };
-  return emojis[tipo] || '📍';
-};
-
-// 🏆 Popup del lugar seleccionado (versión corregida)
+// 🏆 Popup del lugar seleccionado
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
     userPosition.lat, userPosition.lng,
     parseFloat(lugar.latitud), parseFloat(lugar.longitud)
   ) : null;
-  
+
   const canExplore = distance !== null && distance <= 20;
   const metersToGo = distance ? Math.round(distance) : null;
-  
+
+  const getTipoEmoji = (tipo) => {
+    const emojis = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
+    return emojis[tipo] || '📍';
+  };
+
   return (
     <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
       <div style={{
@@ -668,7 +665,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
       <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
         {lugar.nombre}
       </h3>
-      
+
       <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
         {lugar.descripcion}
       </p>
@@ -684,44 +681,6 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         </div>
       )}
 
-      {/* Marcador fijo de la Galería - SIEMPRE VISIBLE */}
-      {mostrarMarcadorGaleria && (
-        <Marker 
-          longitude={marcadorGaleria.lng} 
-          latitude={marcadorGaleria.lat}
-        >
-          <motion.div
-            animate={{ scale: [1, 1.1, 1], y: [0, -5, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            onClick={() => {
-              if (playerLevel >= 5) {
-                setMostrarGaleria(true);
-              } else {
-                mostrarMensajeGuia(`📸 Necesitas nivel 5 para acceder a la Galería de Recuerdos. ¡Tú nivel actual es ${playerLevel}!`, 'pensativo', 4000);
-              }
-            }}
-            style={{
-              width: 52,
-              height: 52,
-              background: playerLevel >= 5 
-                ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
-                : 'linear-gradient(135deg, #6b7280, #4b5563)',
-              borderRadius: '50%',
-              border: `3px solid ${playerLevel >= 5 ? 'white' : '#9ca3af'}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 26,
-              boxShadow: playerLevel >= 5 
-                ? '0 0 20px rgba(251,191,36,0.6)'
-                : '0 0 10px rgba(107,114,128,0.4)',
-              cursor: 'pointer',
-              opacity: playerLevel >= 5 ? 1 : 0.7,
-            }}
-          >
-            📸
-          </motion.div>
-        </Marker>
-      )}
-
       <motion.button
         whileHover={canExplore ? { scale: 1.03 } : {}}
         whileTap={canExplore ? { scale: 0.97 } : {}}
@@ -729,7 +688,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         disabled={!canExplore}
         style={{
           width: '100%',
-          background: canExplore 
+          background: canExplore
             ? 'linear-gradient(135deg, #15803d, #14532d)'
             : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
           color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
@@ -744,7 +703,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
       >
         {canExplore ? '✨ EXPLORAR AHORA' : '🔒 ACERCATE MÁS'}
       </motion.button>
-      
+
       {!canExplore && distance && (
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
           Necesitas estar a menos de 20 metros
@@ -856,7 +815,6 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
-  const [mostrarLugarEspecial, setMostrarLugarEspecial] = useState(false);
   const [viewState, setViewState] = useState({
     longitude: -75.2581,
     latitude: 6.3944,
@@ -864,21 +822,6 @@ function Mapa() {
     pitch: 60,
     bearing: 15,
   });
-
-  useEffect(() => {
-  const fotosGuardadas = localStorage.getItem('galeria_fotos');
-  if (fotosGuardadas) {
-    try {
-      const fotos = JSON.parse(fotosGuardadas);
-      if (Array.isArray(fotos)) {
-        setFotosGaleria(fotos);
-      }
-    } catch (e) {
-      console.error('Error cargando fotos guardadas:', e);
-      localStorage.removeItem('galeria_fotos');
-    }
-  }
-}, []);
 
   const navigate = useNavigate();
 
@@ -999,20 +942,16 @@ function Mapa() {
     try {
       console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
       
-      // Coordenadas exactas del Parque Principal José María Córdova
       const COORDENADAS_PARQUE = {
         latitud: 6.3953494,
         longitud: -75.2592802,
         nombre: '📸 Parque Principal - Rincón de Recuerdos'
       };
       
-      // Intentar obtener los lugares del backend
       try {
         const lugaresResponse = await api.get('/lugares');
         const lugares = lugaresResponse.data.data || [];
-        console.log('📋 Lugares disponibles:', lugares.length);
         
-        // Buscar el Parque Principal por nombre o tipo
         let lugarEncontrado = lugares.find(l => 
           l.nombre && (l.nombre.includes('Parque') || l.nombre.includes('Principal') || l.tipo === 'especial')
         );
@@ -1024,7 +963,6 @@ function Mapa() {
             nombre: '📸 ' + lugarEncontrado.nombre
           });
         } else {
-          // Usar coordenadas del parque como fallback
           console.log('📌 Usando coordenadas del Parque Principal');
           setLugarEspecial({
             id: 'parque_principal',
@@ -1045,12 +983,10 @@ function Mapa() {
         });
       }
       
-      setMostrarLugarEspecial(true);
-      console.log('✅ Lugar especial ACTIVADO en:', COORDENADAS_PARQUE.latitud, COORDENADAS_PARQUE.longitud);
+      console.log('✅ Lugar especial ACTIVADO');
       
     } catch (e) { 
       console.error('Error cargando lugar especial:', e);
-      // Fallback final: usar coordenadas del parque
       setLugarEspecial({
         id: 'fallback',
         nombre: '📸 Galería de Recuerdos',
@@ -1058,8 +994,6 @@ function Mapa() {
         longitud: -75.2592802,
         tipo: 'especial'
       });
-      setMostrarLugarEspecial(true);
-      console.log('🔄 Usando lugar especial de fallback');
     }
   };
 
@@ -1071,18 +1005,14 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    console.log('🎮 Nivel actual:', playerLevel, '- Cargando lugar especial...');
+    console.log('🎮 Cargando lugar especial...');
     cargarLugarEspecial();
-  }, [playerLevel]);
+  }, []); // Solo se ejecuta una vez al montar
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
       mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000);
       cargarEventos();
-      // Cargar lugar especial si ya es nivel 5
-      if (playerLevel >= 5) {
-        cargarLugarEspecial();
-      }
     }
   }, [loading]);
 
@@ -1320,7 +1250,7 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Marcador especial para la Galería (Parque Principal) - SIEMPRE VISIBLE */}
+        {/* Marcador especial para la Galería - SIEMPRE VISIBLE */}
         {lugarEspecial && (
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
@@ -1360,7 +1290,7 @@ function Mapa() {
                   ? '0 0 24px rgba(251,191,36,0.7), 0 4px 16px rgba(0,0,0,0.5)' 
                   : '0 0 12px rgba(107,114,128,0.4)',
                 cursor: 'pointer',
-                opacity: 1, // Siempre visible
+                opacity: 1,
               }}
             >
               <span style={{ 
