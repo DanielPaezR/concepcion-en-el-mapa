@@ -52,72 +52,73 @@ export default function PerfilGuardian() {
     try {
       setLoading(true);
       
-      // 1. Cargar perfil del guardián
+      // 1. Cargar perfil del guardián (solo datos públicos: nombre, bio, foto)
       const perfilResponse = await api.get(`/guardianes/perfil/${id}`);
       setPerfil(perfilResponse.data.perfil);
       setInsignias(perfilResponse.data.insignias || []);
       
-      // 2. Cargar datos del usuario
+      // 2. Cargar email del usuario
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // 3. 🔥 Cargar DESCUBRIMIENTOS - Usar localStorage como fuente principal (como el mapa)
-      let count = 0;
+      // 3. 🔥 LEER PROGRESO DESDE localStorage (misma fuente que el mapa)
+      let xpActual = 0;
+      let lugaresCount = 0;
+      let nivelCalculado = 1;
+      
       try {
-        // Primero intentar desde localStorage (misma fuente que el mapa)
+        // XP del mapa
+        xpActual = parseInt(localStorage.getItem('player_xp') || '0');
+        
+        // Lugares descubiertos del mapa
         const saved = localStorage.getItem('concepcion_descubiertos');
         if (saved) {
           const parsed = JSON.parse(saved);
-          count = Array.isArray(parsed) ? parsed.length : 0;
-          console.log('✅ Lugares desde localStorage:', count);
+          lugaresCount = Array.isArray(parsed) ? parsed.length : 0;
         }
-      } catch (e) {
+        
+        // Calcular nivel con la misma fórmula del mapa
+        const totalLugares = 8; // o podrías obtenerlo de una API
+        const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
+        const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
+        const expBase = 10;
+        const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos) * totalLugares * expBase));
+        const expAcumulada = [];
+        expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
+        
+        for (let i = 0; i < expAcumulada.length; i++) {
+          if (xpActual < expAcumulada[i]) {
+            nivelCalculado = i + 1;
+            break;
+          }
+        }
+        if (xpActual >= expAcumulada[expAcumulada.length - 1]) nivelCalculado = 5;
+        
+        console.log('📊 Datos desde localStorage:', { xpActual, lugaresCount, nivelCalculado });
+      } catch(e) {
         console.error('Error leyendo localStorage:', e);
       }
       
-      // También consultar backend para sincronizar (opcional)
-      try {
-        let token = localStorage.getItem('token');
-        if (!token) {
-          token = localStorage.getItem('turista_token');
-        }
-        if (token) {
-          const discResponse = await api.get('/descubrimientos/mis-descubrimientos');
-          const backendCount = discResponse.data?.length || 0;
-          console.log('✅ Lugares desde backend:', backendCount);
-          
-          // Si hay más en backend, usar ese (y sincronizar localStorage)
-          if (backendCount > count) {
-            count = backendCount;
-            // Sincronizar localStorage con backend
-            const ids = discResponse.data.map(d => d.lugar_id);
-            localStorage.setItem('concepcion_descubiertos', JSON.stringify(ids));
-          }
-        }
-      } catch (error) {
-        console.log('No se pudo consultar backend para descubrimientos');
-      }
+      setLugaresDescubiertos(lugaresCount);
       
-      setLugaresDescubiertos(count);
-      
-      // 4. Actualizar perfil con datos del usuario
+      // 4. Actualizar perfil con datos reales
       setPerfil(prev => ({
         ...prev,
-        nivel_real: usuarioRes.data?.nivel || 1,
-        xp_total_real: usuarioRes.data?.xp_total || 0,
+        nivel_real: nivelCalculado,
+        xp_total_real: xpActual,
         email: usuarioRes.data?.email
       }));
       
-      // 5. Cargar estadísticas de eventos
+      // 5. Estadísticas de eventos (opcional)
       try {
         const eventosResponse = await api.get('/eventos/mis-estadisticas');
         setEstadisticasEventos(eventosResponse.data.estadisticas);
         setTitulo(eventosResponse.data.titulo);
       } catch (error) {
-        console.log('Estadísticas de eventos no disponibles');
+        console.log('Estadísticas no disponibles');
       }
       
     } catch (error) {
-      console.error('Error al cargar perfil:', error);
+      console.error('Error:', error);
       toast.error('Error al cargar el perfil');
     } finally {
       setLoading(false);
