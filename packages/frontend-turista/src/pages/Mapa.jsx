@@ -1263,12 +1263,12 @@ function Mapa() {
               }}
               transition={{ duration: 2, repeat: Infinity }}
               onClick={() => {
+                setMostrarGaleria(true);
                 if (playerLevel >= 5) {
-                  setMostrarGaleria(true);
                   mostrarMensajeGuia('📸 ¡Bienvenido a la Galería de Recuerdos!', 'celebrando', 3000);
                 } else {
                   mostrarMensajeGuia(
-                    `🔒 Necesitas nivel 5 para acceder a la Galería. ¡Tu nivel actual es ${playerLevel}! Sigue explorando.`,
+                    `🔒 Puedes ver la Galería, pero necesitas nivel 5 para subir fotos. ¡Tu nivel actual es ${playerLevel}! Sigue explorando.`,
                     'pensativo',
                     5000
                   );
