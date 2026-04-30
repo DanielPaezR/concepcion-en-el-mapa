@@ -1065,14 +1065,38 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    if (shouldLocate && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocationPermission('granted');
-        },
-        () => setLocationPermission('denied')
-      );
+    if (!shouldLocate || !navigator.geolocation) return undefined;
+
+    const handlePosition = (pos) => {
+      setUserPosition({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        updatedAt: pos.timestamp,
+      });
+      setLocationPermission('granted');
+    };
+
+    const handleError = (error) => {
+      console.error('Error siguiendo ubicación:', error);
+      if (error.code === error.PERMISSION_DENIED) {
+        setLocationPermission('denied');
+        localStorage.setItem('locationResponse', 'denied');
+      }
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handleError,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 15000,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
     }
   }, [shouldLocate]);
 
