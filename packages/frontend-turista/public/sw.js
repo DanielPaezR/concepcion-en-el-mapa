@@ -1,4 +1,4 @@
-const CACHE_NAME = 'concepcion-v1';
+const CACHE_NAME = 'concepcion-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -15,9 +15,30 @@ self.addEventListener('install', (event) => {
       });
     })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.url.includes('/assets/') ||
+    event.request.url.endsWith('.js') ||
+    event.request.url.endsWith('.css')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((fetchResponse) => {
+          const copy = fetchResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return fetchResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       // Retorna el recurso del caché o hace la petición a la red
@@ -40,6 +61,7 @@ self.addEventListener('activate', (event) => {
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
+  self.clients.claim();
 });
 
 // Manejo de notificaciones push

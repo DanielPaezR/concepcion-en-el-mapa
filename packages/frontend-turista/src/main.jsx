@@ -30,8 +30,8 @@ initAnonymousUser().then(() => {
     );
 });
 
-// Registro del Service Worker movido fuera para asegurar ejecución inmediata
-if ('serviceWorker' in navigator) {
+// Registro del Service Worker solo en producción para evitar cache viejo durante desarrollo.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(reg => console.log('✅ PWA: Service Worker registrado con éxito', reg.scope))
@@ -44,4 +44,7 @@ if ('serviceWorker' in navigator) {
             });
         }
     });
+} else if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+        .then(registrations => registrations.forEach(registration => registration.unregister()));
 }

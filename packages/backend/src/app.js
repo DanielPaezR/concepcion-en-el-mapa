@@ -20,6 +20,7 @@ const escaneoRoutes = require('./routes/escaneoRoutes');
 const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
+const fileUpload = require('express-fileupload');
 
 const app = express();
 
@@ -68,6 +69,11 @@ app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/favoritos', favoritoRoutes);
+app.use(fileUpload({
+    useTempFiles: true,
+    tempFileDir: '/tmp/',
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+}));
 
 // Ruta de prueba
 app.get('/', (req, res) => {

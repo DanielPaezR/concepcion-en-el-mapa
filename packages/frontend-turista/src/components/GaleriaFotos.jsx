@@ -112,6 +112,12 @@ export default function GaleriaFotos({ nivelUsuario, onCerrar }) {
 
   const handleSubirFoto = async (e) => {
     e.preventDefault();
+    if (!nivelSuficiente) {
+      alert(t.nivelRequerido);
+      setMostrarFormulario(false);
+      return;
+    }
+
     if (!archivoSeleccionado) {
       alert(idioma === 'es' ? 'Por favor selecciona una foto' : 'Please select a photo');
       return;

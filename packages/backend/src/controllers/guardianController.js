@@ -1,3 +1,4 @@
+// controllers/guardianController.js
 const pool = require('../config/database');
 
 const guardianController = {
@@ -6,23 +7,52 @@ const guardianController = {
         try {
             const { usuarioId } = req.params;
             
-            // Obtener perfil
-            const queries = [
-                pool.query(`
-                    SELECT p.*, u.nombre as email_nombre, u.nivel, u.xp_total,
+            // Primero verificar si existe el perfil, si no crearlo
+            let perfilResult = await pool.query(`
+                SELECT p.*, u.nivel, u.xp_total,
+                       COALESCE((SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id), 0) as lugares_descubiertos
+                FROM perfiles_guardian p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.usuario_id = $1`, [usuarioId]);
+            
+            // Si no existe perfil, crearlo automáticamente
+            if (perfilResult.rows.length === 0) {
+                await pool.query(`
+                    INSERT INTO perfiles_guardian (usuario_id, nombre_publico, visible)
+                    VALUES ($1, $2, true)
+                    ON CONFLICT (usuario_id) DO NOTHING
+                `, [usuarioId, null]);
+                
+                // Volver a obtener el perfil
+                perfilResult = await pool.query(`
+                    SELECT p.*, u.nivel, u.xp_total,
                            COALESCE((SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id), 0) as lugares_descubiertos
                     FROM perfiles_guardian p
                     JOIN usuarios u ON p.usuario_id = u.id
-                    WHERE p.usuario_id = $1 AND p.visible = true`, [usuarioId]),
-                pool.query(`SELECT i.*, ui.fecha_obtenida FROM usuario_insignias ui JOIN insignias i ON ui.insignia_id = i.id WHERE ui.usuario_id = $1 ORDER BY ui.fecha_obtenida DESC`, [usuarioId]),
-                pool.query(`SELECT total_completados, racha_actual, racha_maxima FROM estadisticas_eventos WHERE usuario_id = $1`, [usuarioId]),
-                pool.query(`SELECT * FROM guardianes_anclados WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()`, [usuarioId])
-            ];
-
-            const [perfilResult, insigniasResult, eventosStats, guardianResult] = await Promise.all(queries);
+                    WHERE p.usuario_id = $1`, [usuarioId]);
+            }
+            
+            // Obtener insignias
+            const insigniasResult = await pool.query(`
+                SELECT i.*, ui.fecha_obtenida 
+                FROM usuario_insignias ui 
+                JOIN insignias i ON ui.insignia_id = i.id 
+                WHERE ui.usuario_id = $1 
+                ORDER BY ui.fecha_obtenida DESC`, [usuarioId]);
+            
+            // Obtener estadísticas de eventos
+            const eventosStats = await pool.query(`
+                SELECT total_completados, racha_actual, racha_maxima 
+                FROM estadisticas_eventos 
+                WHERE usuario_id = $1`, [usuarioId]);
+            
+            // Obtener guardián anclado
+            const guardianResult = await pool.query(`
+                SELECT * FROM guardianes_anclados 
+                WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()`, [usuarioId]);
             
             if (perfilResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Perfil no encontrado' });
+                return res.status(404).json({ error: 'Usuario no encontrado', success: false });
             }
             
             const perfil = perfilResult.rows[0];
@@ -55,7 +85,7 @@ const guardianController = {
             });
         } catch (error) {
             console.error('Error en getPerfil:', error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error.message, success: false });
         }
     },
     
@@ -101,16 +131,18 @@ const guardianController = {
                 return res.status(400).json({ error: 'Ya tienes un guardián activo' });
             }
             
-            // Verificar si completó todos los lugares
-            const totalLugares = await pool.query('SELECT COUNT(*) FROM lugares WHERE activo = true');
-            const lugaresDescubiertos = await pool.query(`
-                SELECT COUNT(DISTINCT lugar_id) as total
-                FROM descubrimientos
-                WHERE usuario_id = $1
+            // 🔥 NUEVA VALIDACIÓN: Verificar nivel del usuario (mínimo nivel 5)
+            const usuarioInfo = await pool.query(`
+                SELECT nivel FROM usuarios WHERE id = $1
             `, [usuarioId]);
             
-            if (lugaresDescubiertos.rows[0].total < totalLugares.rows[0].count) {
-                return res.status(400).json({ error: 'Debes descubrir todos los lugares primero' });
+            const nivelUsuario = usuarioInfo.rows[0]?.nivel || 1;
+            const NIVEL_REQUERIDO = 5;
+            
+            if (nivelUsuario < NIVEL_REQUERIDO) {
+                return res.status(400).json({ 
+                    error: `Debes alcanzar el nivel ${NIVEL_REQUERIDO} para anclar un guardián. Tu nivel actual es ${nivelUsuario}` 
+                });
             }
             
             // Anclar guardián
@@ -214,6 +246,41 @@ const guardianController = {
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener insignias' });
+        }
+    },
+
+    async subirFoto(req, res) {
+        try {
+            const usuarioId = req.user.id;
+            
+            // multer con upload.single() pone el archivo en req.file (singular)
+            if (!req.file) {
+                return res.status(400).json({ error: 'No se envió ninguna foto', success: false });
+            }
+            
+            const foto = req.file;
+            
+            // Subir a Cloudinary o guardar localmente
+            const cloudinary = require('cloudinary').v2;
+            
+            const result = await cloudinary.uploader.upload(foto.path, {
+                folder: `perfiles_guardian/${usuarioId}`,
+                width: 300,
+                height: 300,
+                crop: 'fill'
+            });
+            
+            // Actualizar perfil con la nueva foto
+            await pool.query(`
+                UPDATE perfiles_guardian 
+                SET foto_perfil_url = $1, fecha_actualizacion = NOW()
+                WHERE usuario_id = $2
+            `, [result.secure_url, usuarioId]);
+            
+            res.json({ success: true, url: result.secure_url });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al subir foto', success: false });
         }
     }
 };

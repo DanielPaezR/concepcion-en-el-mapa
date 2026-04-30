@@ -131,7 +131,6 @@ const HUDHeader = ({
   lugarEspecial, onOpenGaleria, onOpenAnclar,
   onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
 }) => {
-  // XP para el nivel actual y el siguiente
   const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
   const xpAnterior = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
   const progreso = xpParaSiguiente > 0
@@ -166,11 +165,8 @@ const HUDHeader = ({
         gap: 8,
       }}
     >
-      {/* Grupo izquierdo */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-
-          {/* Badge de nivel con XP bar */}
           <div style={{
             background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
             border: `1.5px solid ${lc.border}`,
@@ -185,7 +181,6 @@ const HUDHeader = ({
                 NV. {playerLevel}
               </span>
             </div>
-            {/* XP bar */}
             <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
               <motion.div
                 initial={{ width: 0 }}
@@ -199,7 +194,6 @@ const HUDHeader = ({
             </span>
           </div>
 
-          {/* Descubrimientos */}
           <div style={{
             background: 'rgba(2,6,18,0.8)',
             backdropFilter: 'blur(10px)',
@@ -219,7 +213,6 @@ const HUDHeader = ({
             </div>
           </div>
 
-          {/* Botones especiales nivel 5 */}
           {playerLevel >= 5 && lugarEspecial && (
             <motion.button
               whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
@@ -256,7 +249,6 @@ const HUDHeader = ({
         </div>
       </div>
 
-      {/* Botón menú derecho */}
       <motion.button
         onClick={onToggleQuestLog}
         whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
@@ -339,7 +331,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, 
           boxShadow: '0 0 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
         }}
       >
-        {/* Título */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10 }}>
           <span style={{ fontSize: 16 }}>📜</span>
           <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 15, letterSpacing: '.04em' }}>
@@ -359,7 +350,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, 
           </span>
         </div>
 
-        {/* Lista */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {lugares.map((lugar, i) => {
             const found = discoveredPlaces.includes(lugar.id);
@@ -438,7 +428,6 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
           textAlign: 'center',
         }}
       >
-        {/* Icono animado */}
         <motion.div
           animate={{ scale: [1, 1.12, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -529,7 +518,6 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
         boxShadow: '0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(251,191,36,0.08)',
       }}
     >
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div style={{
           width: 40, height: 40,
@@ -648,57 +636,82 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// 🏆 Popup del lugar seleccionado (dark glassmorphism)
-const LugarPopupContent = ({ lugar, onExplorar }) => (
-  <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
-    {/* Tipo badge */}
-    <div style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
-      background: 'rgba(255,255,255,0.08)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 20,
-      padding: '2px 8px',
-      marginBottom: 8,
-      fontSize: 10,
-      color: 'rgba(255,255,255,0.5)',
-      letterSpacing: '.08em',
-      textTransform: 'uppercase',
-    }}>
-      {{historico:'🏛️',natural:'🌲',cultural:'🎭',gastronomico:'🍽️'}[lugar.tipo] || '📍'}
-      &nbsp;{lugar.tipo}
+// 🏆 Popup del lugar seleccionado
+const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
+  const distance = userPosition ? calcularDistancia(
+    userPosition.lat, userPosition.lng,
+    parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+  ) : null;
+
+  const canExplore = distance !== null && distance <= 20;
+  const metersToGo = distance ? Math.round(distance) : null;
+
+  const getTipoEmoji = (tipo) => {
+    const emojis = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
+    return emojis[tipo] || '📍';
+  };
+
+  return (
+    <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 20, padding: '2px 8px', marginBottom: 8,
+        fontSize: 10, color: 'rgba(255,255,255,0.5)',
+      }}>
+        {getTipoEmoji(lugar.tipo)} {lugar.tipo}
+      </div>
+
+      <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
+        {lugar.nombre}
+      </h3>
+
+      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
+        {lugar.descripcion}
+      </p>
+
+      {!canExplore && distance !== null && (
+        <div style={{
+          background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: 8, padding: '6px', marginBottom: 12, textAlign: 'center'
+        }}>
+          <span style={{ color: '#fca5a5', fontSize: 11 }}>
+            📍 A {metersToGo} metros del lugar
+          </span>
+        </div>
+      )}
+
+      <motion.button
+        whileHover={canExplore ? { scale: 1.03 } : {}}
+        whileTap={canExplore ? { scale: 0.97 } : {}}
+        onClick={canExplore ? onExplorar : null}
+        disabled={!canExplore}
+        style={{
+          width: '100%',
+          background: canExplore
+            ? 'linear-gradient(135deg, #15803d, #14532d)'
+            : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
+          color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
+          padding: '9px 0',
+          borderRadius: 10,
+          fontWeight: 700,
+          fontSize: 13,
+          border: canExplore ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(255,255,255,0.1)',
+          cursor: canExplore ? 'pointer' : 'not-allowed',
+          opacity: canExplore ? 1 : 0.6,
+        }}
+      >
+        {canExplore ? '✨ EXPLORAR AHORA' : '🔒 ACERCATE MÁS'}
+      </motion.button>
+
+      {!canExplore && distance && (
+        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
+          Necesitas estar a menos de 20 metros
+        </p>
+      )}
     </div>
-
-    <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6, margin: '0 0 6px' }}>
-      {lugar.nombre}
-    </h3>
-    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, margin: '0 0 12px',
-      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-      {lugar.descripcion}
-    </p>
-
-    <motion.button
-      whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-      onClick={onExplorar}
-      style={{
-        width: '100%',
-        background: 'linear-gradient(135deg, #15803d, #14532d)',
-        color: 'white',
-        padding: '9px 0',
-        borderRadius: 10,
-        fontWeight: 700,
-        fontSize: 13,
-        border: '1px solid rgba(34,197,94,0.4)',
-        cursor: 'pointer',
-        letterSpacing: '.05em',
-        boxShadow: '0 0 12px rgba(34,197,94,0.2)',
-      }}
-    >
-      EXPLORAR →
-    </motion.button>
-  </div>
-);
+  );
+};
 
 // ⏳ Loading screen RPG
 const LoadingScreen = () => (
@@ -712,7 +725,6 @@ const LoadingScreen = () => (
     position: 'relative',
     overflow: 'hidden',
   }}>
-    {/* Scan line decorativa */}
     <motion.div
       animate={{ y: ['-100%', '200vh'] }}
       transition={{ duration: 3, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
@@ -725,7 +737,6 @@ const LoadingScreen = () => (
       }}
     />
 
-    {/* Anillo exterior */}
     <div style={{ position: 'relative', marginBottom: 32 }}>
       <motion.div
         animate={{ rotate: 360 }}
@@ -765,7 +776,6 @@ const LoadingScreen = () => (
       CONCEPCIÓN · ANTIOQUIA
     </div>
 
-    {/* Barra de progreso */}
     <motion.div
       style={{ width: 200, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 4, marginTop: 24 }}
     >
@@ -801,14 +811,13 @@ function Mapa() {
   const [sistemaExp, setSistemaExp] = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [lugarEspecial, setLugarEspecial] = useState(null);
-  const [lugarEspecialDesbloqueado, setLugarEspecialDesbloqueado] = useState(false);
   const [mostrarAnclar, setMostrarAnclar] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
   const [viewState, setViewState] = useState({
-    longitude: -75.2581,
-    latitude: 6.3944,
+    longitude: -75.2592802,
+    latitude: 6.3953494,
     zoom: 18,
     pitch: 60,
     bearing: 15,
@@ -835,10 +844,15 @@ function Mapa() {
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3;
-    const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   };
 
   const calcularSistemaExp = (totalLugares) => {
@@ -858,6 +872,100 @@ function Mapa() {
     return expAcumulada.length + 1;
   };
 
+  // ── Función para registrar descubrimiento ───────────────────
+  const registrarDescubrimiento = async (lugar) => {
+    try {
+      if (!userPosition) {
+        mostrarMensajeGuia('📍 Activa tu ubicación para explorar lugares', 'pensativo', 3000);
+        return false;
+      }
+      
+      const distance = calcularDistancia(
+        userPosition.lat, userPosition.lng,
+        parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+      );
+      
+      if (distance > 20) {
+        mostrarMensajeGuia(`❌ Debes acercarte más al lugar (${Math.round(distance)} metros de distancia)`, 'pensativo', 3000);
+        return false;
+      }
+      
+      if (discoveredPlaces.includes(lugar.id)) {
+        mostrarMensajeGuia(`📖 Ya descubriste ${lugar.nombre}`, 'normal', 2000);
+        return false;
+      }
+      
+      const response = await api.post('/descubrimientos/registrar', {
+        lugar_id: lugar.id,
+        latitud: userPosition.lat,
+        longitud: userPosition.lng
+      });
+      
+      if (response.data.success) {
+        const nuevosDescubiertos = [...discoveredPlaces, lugar.id];
+        setDiscoveredPlaces(nuevosDescubiertos);
+        setLastVisitedPlace(lugar);
+        setTimeout(() => setLastVisitedPlace(null), 3000);
+        
+        const nuevaXP = (nuevosDescubiertos.length) * sistemaExp.expBase;
+        setXp(nuevaXP);
+        localStorage.setItem('player_xp', nuevaXP);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevosDescubiertos));
+        
+        if (sistemaExp.expAcumulada.length > 0) {
+          const nuevoNivel = Math.min(calcularNivelPorXP(nuevaXP, sistemaExp.expAcumulada), 5);
+          if (nuevoNivel > playerLevel) {
+            setPlayerLevel(nuevoNivel);
+            mostrarMensajeGuia(`🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}! 🎉`, 'celebrando', 5000);
+          }
+        }
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('Error al registrar descubrimiento:', error);
+      mostrarMensajeGuia(error.response?.data?.error || 'Error al registrar descubrimiento', 'error', 3000);
+      return false;
+    }
+  };
+
+  const handleExplorarLugar = async (lugar) => {
+    const registrado = await registrarDescubrimiento(lugar);
+    if (registrado) {
+      setSelectedLugar(null);
+      navigate(`/lugar/${lugar.id}`);
+    }
+  };
+
+  // ── Función para cargar lugar especial ───────────────────
+  const cargarLugarEspecial = async () => {
+    try {
+      const COORDENADAS_PARQUE = {
+        latitud: 6.3953494,
+        longitud: -75.2592802,
+        nombre: '📸 Parque Principal - Rincón de Recuerdos'
+      };
+
+      setLugarEspecial({
+        id: 'parque_principal_galeria',
+        nombre: COORDENADAS_PARQUE.nombre,
+        latitud: COORDENADAS_PARQUE.latitud,
+        longitud: COORDENADAS_PARQUE.longitud,
+        tipo: 'especial'
+      });
+      
+    } catch (e) { 
+      console.error('Error cargando lugar especial:', e);
+      setLugarEspecial({
+        id: 'fallback',
+        nombre: '📸 Galería de Recuerdos',
+        latitud: 6.3953494,
+        longitud: -75.2592802,
+        tipo: 'especial'
+      });
+    }
+  };
+
   // ── Efectos ────────────────────────────────────────────────
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 640);
@@ -866,22 +974,16 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    if (playerLevel >= 5) setLugarEspecialDesbloqueado(true);
-  }, [playerLevel]);
+    console.log('🎮 Cargando lugar especial...');
+    cargarLugarEspecial();
+  }, []); // Solo se ejecuta una vez al montar
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
       mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000);
-      cargarLugarEspecial();
       cargarEventos();
     }
   }, [loading]);
-
-  useEffect(() => {
-    if (locationPermission === 'granted' && userPosition) {
-      mostrarMensajeGuia('¡Excelente! Muévete para descubrir lugares automáticamente.', 'consejo', 5000);
-    }
-  }, [locationPermission, userPosition]);
 
   useEffect(() => {
     if (lastVisitedPlace) {
@@ -894,20 +996,6 @@ function Mapa() {
       mostrarMensajeGuia(`¡Felicidades! Has alcanzado el nivel ${playerLevel}!`, 'nivel', 5000);
     }
   }, [playerLevel]);
-
-  useEffect(() => {
-    if (userPosition && lugares.length > 0) {
-      lugares.forEach(lugar => {
-        if (discoveredPlaces.includes(lugar.id)) return;
-        const d = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
-        if (d < VISIT_RADIUS) {
-          setDiscoveredPlaces(prev => [...prev, lugar.id]);
-          setLastVisitedPlace(lugar);
-          setTimeout(() => setLastVisitedPlace(null), 3000);
-        }
-      });
-    }
-  }, [userPosition, lugares]);
 
   useEffect(() => {
     const consejos = [
@@ -982,7 +1070,6 @@ function Mapa() {
         (pos) => {
           setUserPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocationPermission('granted');
-          setViewState(prev => ({ ...prev, longitude: pos.coords.longitude, latitude: pos.coords.latitude, zoom: 16 }));
         },
         () => setLocationPermission('denied')
       );
@@ -996,14 +1083,6 @@ function Mapa() {
       if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  };
-
-  const cargarLugarEspecial = async () => {
-    try {
-      const r = await api.get('/lugar-especial');
-      setLugarEspecial(r.data.lugar);
-      setLugarEspecialDesbloqueado(r.data.desbloqueado);
-    } catch (e) { console.error(e); }
   };
 
   const cargarEventos = async () => {
@@ -1021,10 +1100,6 @@ function Mapa() {
         setEventoSeleccionado(null);
         setRespuestaEvento('');
         cargarEventos();
-        const stats = await api.get('/eventos/mis-estadisticas');
-        if (stats.data.titulo !== tituloActual) {
-          mostrarMensajeGuia(`🏆 ¡NUEVO TÍTULO! Ahora eres ${stats.data.titulo}`, 'celebrando', 5000);
-        }
       }
     } catch {
       mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
@@ -1050,7 +1125,6 @@ function Mapa() {
     <div className="h-screen relative overflow-hidden">
       <StyleInjector />
 
-      {/* HUD Superior */}
       <HUDHeader
         playerLevel={playerLevel}
         discoveredPlaces={discoveredPlaces}
@@ -1065,13 +1139,11 @@ function Mapa() {
         isMobile={isMobile}
       />
 
-      {/* Brújula */}
       <BrujulaFuncional
         bearing={viewState.bearing}
         onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))}
       />
 
-      {/* Compañero Virtual */}
       <CompaneroVirtual
         mensaje={mensajeGuia}
         nivel={playerLevel}
@@ -1079,12 +1151,13 @@ function Mapa() {
         emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
       />
 
-      {/* Galería */}
       {mostrarGaleria && (
-        <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />
+        <GaleriaFotos 
+          nivelUsuario={playerLevel}
+          onCerrar={() => setMostrarGaleria(false)}
+        />
       )}
 
-      {/* Prompt ubicación */}
       <LocationPrompt
         show={showLocationPrompt && !userResponded}
         onAccept={() => {
@@ -1101,7 +1174,6 @@ function Mapa() {
         }}
       />
 
-      {/* Quest Log */}
       <QuestLogPanel
         show={showQuestLog}
         lugares={lugares}
@@ -1112,7 +1184,6 @@ function Mapa() {
         isMobile={isMobile}
       />
 
-      {/* MAPA */}
       <Map
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
@@ -1125,14 +1196,12 @@ function Mapa() {
         <Map3DEffect />
         <NavigationControl position="top-right" />
 
-        {/* Avatar jugador */}
         {userPosition && (
           <Marker longitude={userPosition.lng} latitude={userPosition.lat}>
             <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
 
-        {/* Lugares */}
         {lugares.map((lugar) => (
           <Marker
             key={lugar.id}
@@ -1149,27 +1218,70 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Lugar especial */}
-        {lugarEspecial && lugarEspecialDesbloqueado && (
-          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)}>
+        {/* Marcador especial para la Galería - SIEMPRE VISIBLE */}
+        {lugarEspecial && (
+          <Marker 
+            longitude={parseFloat(lugarEspecial.longitud)} 
+            latitude={parseFloat(lugarEspecial.latitud)}
+            anchor="bottom"
+            style={{ zIndex: 3000 }}
+          >
             <motion.div
-              animate={{ scale: [1, 1.1, 1], y: [0, -4, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              style={{
-                width: 58, height: 58,
-                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                borderRadius: '50%',
-                border: '3px solid white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 28,
-                boxShadow: '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)',
-                cursor: 'pointer',
+              animate={{ 
+                scale: [1, 1.15, 1], 
+                y: [0, -6, 0] 
               }}
-            >👑</motion.div>
+              transition={{ duration: 2, repeat: Infinity }}
+              onClick={() => {
+                setMostrarGaleria(true);
+                if (playerLevel >= 5) {
+                  mostrarMensajeGuia('📸 ¡Bienvenido a la Galería de Recuerdos!', 'celebrando', 3000);
+                } else {
+                  mostrarMensajeGuia(
+                    `🔒 Puedes ver la Galería, pero necesitas nivel 5 para subir fotos. ¡Tu nivel actual es ${playerLevel}! Sigue explorando.`,
+                    'pensativo',
+                    5000
+                  );
+                }
+              }}
+              style={{
+                width: isMobile ? 60 : 72,
+                height: isMobile ? 60 : 72,
+                background: 'linear-gradient(135deg, #fde68a 0%, #fbbf24 45%, #d97706 100%)',
+                borderRadius: '50%',
+                border: '4px solid white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: isMobile ? 28 : 34,
+                boxShadow: '0 0 32px rgba(251,191,36,0.9), 0 8px 22px rgba(0,0,0,0.55)',
+                cursor: 'pointer',
+                opacity: 1,
+                zIndex: 3000,
+                position: 'relative',
+              }}
+            >
+              <span style={{ 
+                filter: 'none',
+                fontSize: isMobile ? 28 : 34 
+              }}>
+                📸
+              </span>
+              {playerLevel < 5 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -5,
+                  fontSize: 18,
+                  filter: 'none'
+                }}>
+                  🔒
+                </span>
+              )}
+            </motion.div>
           </Marker>
         )}
 
-        {/* Eventos */}
         {eventos.map((evento) => (
           <Marker
             key={`evento_${evento.id}`}
@@ -1194,7 +1306,6 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Popup */}
         {selectedLugar && (
           <Popup
             longitude={parseFloat(selectedLugar.longitud)}
@@ -1207,13 +1318,15 @@ function Mapa() {
           >
             <LugarPopupContent
               lugar={selectedLugar}
-              onExplorar={() => navigate(`/lugar/${selectedLugar.id}`)}
+              discovered={discoveredPlaces.includes(selectedLugar.id)}
+              userPosition={userPosition}
+              onExplorar={() => handleExplorarLugar(selectedLugar)}
+              calcularDistancia={calcularDistancia}
             />
           </Popup>
         )}
       </Map>
 
-      {/* Botón ubicación */}
       <BotonUbicacion
         userPosition={userPosition}
         onCenter={() => userPosition && setViewState(prev => ({
@@ -1224,7 +1337,6 @@ function Mapa() {
         }))}
       />
 
-      {/* Menú explorador */}
       <MenuExplorador
         nivel={playerLevel}
         xp={xp}
@@ -1232,7 +1344,6 @@ function Mapa() {
         totalLugares={lugares.length}
       />
 
-      {/* Anclar Guardián */}
       {mostrarAnclar && (
         <AnclarGuardian
           userPosition={userPosition}
@@ -1241,7 +1352,6 @@ function Mapa() {
         />
       )}
 
-      {/* Modal evento */}
       <AnimatePresence>
         {eventoSeleccionado && (
           <EventoModal
@@ -1254,7 +1364,6 @@ function Mapa() {
         )}
       </AnimatePresence>
 
-      {/* Estado Reserva */}
       <EstadoReserva />
     </div>
   );
