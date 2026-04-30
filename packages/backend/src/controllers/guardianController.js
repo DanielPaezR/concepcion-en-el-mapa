@@ -224,17 +224,17 @@ const guardianController = {
         try {
             const usuarioId = req.user.id;
             
-            if (!req.files || !req.files.foto) {
-                return res.status(400).json({ error: 'No se envió ninguna foto' });
+            // multer con upload.single() pone el archivo en req.file (singular)
+            if (!req.file) {
+                return res.status(400).json({ error: 'No se envió ninguna foto', success: false });
             }
             
-            const foto = req.files.foto;
+            const foto = req.file;
             
             // Subir a Cloudinary o guardar localmente
-            // Aquí asumo que usas Cloudinary
             const cloudinary = require('cloudinary').v2;
             
-            const result = await cloudinary.uploader.upload(foto.tempFilePath, {
+            const result = await cloudinary.uploader.upload(foto.path, {
                 folder: `perfiles_guardian/${usuarioId}`,
                 width: 300,
                 height: 300,
@@ -251,7 +251,7 @@ const guardianController = {
             res.json({ success: true, url: result.secure_url });
         } catch (error) {
             console.error('Error:', error);
-            res.status(500).json({ error: 'Error al subir foto' });
+            res.status(500).json({ error: 'Error al subir foto', success: false });
         }
     }
 };
