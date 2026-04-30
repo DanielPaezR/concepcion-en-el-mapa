@@ -7,23 +7,52 @@ const guardianController = {
         try {
             const { usuarioId } = req.params;
             
-            // Obtener perfil
-            const queries = [
-                pool.query(`
-                    SELECT p.*, u.nombre as email_nombre, u.nivel, u.xp_total,
+            // Primero verificar si existe el perfil, si no crearlo
+            let perfilResult = await pool.query(`
+                SELECT p.*, u.nivel, u.xp_total,
+                       COALESCE((SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id), 0) as lugares_descubiertos
+                FROM perfiles_guardian p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.usuario_id = $1`, [usuarioId]);
+            
+            // Si no existe perfil, crearlo automáticamente
+            if (perfilResult.rows.length === 0) {
+                await pool.query(`
+                    INSERT INTO perfiles_guardian (usuario_id, nombre_publico, visible)
+                    VALUES ($1, $2, true)
+                    ON CONFLICT (usuario_id) DO NOTHING
+                `, [usuarioId, null]);
+                
+                // Volver a obtener el perfil
+                perfilResult = await pool.query(`
+                    SELECT p.*, u.nivel, u.xp_total,
                            COALESCE((SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id), 0) as lugares_descubiertos
                     FROM perfiles_guardian p
                     JOIN usuarios u ON p.usuario_id = u.id
-                    WHERE p.usuario_id = $1 AND p.visible = true`, [usuarioId]),
-                pool.query(`SELECT i.*, ui.fecha_obtenida FROM usuario_insignias ui JOIN insignias i ON ui.insignia_id = i.id WHERE ui.usuario_id = $1 ORDER BY ui.fecha_obtenida DESC`, [usuarioId]),
-                pool.query(`SELECT total_completados, racha_actual, racha_maxima FROM estadisticas_eventos WHERE usuario_id = $1`, [usuarioId]),
-                pool.query(`SELECT * FROM guardianes_anclados WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()`, [usuarioId])
-            ];
-
-            const [perfilResult, insigniasResult, eventosStats, guardianResult] = await Promise.all(queries);
+                    WHERE p.usuario_id = $1`, [usuarioId]);
+            }
+            
+            // Obtener insignias
+            const insigniasResult = await pool.query(`
+                SELECT i.*, ui.fecha_obtenida 
+                FROM usuario_insignias ui 
+                JOIN insignias i ON ui.insignia_id = i.id 
+                WHERE ui.usuario_id = $1 
+                ORDER BY ui.fecha_obtenida DESC`, [usuarioId]);
+            
+            // Obtener estadísticas de eventos
+            const eventosStats = await pool.query(`
+                SELECT total_completados, racha_actual, racha_maxima 
+                FROM estadisticas_eventos 
+                WHERE usuario_id = $1`, [usuarioId]);
+            
+            // Obtener guardián anclado
+            const guardianResult = await pool.query(`
+                SELECT * FROM guardianes_anclados 
+                WHERE usuario_id = $1 AND activo = true AND fecha_fin > NOW()`, [usuarioId]);
             
             if (perfilResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Perfil no encontrado' });
+                return res.status(404).json({ error: 'Usuario no encontrado', success: false });
             }
             
             const perfil = perfilResult.rows[0];
@@ -56,7 +85,7 @@ const guardianController = {
             });
         } catch (error) {
             console.error('Error en getPerfil:', error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error.message, success: false });
         }
     },
     
