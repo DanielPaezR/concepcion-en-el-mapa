@@ -863,6 +863,7 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
+  const [fotosGaleria, setFotosGaleria] = useState([]);
   const [viewState, setViewState] = useState({
     longitude: -75.2581,
     latitude: 6.3944,
@@ -1272,23 +1273,15 @@ function Mapa() {
             📸 Galería de Recuerdos
           </h2>
 
-          {/* 🏆 TOP */}
-          <h3 style={{ color: '#fbbf24' }}>🏆 Más votadas</h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 12 }}>
-            {topFotos.map(foto => (
+          {/* 📷 GALERÍA SIMPLE (SIN LIKES) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))',
+            gap: 12
+          }}>
+            {fotosGaleria.map(foto => (
               <div key={foto.id} style={{ background: '#111', padding: 8, borderRadius: 10 }}>
                 <img src={foto.url} style={{ width: '100%', borderRadius: 8 }} />
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                  <span style={{ color: 'white', fontSize: 12 }}>
-                    ❤️ {likesFotos[foto.id] || 0}
-                  </span>
-
-                  <button onClick={() => darLike(foto.id)}>
-                    👍
-                  </button>
-                </div>
               </div>
             ))}
           </div>
@@ -1319,7 +1312,18 @@ function Mapa() {
             style={{ marginTop: 20 }}
           />
 
-          <button onClick={() => setMostrarGaleria(false)}>
+          <button
+            onClick={() => setMostrarGaleria(false)}
+            style={{
+              marginTop: 20,
+              padding: '10px 16px',
+              borderRadius: 10,
+              background: '#222',
+              color: 'white',
+              border: '1px solid #444',
+              cursor: 'pointer'
+            }}
+          >
             Cerrar
           </button>
         </div>
