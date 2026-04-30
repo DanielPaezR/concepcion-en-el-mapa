@@ -816,8 +816,8 @@ function Mapa() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
   const [viewState, setViewState] = useState({
-    longitude: -75.2581,
-    latitude: 6.3944,
+    longitude: -75.2592802,
+    latitude: 6.3953494,
     zoom: 18,
     pitch: 60,
     bearing: 15,
@@ -1070,7 +1070,6 @@ function Mapa() {
         (pos) => {
           setUserPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocationPermission('granted');
-          setViewState(prev => ({ ...prev, longitude: pos.coords.longitude, latitude: pos.coords.latitude, zoom: 16 }));
         },
         () => setLocationPermission('denied')
       );
@@ -1225,6 +1224,7 @@ function Mapa() {
             longitude={parseFloat(lugarEspecial.longitud)} 
             latitude={parseFloat(lugarEspecial.latitud)}
             anchor="bottom"
+            style={{ zIndex: 3000 }}
           >
             <motion.div
               animate={{ 
