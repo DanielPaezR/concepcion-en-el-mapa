@@ -814,7 +814,7 @@ function Mapa() {
   const [sistemaExp, setSistemaExp] = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [lugarEspecial, setLugarEspecial] = useState(null);
-  const [lugarEspecialDesbloqueado, setLugarEspecialDesbloqueado] = useState(false);
+  const [mostrarLugarEspecial, setMostrarLugarEspecial] = useState(false);
   const [mostrarAnclar, setMostrarAnclar] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
@@ -937,8 +937,39 @@ function Mapa() {
     const registrado = await registrarDescubrimiento(lugar);
     if (registrado) {
       setSelectedLugar(null);
-      // 🔥 Navegar a la página de detalle del lugar
       navigate(`/lugar/${lugar.id}`);
+    }
+  };
+
+  // ── Función para cargar lugar especial ───────────────────
+  const cargarLugarEspecial = async () => {
+    try {
+      // Si no es nivel 5, no mostrar lugar especial
+      if (playerLevel < 5) {
+        setMostrarLugarEspecial(false);
+        return;
+      }
+      
+      // Buscar un lugar que tenga tipo "especial" o usar el Parque Principal
+      const lugaresResponse = await api.get('/lugares');
+      const lugares = lugaresResponse.data.data || [];
+      
+      // Buscar un lugar con tipo "especial" o tomar el Parque Principal
+      let lugarEspecialEncontrado = lugares.find(l => l.tipo === 'especial');
+      if (!lugarEspecialEncontrado) {
+        lugarEspecialEncontrado = lugares.find(l => l.nombre === 'Parque Principal José María Córdova');
+      }
+      if (!lugarEspecialEncontrado && lugares.length > 0) {
+        lugarEspecialEncontrado = lugares[0];
+      }
+      
+      if (lugarEspecialEncontrado) {
+        setLugarEspecial(lugarEspecialEncontrado);
+        setMostrarLugarEspecial(true);
+        console.log('✅ Lugar especial mostrado:', lugarEspecialEncontrado.nombre, 'para nivel', playerLevel);
+      }
+    } catch (e) { 
+      console.error('Error cargando lugar especial:', e); 
     }
   };
 
@@ -950,14 +981,21 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    if (playerLevel >= 5) setLugarEspecialDesbloqueado(true);
+    if (playerLevel >= 5) {
+      cargarLugarEspecial();
+    } else {
+      setMostrarLugarEspecial(false);
+    }
   }, [playerLevel]);
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
       mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000);
-      cargarLugarEspecial();
       cargarEventos();
+      // Cargar lugar especial si ya es nivel 5
+      if (playerLevel >= 5) {
+        cargarLugarEspecial();
+      }
     }
   }, [loading]);
 
@@ -1060,24 +1098,6 @@ function Mapa() {
       if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  };
-
-  const cargarLugarEspecial = async () => {
-    try {
-      const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
-      if (!token) {
-        console.log('No hay token, no se puede cargar lugar especial');
-        return;
-      }
-      const r = await api.get('/lugar-especial');
-      if (r.data?.success) {
-        setLugarEspecial(r.data.lugar);
-        setLugarEspecialDesbloqueado(r.data.desbloqueado);
-        console.log('✅ Lugar especial cargado:', r.data);
-      }
-    } catch (e) { 
-      console.error('Error cargando lugar especial:', e); 
-    }
   };
 
   const cargarEventos = async () => {
@@ -1210,11 +1230,16 @@ function Mapa() {
           </Marker>
         ))}
 
-        {lugarEspecial && lugarEspecialDesbloqueado && (
-          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)}>
+        {/* Marcador especial para la Galería (Parque Principal) */}
+        {mostrarLugarEspecial && lugarEspecial && (
+          <Marker 
+            longitude={parseFloat(lugarEspecial.longitud)} 
+            latitude={parseFloat(lugarEspecial.latitud)}
+          >
             <motion.div
-              animate={{ scale: [1, 1.1, 1], y: [0, -4, 0] }}
+              animate={{ scale: [1, 1.2, 1], y: [0, -8, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
+              onClick={() => setMostrarGaleria(true)}
               style={{
                 width: 58, height: 58,
                 background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
@@ -1225,7 +1250,9 @@ function Mapa() {
                 boxShadow: '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)',
                 cursor: 'pointer',
               }}
-            >👑</motion.div>
+            >
+              📸
+            </motion.div>
           </Marker>
         )}
 
