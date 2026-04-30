@@ -658,11 +658,9 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
     parseFloat(lugar.latitud), parseFloat(lugar.longitud)
   ) : null;
   
-
   const canExplore = distance !== null && distance <= 20;
   const metersToGo = distance ? Math.round(distance) : null;
   
-
   return (
     <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
       <div style={{
@@ -861,7 +859,6 @@ function Mapa() {
   const [sistemaExp, setSistemaExp] = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [lugarEspecial, setLugarEspecial] = useState(null);
-  const [mostrarLugarEspecial, setMostrarLugarEspecial] = useState(false);
   const [mostrarAnclar, setMostrarAnclar] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
@@ -993,15 +990,6 @@ function Mapa() {
   try {
     console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
     
-    // Si no es nivel 5, no mostrar lugar especial
-    if (playerLevel < 5) {
-      console.log('❌ Nivel insuficiente para lugar especial');
-      setMostrarLugarEspecial(false);
-      return;
-    }
-    
-    console.log('🔍 Inicializando lugar especial (Galería)');
-
     // Coordenadas exactas del Parque Principal José María Córdova
     const COORDENADAS_PARQUE = {
       latitud: 6.3953494,
@@ -1081,6 +1069,17 @@ function Mapa() {
       setMostrarLugarEspecial(false);
     }
   }, [playerLevel]);
+
+  useEffect(() => {
+    if (!loading && lugares.length > 0) {
+      mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000);
+      cargarEventos();
+      // Cargar lugar especial si ya es nivel 5
+      if (playerLevel >= 5) {
+        cargarLugarEspecial();
+      }
+    }
+  }, [loading]);
 
   useEffect(() => {
     if (lastVisitedPlace) {
@@ -1314,7 +1313,7 @@ function Mapa() {
         ))}
 
         {/* Marcador especial para la Galería (Parque Principal) */}
-        {mostrarLugarEspecial && lugarEspecial && (
+        {lugarEspecial && (
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
             latitude={parseFloat(lugarEspecial.latitud)}
@@ -1322,24 +1321,34 @@ function Mapa() {
             <motion.div
               animate={{ scale: [1, 1.2, 1], y: [0, -8, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
-              onClick={() => setMostrarGaleria(true)}
+              onClick={() => {
+                if (playerLevel >= 5) {
+                  setMostrarGaleria(true);
+                } else {
+                  mostrarMensajeGuia(
+                    `📸 Necesitas nivel 5 para acceder a la Galería. Nivel actual: ${playerLevel}`,
+                    'pensativo',
+                    4000
+                  );
+                }
+              }}
               style={{
-                width: 58, height: 58,
-                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                background: playerLevel >= 5 
+                width: 58,
+                height: 58,
+                background: playerLevel >= 5
                   ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
-                  : 'linear-gradient(135deg, #94a3b8, #64748b)',
+                  : 'linear-gradient(135deg, #6b7280, #4b5563)',
                 borderRadius: '50%',
-                border: '3px solid white',
-                border: `3px solid ${playerLevel >= 5 ? 'white' : '#cbd5e1'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `3px solid ${playerLevel >= 5 ? 'white' : '#9ca3af'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: 28,
-                boxShadow: '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)',
-                boxShadow: playerLevel >= 5 
+                boxShadow: playerLevel >= 5
                   ? '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)'
-                  : '0 0 10px rgba(0,0,0,0.2)',
+                  : '0 0 10px rgba(107,114,128,0.4)',
                 cursor: 'pointer',
-                filter: playerLevel >= 5 ? 'none' : 'grayscale(0.3)'
+                opacity: playerLevel >= 5 ? 1 : 0.7,
               }}
             >
               📸
