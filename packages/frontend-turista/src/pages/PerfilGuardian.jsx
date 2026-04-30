@@ -206,17 +206,21 @@ export default function PerfilGuardian() {
     
     setSubiendoFoto(true);
     const formDataFile = new FormData();
-    formDataFile.append('foto', file);
+    formDataFile.append('foto', file);  // 🔥 El nombre debe ser 'foto'
     
     try {
-      const response = await api.post('/guardianes/subir-foto', formDataFile, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setFormData(prev => ({ ...prev, foto_perfil_url: response.data.url }));
-      toast.success('Foto subida correctamente');
+      // 🔥 NO establecer Content-Type manualmente
+      const response = await api.post('/guardianes/subir-foto', formDataFile);
+      
+      if (response.data.success) {
+        setFormData(prev => ({ ...prev, foto_perfil_url: response.data.url }));
+        toast.success('Foto subida correctamente');
+        // Recargar perfil para mostrar la nueva foto
+        setTimeout(() => cargarTodo(), 1000);
+      }
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al subir foto');
+      toast.error(error.response?.data?.error || 'Error al subir foto');
     } finally {
       setSubiendoFoto(false);
     }

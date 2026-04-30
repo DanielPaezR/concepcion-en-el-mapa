@@ -9,18 +9,20 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-    (config) => {
-        // Buscar en ambas claves (unificar)
-        let token = localStorage.getItem('token');
-        if (!token) {
-            token = localStorage.getItem('turista_token');
-        }
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    // Si es FormData, no modificar Content-Type
+    if (config.data instanceof FormData) {
+      return config;
+    }
+    
+    let token = localStorage.getItem('token');
+    if (!token) token = localStorage.getItem('turista_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
