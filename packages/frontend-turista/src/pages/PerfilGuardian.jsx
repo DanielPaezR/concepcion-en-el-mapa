@@ -52,32 +52,27 @@ export default function PerfilGuardian() {
     try {
       setLoading(true);
       
-      // 1. Cargar perfil del guardián (solo datos públicos: nombre, bio, foto)
+      // 1. Cargar perfil del guardián
       const perfilResponse = await api.get(`/guardianes/perfil/${id}`);
       setPerfil(perfilResponse.data.perfil);
       setInsignias(perfilResponse.data.insignias || []);
       
-      // 2. Cargar email del usuario
+      // 2. Cargar datos del usuario (email, etc.)
       const usuarioRes = await api.get(`/usuarios/${id}`);
       
-      // 3. 🔥 LEER PROGRESO DESDE localStorage (misma fuente que el mapa)
-      let xpActual = 0;
-      let lugaresCount = 0;
+      // 3. 🔥 Calcular NIVEL usando la misma fórmula del mapa
       let nivelCalculado = 1;
+      let xpActual = 0;
       
       try {
-        // XP del mapa
+        // Obtener XP desde localStorage (misma fuente que el mapa)
         xpActual = parseInt(localStorage.getItem('player_xp') || '0');
         
-        // Lugares descubiertos del mapa
-        const saved = localStorage.getItem('concepcion_descubiertos');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          lugaresCount = Array.isArray(parsed) ? parsed.length : 0;
-        }
+        // Obtener total de lugares para calcular sistema de EXP
+        const lugaresRes = await api.get('/lugares');
+        const totalLugares = lugaresRes.data.data?.length || 8;
         
-        // Calcular nivel con la misma fórmula del mapa
-        const totalLugares = 8; // o podrías obtenerlo de una API
+        // Misma fórmula que usa el mapa en calcularSistemaExp
         const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
         const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
         const expBase = 10;
@@ -85,6 +80,7 @@ export default function PerfilGuardian() {
         const expAcumulada = [];
         expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
         
+        // Calcular nivel igual que en el mapa
         for (let i = 0; i < expAcumulada.length; i++) {
           if (xpActual < expAcumulada[i]) {
             nivelCalculado = i + 1;
@@ -93,14 +89,24 @@ export default function PerfilGuardian() {
         }
         if (xpActual >= expAcumulada[expAcumulada.length - 1]) nivelCalculado = 5;
         
-        console.log('📊 Datos desde localStorage:', { xpActual, lugaresCount, nivelCalculado });
+        console.log('✅ XP desde localStorage:', xpActual);
+        console.log('✅ Nivel calculado:', nivelCalculado);
       } catch(e) {
-        console.error('Error leyendo localStorage:', e);
+        console.error('Error calculando nivel:', e);
       }
       
+      // 4. Obtener lugares descubiertos desde localStorage
+      let lugaresCount = 0;
+      try {
+        const saved = localStorage.getItem('concepcion_descubiertos');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          lugaresCount = Array.isArray(parsed) ? parsed.length : 0;
+        }
+      } catch(e) {}
       setLugaresDescubiertos(lugaresCount);
       
-      // 4. Actualizar perfil con datos reales
+      // 5. Actualizar perfil con nivel calculado
       setPerfil(prev => ({
         ...prev,
         nivel_real: nivelCalculado,
@@ -108,17 +114,17 @@ export default function PerfilGuardian() {
         email: usuarioRes.data?.email
       }));
       
-      // 5. Estadísticas de eventos (opcional)
+      // 6. Cargar estadísticas de eventos
       try {
         const eventosResponse = await api.get('/eventos/mis-estadisticas');
         setEstadisticasEventos(eventosResponse.data.estadisticas);
         setTitulo(eventosResponse.data.titulo);
       } catch (error) {
-        console.log('Estadísticas no disponibles');
+        console.log('Estadísticas de eventos no disponibles');
       }
       
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error al cargar perfil:', error);
       toast.error('Error al cargar el perfil');
     } finally {
       setLoading(false);
