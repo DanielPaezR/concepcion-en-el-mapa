@@ -1064,10 +1064,20 @@ function Mapa() {
 
   const cargarLugarEspecial = async () => {
     try {
+      const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
+      if (!token) {
+        console.log('No hay token, no se puede cargar lugar especial');
+        return;
+      }
       const r = await api.get('/lugar-especial');
-      setLugarEspecial(r.data.lugar);
-      setLugarEspecialDesbloqueado(r.data.desbloqueado);
-    } catch (e) { console.error(e); }
+      if (r.data?.success) {
+        setLugarEspecial(r.data.lugar);
+        setLugarEspecialDesbloqueado(r.data.desbloqueado);
+        console.log('✅ Lugar especial cargado:', r.data);
+      }
+    } catch (e) { 
+      console.error('Error cargando lugar especial:', e); 
+    }
   };
 
   const cargarEventos = async () => {
