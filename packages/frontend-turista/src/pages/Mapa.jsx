@@ -856,7 +856,6 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
-  const [fotosGaleria, setFotosGaleria] = useState([]);
   const [mostrarLugarEspecial, setMostrarLugarEspecial] = useState(false);
   const [viewState, setViewState] = useState({
     longitude: -75.2581,
@@ -1255,72 +1254,10 @@ function Mapa() {
       />
 
       {mostrarGaleria && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.9)',
-          zIndex: 4000,
-          overflowY: 'auto',
-          padding: 20
-        }}>
-          <h2 style={{ color: 'white', marginBottom: 20 }}>
-            📸 Galería de Recuerdos
-          </h2>
-
-          {/* 📷 GALERÍA SIMPLE (SIN LIKES) */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))',
-            gap: 12
-          }}>
-            {fotosGaleria.map(foto => (
-              <div key={foto.id} style={{ background: '#111', padding: 8, borderRadius: 10 }}>
-                <img src={foto.url} style={{ width: '100%', borderRadius: 8 }} />
-              </div>
-            ))}
-          </div>
-
-          {/* ➕ SUBIR FOTO */}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-
-              const reader = new FileReader();
-              reader.onload = () => {
-                const nuevaFoto = {
-                  id: Date.now(),
-                  url: reader.result
-                };
-
-                const nuevas = [...fotosGaleria, nuevaFoto];
-                setFotosGaleria(nuevas);
-                localStorage.setItem('galeria_fotos', JSON.stringify(nuevas));
-
-                mostrarMensajeGuia('📸 Foto subida!', 'celebrando', 2000);
-              };
-              reader.readAsDataURL(file);
-            }}
-            style={{ marginTop: 20 }}
-          />
-
-          <button
-            onClick={() => setMostrarGaleria(false)}
-            style={{
-              marginTop: 20,
-              padding: '10px 16px',
-              borderRadius: 10,
-              background: '#222',
-              color: 'white',
-              border: '1px solid #444',
-              cursor: 'pointer'
-            }}
-          >
-            Cerrar
-          </button>
-        </div>
+        <GaleriaFotos 
+          nivelUsuario={playerLevel}
+          onCerrar={() => setMostrarGaleria(false)}
+        />
       )}
 
       <LocationPrompt
