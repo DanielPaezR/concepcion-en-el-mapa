@@ -989,6 +989,17 @@ function Mapa() {
   const cargarLugarEspecial = async () => {
   try {
     console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
+
+    {playerLevel < 5 && (
+      <span style={{
+        position: 'absolute',
+        bottom: -4,
+        right: -2,
+        fontSize: 12
+      }}>
+        🔒
+      </span>
+    )}
     
     // Coordenadas exactas del Parque Principal José María Córdova
     const COORDENADAS_PARQUE = {
@@ -1249,7 +1260,69 @@ function Mapa() {
       />
 
       {mostrarGaleria && (
-        <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.9)',
+          zIndex: 4000,
+          overflowY: 'auto',
+          padding: 20
+        }}>
+          <h2 style={{ color: 'white', marginBottom: 20 }}>
+            📸 Galería de Recuerdos
+          </h2>
+
+          {/* 🏆 TOP */}
+          <h3 style={{ color: '#fbbf24' }}>🏆 Más votadas</h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 12 }}>
+            {topFotos.map(foto => (
+              <div key={foto.id} style={{ background: '#111', padding: 8, borderRadius: 10 }}>
+                <img src={foto.url} style={{ width: '100%', borderRadius: 8 }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span style={{ color: 'white', fontSize: 12 }}>
+                    ❤️ {likesFotos[foto.id] || 0}
+                  </span>
+
+                  <button onClick={() => darLike(foto.id)}>
+                    👍
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ➕ SUBIR FOTO */}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+
+              const reader = new FileReader();
+              reader.onload = () => {
+                const nuevaFoto = {
+                  id: Date.now(),
+                  url: reader.result
+                };
+
+                const nuevas = [...fotosGaleria, nuevaFoto];
+                setFotosGaleria(nuevas);
+                localStorage.setItem('galeria_fotos', JSON.stringify(nuevas));
+
+                mostrarMensajeGuia('📸 Foto subida!', 'celebrando', 2000);
+              };
+              reader.readAsDataURL(file);
+            }}
+            style={{ marginTop: 20 }}
+          />
+
+          <button onClick={() => setMostrarGaleria(false)}>
+            Cerrar
+          </button>
+        </div>
       )}
 
       <LocationPrompt
