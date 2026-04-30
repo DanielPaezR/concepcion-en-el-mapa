@@ -943,35 +943,79 @@ function Mapa() {
 
   // ── Función para cargar lugar especial ───────────────────
   const cargarLugarEspecial = async () => {
+  try {
+    console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
+    
+    // Si no es nivel 5, no mostrar lugar especial
+    if (playerLevel < 5) {
+      console.log('❌ Nivel insuficiente para lugar especial');
+      setMostrarLugarEspecial(false);
+      return;
+    }
+    
+    // Coordenadas exactas del Parque Principal José María Córdova
+    const COORDENADAS_PARQUE = {
+      latitud: 6.3953494,
+      longitud: -75.2592802,
+      nombre: '📸 Parque Principal - Rincón de Recuerdos'
+    };
+    
+    // Intentar obtener los lugares del backend
     try {
-      // Si no es nivel 5, no mostrar lugar especial
-      if (playerLevel < 5) {
-        setMostrarLugarEspecial(false);
-        return;
-      }
-      
-      // Buscar un lugar que tenga tipo "especial" o usar el Parque Principal
       const lugaresResponse = await api.get('/lugares');
       const lugares = lugaresResponse.data.data || [];
+      console.log('📋 Lugares disponibles:', lugares.length);
       
-      // Buscar un lugar con tipo "especial" o tomar el Parque Principal
-      let lugarEspecialEncontrado = lugares.find(l => l.tipo === 'especial');
-      if (!lugarEspecialEncontrado) {
-        lugarEspecialEncontrado = lugares.find(l => l.nombre === 'Parque Principal José María Córdova');
-      }
-      if (!lugarEspecialEncontrado && lugares.length > 0) {
-        lugarEspecialEncontrado = lugares[0];
-      }
+      // Buscar el Parque Principal por nombre o tipo
+      let lugarEncontrado = lugares.find(l => 
+        l.nombre && (l.nombre.includes('Parque') || l.nombre.includes('Principal') || l.tipo === 'especial')
+      );
       
-      if (lugarEspecialEncontrado) {
-        setLugarEspecial(lugarEspecialEncontrado);
-        setMostrarLugarEspecial(true);
-        console.log('✅ Lugar especial mostrado:', lugarEspecialEncontrado.nombre, 'para nivel', playerLevel);
+      if (lugarEncontrado) {
+        console.log('✅ Lugar encontrado en BD:', lugarEncontrado.nombre);
+        setLugarEspecial({
+          ...lugarEncontrado,
+          nombre: '📸 ' + lugarEncontrado.nombre
+        });
+      } else {
+        // Usar coordenadas del parque como fallback
+        console.log('📌 Usando coordenadas del Parque Principal');
+        setLugarEspecial({
+          id: 'parque_principal',
+          nombre: COORDENADAS_PARQUE.nombre,
+          latitud: COORDENADAS_PARQUE.latitud,
+          longitud: COORDENADAS_PARQUE.longitud,
+          tipo: 'especial'
+        });
       }
-    } catch (e) { 
-      console.error('Error cargando lugar especial:', e); 
+    } catch (error) {
+      console.log('⚠️ Error consultando BD, usando coordenadas fijas');
+      setLugarEspecial({
+        id: 'parque_principal',
+        nombre: COORDENADAS_PARQUE.nombre,
+        latitud: COORDENADAS_PARQUE.latitud,
+        longitud: COORDENADAS_PARQUE.longitud,
+        tipo: 'especial'
+      });
     }
-  };
+    
+    setMostrarLugarEspecial(true);
+    console.log('✅ Lugar especial ACTIVADO en:', COORDENADAS_PARQUE.latitud, COORDENADAS_PARQUE.longitud);
+    
+  } catch (e) { 
+    console.error('Error cargando lugar especial:', e);
+    // Fallback final: usar coordenadas del parque
+    setLugarEspecial({
+      id: 'fallback',
+      nombre: '📸 Galería de Recuerdos',
+      latitud: 6.3953494,
+      longitud: -75.2592802,
+      tipo: 'especial'
+    });
+    setMostrarLugarEspecial(true);
+    console.log('🔄 Usando lugar especial de fallback');
+  }
+};
 
   // ── Efectos ────────────────────────────────────────────────
   useEffect(() => {
@@ -982,6 +1026,7 @@ function Mapa() {
 
   useEffect(() => {
     if (playerLevel >= 5) {
+      console.log('🎉 Nivel 5 alcanzado! Activando lugar especial...');
       cargarLugarEspecial();
     } else {
       setMostrarLugarEspecial(false);
