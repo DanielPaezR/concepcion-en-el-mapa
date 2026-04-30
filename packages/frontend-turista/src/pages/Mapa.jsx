@@ -644,6 +644,13 @@ const getTipoEmoji = (tipo) => {
   return emojis[tipo] || '📍';
 };
 
+const [marcadorGaleria, setMarcadorGaleria] = useState({
+  lat: 6.3953494,
+  lng: -75.2592802,
+  nombre: '📸 Rincón de Recuerdos'
+});
+const [mostrarMarcadorGaleria, setMostrarMarcadorGaleria] = useState(true);
+
 // 🏆 Popup del lugar seleccionado (versión corregida)
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
@@ -682,6 +689,44 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
             📍 A {metersToGo} metros del lugar
           </span>
         </div>
+      )}
+
+      {/* Marcador fijo de la Galería - SIEMPRE VISIBLE */}
+      {mostrarMarcadorGaleria && (
+        <Marker 
+          longitude={marcadorGaleria.lng} 
+          latitude={marcadorGaleria.lat}
+        >
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], y: [0, -5, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            onClick={() => {
+              if (playerLevel >= 5) {
+                setMostrarGaleria(true);
+              } else {
+                mostrarMensajeGuia(`📸 Necesitas nivel 5 para acceder a la Galería de Recuerdos. ¡Tú nivel actual es ${playerLevel}!`, 'pensativo', 4000);
+              }
+            }}
+            style={{
+              width: 52,
+              height: 52,
+              background: playerLevel >= 5 
+                ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                : 'linear-gradient(135deg, #6b7280, #4b5563)',
+              borderRadius: '50%',
+              border: `3px solid ${playerLevel >= 5 ? 'white' : '#9ca3af'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26,
+              boxShadow: playerLevel >= 5 
+                ? '0 0 20px rgba(251,191,36,0.6)'
+                : '0 0 10px rgba(107,114,128,0.4)',
+              cursor: 'pointer',
+              opacity: playerLevel >= 5 ? 1 : 0.7,
+            }}
+          >
+            📸
+          </motion.div>
+        </Marker>
       )}
 
       <motion.button
