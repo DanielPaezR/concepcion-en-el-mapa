@@ -940,50 +940,19 @@ function Mapa() {
   // ── Función para cargar lugar especial ───────────────────
   const cargarLugarEspecial = async () => {
     try {
-      console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
-      
       const COORDENADAS_PARQUE = {
         latitud: 6.3953494,
         longitud: -75.2592802,
         nombre: '📸 Parque Principal - Rincón de Recuerdos'
       };
-      
-      try {
-        const lugaresResponse = await api.get('/lugares');
-        const lugares = lugaresResponse.data.data || [];
-        
-        let lugarEncontrado = lugares.find(l => 
-          l.nombre && (l.nombre.includes('Parque') || l.nombre.includes('Principal') || l.tipo === 'especial')
-        );
-        
-        if (lugarEncontrado) {
-          console.log('✅ Lugar encontrado en BD:', lugarEncontrado.nombre);
-          setLugarEspecial({
-            ...lugarEncontrado,
-            nombre: '📸 ' + lugarEncontrado.nombre
-          });
-        } else {
-          console.log('📌 Usando coordenadas del Parque Principal');
-          setLugarEspecial({
-            id: 'parque_principal',
-            nombre: COORDENADAS_PARQUE.nombre,
-            latitud: COORDENADAS_PARQUE.latitud,
-            longitud: COORDENADAS_PARQUE.longitud,
-            tipo: 'especial'
-          });
-        }
-      } catch (error) {
-        console.log('⚠️ Error consultando BD, usando coordenadas fijas');
-        setLugarEspecial({
-          id: 'parque_principal',
-          nombre: COORDENADAS_PARQUE.nombre,
-          latitud: COORDENADAS_PARQUE.latitud,
-          longitud: COORDENADAS_PARQUE.longitud,
-          tipo: 'especial'
-        });
-      }
-      
-      console.log('✅ Lugar especial ACTIVADO');
+
+      setLugarEspecial({
+        id: 'parque_principal_galeria',
+        nombre: COORDENADAS_PARQUE.nombre,
+        latitud: COORDENADAS_PARQUE.latitud,
+        longitud: COORDENADAS_PARQUE.longitud,
+        tipo: 'especial'
+      });
       
     } catch (e) { 
       console.error('Error cargando lugar especial:', e);
@@ -1255,6 +1224,7 @@ function Mapa() {
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
             latitude={parseFloat(lugarEspecial.latitud)}
+            anchor="bottom"
           >
             <motion.div
               animate={{ 
@@ -1275,27 +1245,25 @@ function Mapa() {
                 }
               }}
               style={{
-                width: 56,
-                height: 56,
-                background: playerLevel >= 5 
-                  ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' 
-                  : 'linear-gradient(135deg, #6b7280, #4b5563)',
+                width: isMobile ? 60 : 72,
+                height: isMobile ? 60 : 72,
+                background: 'linear-gradient(135deg, #fde68a 0%, #fbbf24 45%, #d97706 100%)',
                 borderRadius: '50%',
-                border: `3px solid ${playerLevel >= 5 ? 'white' : '#9ca3af'}`,
+                border: '4px solid white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 26,
-                boxShadow: playerLevel >= 5 
-                  ? '0 0 24px rgba(251,191,36,0.7), 0 4px 16px rgba(0,0,0,0.5)' 
-                  : '0 0 12px rgba(107,114,128,0.4)',
+                fontSize: isMobile ? 28 : 34,
+                boxShadow: '0 0 32px rgba(251,191,36,0.9), 0 8px 22px rgba(0,0,0,0.55)',
                 cursor: 'pointer',
                 opacity: 1,
+                zIndex: 3000,
+                position: 'relative',
               }}
             >
               <span style={{ 
-                filter: playerLevel >= 5 ? 'none' : 'grayscale(100%)',
-                fontSize: 26 
+                filter: 'none',
+                fontSize: isMobile ? 28 : 34 
               }}>
                 📸
               </span>
