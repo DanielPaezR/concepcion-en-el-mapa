@@ -11,6 +11,8 @@ export default function NotificacionInsignia() {
         // Consultar cada 30 segundos o después de acciones
         const checkNewInsignias = async () => {
             try {
+                if (!localStorage.getItem('token') && !localStorage.getItem('turista_token')) return;
+
                 const res = await api.get('/insignias/nuevas');
                 if (res.data.insignias?.length > 0) {
                     res.data.insignias.forEach(insignia => {

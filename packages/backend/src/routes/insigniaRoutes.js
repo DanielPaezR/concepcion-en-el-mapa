@@ -10,5 +10,6 @@ router.get('/', insigniaController.listar);
 // Rutas protegidas
 router.use(authMiddleware);
 router.get('/mis-insignias', insigniaController.misInsignias);
+router.get('/nuevas', insigniaController.nuevas);
 
 module.exports = router;

@@ -2,6 +2,8 @@ const Galeria = require('../models/Galeria');
 const LugarEspecial = require('../models/LugarEspecial');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const { verificarYOtorgarInsignias } = require('../services/insigniaService');
+const pool = require('../config/database');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -27,7 +29,11 @@ const galeriaController = {
         try {
             const { mensaje } = req.body;
             const usuarioId = req.user.id;
-            const playerLevel = req.user.nivel || 1;
+            const usuarioResult = await pool.query(
+                'SELECT COALESCE(nivel, 1) AS nivel FROM usuarios WHERE id = $1',
+                [usuarioId]
+            );
+            const playerLevel = usuarioResult.rows[0]?.nivel || req.user.nivel || 1;
             
             console.log('📸 Subiendo foto - Usuario:', usuarioId, 'Nivel:', playerLevel);
 
@@ -64,11 +70,13 @@ const galeriaController = {
             });
 
             const foto = await Galeria.subirFoto(usuarioId, lugarEspecial.id, result.secure_url, mensaje);
+            const nuevasInsignias = await verificarYOtorgarInsignias(usuarioId);
             
             res.status(201).json({
                 success: true,
                 message: '¡Foto subida exitosamente!',
-                foto
+                foto,
+                nuevas_insignias: nuevasInsignias
             });
         } catch (error) {
             console.error('Error al subir foto:', error);
