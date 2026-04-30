@@ -644,13 +644,6 @@ const getTipoEmoji = (tipo) => {
   return emojis[tipo] || '📍';
 };
 
-const [marcadorGaleria, setMarcadorGaleria] = useState({
-  lat: 6.3953494,
-  lng: -75.2592802,
-  nombre: '📸 Rincón de Recuerdos'
-});
-const [mostrarMarcadorGaleria, setMostrarMarcadorGaleria] = useState(true);
-
 // 🏆 Popup del lugar seleccionado (versión corregida)
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
@@ -864,6 +857,7 @@ function Mapa() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
   const [fotosGaleria, setFotosGaleria] = useState([]);
+  const [mostrarLugarEspecial, setMostrarLugarEspecial] = useState(false);
   const [viewState, setViewState] = useState({
     longitude: -75.2581,
     latitude: 6.3944,
@@ -871,6 +865,21 @@ function Mapa() {
     pitch: 60,
     bearing: 15,
   });
+
+  useEffect(() => {
+  const fotosGuardadas = localStorage.getItem('galeria_fotos');
+  if (fotosGuardadas) {
+    try {
+      const fotos = JSON.parse(fotosGuardadas);
+      if (Array.isArray(fotos)) {
+        setFotosGaleria(fotos);
+      }
+    } catch (e) {
+      console.error('Error cargando fotos guardadas:', e);
+      localStorage.removeItem('galeria_fotos');
+    }
+  }
+}, []);
 
   const navigate = useNavigate();
 
@@ -988,47 +997,46 @@ function Mapa() {
 
   // ── Función para cargar lugar especial ───────────────────
   const cargarLugarEspecial = async () => {
-  try {
-    console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
-
-    {playerLevel < 5 && (
-      <span style={{
-        position: 'absolute',
-        bottom: -4,
-        right: -2,
-        fontSize: 12
-      }}>
-        🔒
-      </span>
-    )}
-    
-    // Coordenadas exactas del Parque Principal José María Córdova
-    const COORDENADAS_PARQUE = {
-      latitud: 6.3953494,
-      longitud: -75.2592802,
-      nombre: '📸 Parque Principal - Rincón de Recuerdos'
-    };
-    
-    // Intentar obtener los lugares del backend
     try {
-      const lugaresResponse = await api.get('/lugares');
-      const lugares = lugaresResponse.data.data || [];
-      console.log('📋 Lugares disponibles:', lugares.length);
+      console.log('🔍 Buscando lugar especial, nivel actual:', playerLevel);
       
-      // Buscar el Parque Principal por nombre o tipo
-      let lugarEncontrado = lugares.find(l => 
-        l.nombre && (l.nombre.includes('Parque') || l.nombre.includes('Principal') || l.tipo === 'especial')
-      );
+      // Coordenadas exactas del Parque Principal José María Córdova
+      const COORDENADAS_PARQUE = {
+        latitud: 6.3953494,
+        longitud: -75.2592802,
+        nombre: '📸 Parque Principal - Rincón de Recuerdos'
+      };
       
-      if (lugarEncontrado) {
-        console.log('✅ Lugar encontrado en BD:', lugarEncontrado.nombre);
-        setLugarEspecial({
-          ...lugarEncontrado,
-          nombre: '📸 ' + lugarEncontrado.nombre
-        });
-      } else {
-        // Usar coordenadas del parque como fallback
-        console.log('📌 Usando coordenadas del Parque Principal');
+      // Intentar obtener los lugares del backend
+      try {
+        const lugaresResponse = await api.get('/lugares');
+        const lugares = lugaresResponse.data.data || [];
+        console.log('📋 Lugares disponibles:', lugares.length);
+        
+        // Buscar el Parque Principal por nombre o tipo
+        let lugarEncontrado = lugares.find(l => 
+          l.nombre && (l.nombre.includes('Parque') || l.nombre.includes('Principal') || l.tipo === 'especial')
+        );
+        
+        if (lugarEncontrado) {
+          console.log('✅ Lugar encontrado en BD:', lugarEncontrado.nombre);
+          setLugarEspecial({
+            ...lugarEncontrado,
+            nombre: '📸 ' + lugarEncontrado.nombre
+          });
+        } else {
+          // Usar coordenadas del parque como fallback
+          console.log('📌 Usando coordenadas del Parque Principal');
+          setLugarEspecial({
+            id: 'parque_principal',
+            nombre: COORDENADAS_PARQUE.nombre,
+            latitud: COORDENADAS_PARQUE.latitud,
+            longitud: COORDENADAS_PARQUE.longitud,
+            tipo: 'especial'
+          });
+        }
+      } catch (error) {
+        console.log('⚠️ Error consultando BD, usando coordenadas fijas');
         setLugarEspecial({
           id: 'parque_principal',
           nombre: COORDENADAS_PARQUE.nombre,
@@ -1037,34 +1045,24 @@ function Mapa() {
           tipo: 'especial'
         });
       }
-    } catch (error) {
-      console.log('⚠️ Error consultando BD, usando coordenadas fijas');
+      
+      setMostrarLugarEspecial(true);
+      console.log('✅ Lugar especial ACTIVADO en:', COORDENADAS_PARQUE.latitud, COORDENADAS_PARQUE.longitud);
+      
+    } catch (e) { 
+      console.error('Error cargando lugar especial:', e);
+      // Fallback final: usar coordenadas del parque
       setLugarEspecial({
-        id: 'parque_principal',
-        nombre: COORDENADAS_PARQUE.nombre,
-        latitud: COORDENADAS_PARQUE.latitud,
-        longitud: COORDENADAS_PARQUE.longitud,
+        id: 'fallback',
+        nombre: '📸 Galería de Recuerdos',
+        latitud: 6.3953494,
+        longitud: -75.2592802,
         tipo: 'especial'
       });
+      setMostrarLugarEspecial(true);
+      console.log('🔄 Usando lugar especial de fallback');
     }
-    
-    setMostrarLugarEspecial(true);
-    console.log('✅ Lugar especial ACTIVADO en:', COORDENADAS_PARQUE.latitud, COORDENADAS_PARQUE.longitud);
-    
-  } catch (e) { 
-    console.error('Error cargando lugar especial:', e);
-    // Fallback final: usar coordenadas del parque
-    setLugarEspecial({
-      id: 'fallback',
-      nombre: '📸 Galería de Recuerdos',
-      latitud: 6.3953494,
-      longitud: -75.2592802,
-      tipo: 'especial'
-    });
-    setMostrarLugarEspecial(true);
-    console.log('🔄 Usando lugar especial de fallback');
-  }
-};
+  };
 
   // ── Efectos ────────────────────────────────────────────────
   useEffect(() => {
@@ -1074,12 +1072,8 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    if (playerLevel >= 5) {
-      console.log('🎉 Nivel 5 alcanzado! Activando lugar especial...');
-      cargarLugarEspecial();
-    } else {
-      setMostrarLugarEspecial(false);
-    }
+    console.log('🎮 Nivel actual:', playerLevel, '- Cargando lugar especial...');
+    cargarLugarEspecial();
   }, [playerLevel]);
 
   useEffect(() => {
@@ -1389,46 +1383,66 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Marcador especial para la Galería (Parque Principal) */}
+        {/* Marcador especial para la Galería (Parque Principal) - SIEMPRE VISIBLE */}
         {lugarEspecial && (
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
             latitude={parseFloat(lugarEspecial.latitud)}
           >
             <motion.div
-              animate={{ scale: [1, 1.2, 1], y: [0, -8, 0] }}
+              animate={{ 
+                scale: [1, 1.15, 1], 
+                y: [0, -6, 0] 
+              }}
               transition={{ duration: 2, repeat: Infinity }}
               onClick={() => {
                 if (playerLevel >= 5) {
                   setMostrarGaleria(true);
+                  mostrarMensajeGuia('📸 ¡Bienvenido a la Galería de Recuerdos!', 'celebrando', 3000);
                 } else {
                   mostrarMensajeGuia(
-                    `📸 Necesitas nivel 5 para acceder a la Galería. Nivel actual: ${playerLevel}`,
+                    `🔒 Necesitas nivel 5 para acceder a la Galería. ¡Tu nivel actual es ${playerLevel}! Sigue explorando.`,
                     'pensativo',
-                    4000
+                    5000
                   );
                 }
               }}
               style={{
-                width: 58,
-                height: 58,
-                background: playerLevel >= 5
-                  ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                width: 56,
+                height: 56,
+                background: playerLevel >= 5 
+                  ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' 
                   : 'linear-gradient(135deg, #6b7280, #4b5563)',
                 borderRadius: '50%',
                 border: `3px solid ${playerLevel >= 5 ? 'white' : '#9ca3af'}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 28,
-                boxShadow: playerLevel >= 5
-                  ? '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)'
-                  : '0 0 10px rgba(107,114,128,0.4)',
+                fontSize: 26,
+                boxShadow: playerLevel >= 5 
+                  ? '0 0 24px rgba(251,191,36,0.7), 0 4px 16px rgba(0,0,0,0.5)' 
+                  : '0 0 12px rgba(107,114,128,0.4)',
                 cursor: 'pointer',
-                opacity: playerLevel >= 5 ? 1 : 0.7,
+                opacity: 1, // Siempre visible
               }}
             >
-              📸
+              <span style={{ 
+                filter: playerLevel >= 5 ? 'none' : 'grayscale(100%)',
+                fontSize: 26 
+              }}>
+                📸
+              </span>
+              {playerLevel < 5 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -5,
+                  fontSize: 18,
+                  filter: 'none'
+                }}>
+                  🔒
+                </span>
+              )}
             </motion.div>
           </Marker>
         )}
