@@ -21,60 +21,115 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY = 'concepcion_descubiertos';
 const VISIT_RADIUS = 50;
 
-// ─── Estilos globales inyectados una vez ────────────────────
+// ─── Estilos globales ────────────────────────────────────────
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap');
 
   .hud-font { font-family: 'Rajdhani', system-ui, sans-serif; }
 
-  /* Scrollbar del quest log */
   .quest-scroll::-webkit-scrollbar { width: 4px; }
   .quest-scroll::-webkit-scrollbar-track { background: transparent; }
   .quest-scroll::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.4); border-radius: 4px; }
 
-  /* Popup de Mapbox — override del fondo blanco por defecto */
+  /* Popup Mapbox override */
   .mapboxgl-popup-content {
     background: rgba(2,6,18,0.97) !important;
-    backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 14px !important;
+    backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 16px !important;
     padding: 0 !important;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.6) !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) !important;
   }
   .mapboxgl-popup-tip { display: none !important; }
   .mapboxgl-popup-close-button {
-    color: rgba(255,255,255,0.5) !important;
-    font-size: 18px !important;
-    top: 8px !important;
-    right: 10px !important;
+    color: rgba(255,255,255,0.4) !important;
+    font-size: 20px !important;
+    top: 10px !important; right: 12px !important;
     background: none !important;
+    transition: color .15s !important;
   }
   .mapboxgl-popup-close-button:hover { color: white !important; }
 
-  /* Pulso en marcadores no descubiertos */
   @keyframes pin-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5), 0 4px 15px rgba(0,0,0,0.3); }
-    60%       { box-shadow: 0 0 0 10px rgba(239,68,68,0), 0 4px 15px rgba(0,0,0,0.3); }
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6), 0 4px 15px rgba(0,0,0,0.35); }
+    60%      { box-shadow: 0 0 0 12px rgba(239,68,68,0), 0 4px 15px rgba(0,0,0,0.35); }
   }
   @keyframes pin-glow {
-    0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.4), 0 4px 15px rgba(0,0,0,0.3); }
-    50%       { box-shadow: 0 0 16px 6px rgba(251,191,36,0.7), 0 4px 15px rgba(0,0,0,0.3); }
+    0%,100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.5), 0 4px 15px rgba(0,0,0,0.35); }
+    50%     { box-shadow: 0 0 20px 7px rgba(251,191,36,0.8), 0 4px 15px rgba(0,0,0,0.35); }
+  }
+  @keyframes hud-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
   }
   .pin-undiscovered { animation: pin-pulse 2.2s ease-in-out infinite; }
   .pin-discovered   { animation: pin-glow 2s ease-in-out infinite; }
+
+  /* Botones HUD — glassmorphism refinado */
+  .hud-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(2,6,18,0.82);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .18s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .hud-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), transparent);
+    pointer-events: none;
+  }
+  .hud-btn:hover {
+    background: rgba(2,6,18,0.92);
+    transform: translateY(-1px);
+  }
+  .hud-btn:active { transform: translateY(0); }
+
+  .hud-btn-gold {
+    border-color: rgba(251,191,36,0.4);
+    box-shadow: 0 0 12px rgba(251,191,36,0.12), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .hud-btn-gold:hover {
+    border-color: rgba(251,191,36,0.7);
+    box-shadow: 0 0 20px rgba(251,191,36,0.25), 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .hud-btn-danger {
+    border-color: rgba(239,68,68,0.5) !important;
+    box-shadow: 0 0 14px rgba(239,68,68,0.2), 0 2px 8px rgba(0,0,0,0.4) !important;
+  }
+  .hud-btn-blue {
+    border-color: rgba(59,130,246,0.4);
+    box-shadow: 0 0 12px rgba(59,130,246,0.15), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .hud-btn-blue:hover {
+    border-color: rgba(59,130,246,0.7);
+    box-shadow: 0 0 20px rgba(59,130,246,0.3), 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* Badge nivel — bordes más vivos */
+  .level-badge {
+    position: relative; overflow: hidden; border-radius: 12px;
+  }
+  .level-badge::after {
+    content: '';
+    position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+    animation: hud-shimmer 4s linear infinite;
+  }
 `;
 
-// ─── Inyector de estilos ────────────────────────────────────
 const StyleInjector = () => {
   useEffect(() => {
     const id = 'mapa-global-styles';
     if (!document.getElementById(id)) {
       const tag = document.createElement('style');
-      tag.id = id;
-      tag.textContent = GLOBAL_STYLES;
+      tag.id = id; tag.textContent = GLOBAL_STYLES;
       document.head.appendChild(tag);
     }
-    return () => {};
   }, []);
   return null;
 };
@@ -83,7 +138,7 @@ const StyleInjector = () => {
 // COMPONENTES INTERNOS
 // ============================================================
 
-// 🧭 Brújula funcional
+// 🧭 Brújula
 const BrujulaFuncional = ({ bearing, onRotate }) => {
   const [angle, setAngle] = useState(bearing || 0);
   useEffect(() => setAngle(bearing || 0), [bearing]);
@@ -94,27 +149,15 @@ const BrujulaFuncional = ({ bearing, onRotate }) => {
       transition={{ duration: 0.3 }}
       onClick={() => onRotate?.(0)}
       title="Orientar al norte"
+      className="hud-btn hud-btn-gold"
       style={{
-        position: 'absolute',
-        bottom: 80,
-        right: 16,
-        width: 48,
-        height: 48,
-        background: 'rgba(2,6,18,0.85)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '50%',
-        border: '1.5px solid rgba(251,191,36,0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'absolute', bottom: 88, right: 16,
+        width: 46, height: 46, borderRadius: '50%',
         zIndex: 1000,
-        cursor: 'pointer',
-        boxShadow: '0 0 12px rgba(251,191,36,0.2), 0 4px 12px rgba(0,0,0,0.4)',
       }}
-      whileHover={{ scale: 1.08, boxShadow: '0 0 20px rgba(251,191,36,0.4)' }}
-      whileTap={{ scale: 0.94 }}
+      whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
     >
-      <Compass color="#fbbf24" size={22} />
+      <Compass color="#fbbf24" size={21} />
     </motion.button>
   );
 };
@@ -133,26 +176,25 @@ const HUDHeader = ({
     : 100;
 
   const levelColors = {
-    1: { from: '#065f46', to: '#14532d', border: '#22c55e', text: '#4ade80' },
-    2: { from: '#1e3a5f', to: '#0f2d4a', border: '#60a5fa', text: '#93c5fd' },
-    3: { from: '#312e81', to: '#1e1b4b', border: '#818cf8', text: '#a5b4fc' },
-    4: { from: '#451a03', to: '#1c0900', border: '#f59e0b', text: '#fcd34d' },
-    5: { from: '#450a0a', to: '#1a0505', border: '#ef4444', text: '#fca5a5' },
+    1: { from: '#052e16', to: '#14532d', border: '#22c55e', text: '#4ade80', glow: 'rgba(34,197,94,0.3)' },
+    2: { from: '#0c1f3f', to: '#1e3a5f', border: '#60a5fa', text: '#93c5fd', glow: 'rgba(96,165,250,0.3)' },
+    3: { from: '#1a1040', to: '#312e81', border: '#818cf8', text: '#a5b4fc', glow: 'rgba(129,140,248,0.3)' },
+    4: { from: '#1c0900', to: '#451a03', border: '#f59e0b', text: '#fcd34d', glow: 'rgba(245,158,11,0.3)' },
+    5: { from: '#1a0505', to: '#450a0a', border: '#ef4444', text: '#fca5a5', glow: 'rgba(239,68,68,0.35)' },
   };
   const lc = levelColors[Math.min(playerLevel, 5)];
   const LevelIcon = playerLevel >= 5 ? Crown : playerLevel >= 3 ? Zap : Star;
 
   return (
     <motion.div
-      initial={{ y: -80, opacity: 0 }}
+      initial={{ y: -90, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+      transition={{ type: 'spring', damping: 22, stiffness: 200 }}
       className="hud-font"
       style={{
-        position: 'absolute',
-        top: 0, left: 0, right: 0,
+        position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000,
-        padding: isMobile ? '8px 10px' : '10px 14px',
+        padding: isMobile ? '10px 10px 0' : '12px 14px 0',
         pointerEvents: 'none',
         display: 'flex',
         justifyContent: 'space-between',
@@ -160,212 +202,257 @@ const HUDHeader = ({
         gap: 8,
       }}
     >
-      {/* Parte izquierda */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-              padding: 2,
-              boxShadow: '0 0 10px rgba(251,191,36,0.4)',
-            }}
-          >
-            {userAvatar ? (
-              <img
-                src={userAvatar}
-                alt="Perfil"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: '50%',
-                  background: '#1e1b2e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <User size={18} color="#fbbf24" />
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
-            border: `1.5px solid ${lc.border}`,
-            borderRadius: 10,
-            padding: '5px 12px 6px',
-            boxShadow: `0 0 14px ${lc.border}44, 0 4px 12px rgba(0,0,0,0.4)`,
-            minWidth: 80,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-              <LevelIcon size={12} color={lc.text} />
-              <span style={{ color: lc.text, fontWeight: 700, fontSize: 13, letterSpacing: '.05em' }}>
-                NV. {playerLevel}
-              </span>
-            </div>
-            <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progreso}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                style={{ height: '100%', background: lc.border, borderRadius: 4 }}
-              />
-            </div>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '.06em' }}>
-              {xp} / {xpParaSiguiente} XP
+      {/* ── Lado izquierdo ── */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'auto', flexWrap: 'wrap' }}>
+        {/* Badge nivel */}
+        <div className="level-badge" style={{
+          background: `linear-gradient(150deg, ${lc.from}, ${lc.to})`,
+          border: `1.5px solid ${lc.border}`,
+          boxShadow: `0 0 18px ${lc.glow}, 0 2px 10px rgba(0,0,0,0.5)`,
+          padding: isMobile ? '5px 10px 6px' : '5px 13px 7px',
+          minWidth: isMobile ? 72 : 84,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+            <LevelIcon size={11} color={lc.text} />
+            <span style={{ color: lc.text, fontWeight: 700, fontSize: isMobile ? 12 : 14, letterSpacing: '.06em' }}>
+              NV.{playerLevel}
             </span>
           </div>
-
-          <div style={{
-            background: 'rgba(2,6,18,0.8)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(34,197,94,0.45)',
-            borderRadius: 10,
-            padding: '5px 11px',
-            boxShadow: '0 0 8px rgba(34,197,94,0.15)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Sparkles size={11} color="#4ade80" />
-              <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 13 }}>
-                {discoveredPlaces.length}<span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>/{totalLugares}</span>
-              </span>
-            </div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '.06em', marginTop: 1 }}>
-              EXPLORADOS
-            </div>
+          {/* XP bar */}
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', marginBottom: 3 }}>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progreso}%` }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
+              style={{
+                height: '100%', borderRadius: 4,
+                background: `linear-gradient(90deg, ${lc.border}99, ${lc.text})`,
+                boxShadow: `0 0 6px ${lc.border}`,
+              }}
+            />
           </div>
-
-          {playerLevel >= 5 && lugarEspecial && (
-            <motion.button
-              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
-              onClick={onOpenGaleria}
-              style={{
-                background: 'linear-gradient(135deg, #b45309, #92400e)',
-                border: '1px solid #f59e0b',
-                borderRadius: 10,
-                padding: '6px 10px',
-                cursor: 'pointer',
-                boxShadow: '0 0 12px rgba(245,158,11,0.3)',
-              }}
-            >
-              <Award size={16} color="#fcd34d" />
-            </motion.button>
-          )}
-
-          {playerLevel >= 5 && discoveredPlaces.length === totalLugares && (
-            <motion.button
-              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
-              onClick={onOpenAnclar}
-              title="Anclar Guardián"
-              style={{
-                background: 'linear-gradient(135deg, #3b0764, #1e1b4b)',
-                border: '1px solid #a855f7',
-                borderRadius: 10,
-                padding: '6px 10px',
-                cursor: 'pointer',
-                fontSize: 16,
-                boxShadow: '0 0 12px rgba(168,85,247,0.3)',
-              }}
-            >🛡️</motion.button>
-          )}
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: '.06em' }}>
+            {xp} / {xpParaSiguiente} XP
+          </span>
         </div>
+
+        {/* Descubrimientos */}
+        <div style={{
+          background: 'rgba(2,6,18,0.82)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(34,197,94,0.35)',
+          borderRadius: 12,
+          padding: isMobile ? '4px 9px' : '5px 11px',
+          boxShadow: '0 0 10px rgba(34,197,94,0.1), 0 2px 8px rgba(0,0,0,0.4)',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.04), transparent)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Sparkles size={10} color="#4ade80" />
+            <span style={{ color: '#4ade80', fontWeight: 700, fontSize: isMobile ? 12 : 13 }}>
+              {discoveredPlaces.length}
+              <span style={{ color: 'rgba(255,255,255,0.25)', fontWeight: 400 }}>/{totalLugares}</span>
+            </span>
+          </div>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '.08em', marginTop: 1 }}>
+            LUGARES
+          </div>
+        </div>
+
+        {/* XP badge */}
+        <div style={{
+          background: 'rgba(2,6,18,0.82)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(168,85,247,0.3)',
+          borderRadius: 12,
+          padding: isMobile ? '4px 9px' : '5px 11px',
+          boxShadow: '0 0 10px rgba(168,85,247,0.1), 0 2px 8px rgba(0,0,0,0.4)',
+          display: isMobile ? 'none' : 'block',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Zap size={10} color="#c084fc" />
+            <span style={{ color: '#c084fc', fontWeight: 700, fontSize: 13 }}>{xp}</span>
+          </div>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '.08em', marginTop: 1 }}>
+            XP TOTAL
+          </div>
+        </div>
+
+        {/* Botón galería especial */}
+        {playerLevel >= 5 && lugarEspecial && (
+          <motion.button
+            whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.94 }}
+            onClick={onOpenGaleria}
+            className="hud-btn"
+            style={{
+              background: 'linear-gradient(135deg, #92400e, #78350f)',
+              border: '1px solid rgba(245,158,11,0.6)',
+              borderRadius: 12,
+              padding: isMobile ? '5px 9px' : '6px 11px',
+              boxShadow: '0 0 16px rgba(245,158,11,0.3), 0 2px 8px rgba(0,0,0,0.5)',
+            }}
+          >
+            <Award size={15} color="#fcd34d" />
+          </motion.button>
+        )}
+
+        {/* Botón anclar guardián */}
+        {playerLevel >= 5 && discoveredPlaces.length === totalLugares && (
+          <motion.button
+            whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.94 }}
+            onClick={onOpenAnclar}
+            title="Anclar Guardián"
+            className="hud-btn"
+            style={{
+              background: 'linear-gradient(135deg, #2e0764, #1e1b4b)',
+              border: '1px solid rgba(168,85,247,0.5)',
+              borderRadius: 12,
+              padding: isMobile ? '5px 9px' : '6px 11px',
+              fontSize: 15,
+              boxShadow: '0 0 16px rgba(168,85,247,0.25), 0 2px 8px rgba(0,0,0,0.5)',
+            }}
+          >🛡️</motion.button>
+        )}
       </div>
 
-      {/* Parte derecha - DOS BOTONES */}
-      <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
-        {/* Botón 1: Perfil / Usuario */}
+      {/* ── Lado derecho — botones de navegación ── */}
+      <div style={{ display: 'flex', gap: 6, pointerEvents: 'auto', flexShrink: 0 }}>
+
+        {/* Botón Perfil / Menú Explorador - Abre la barra lateral */}
         <motion.button
           onClick={onToggleMenuExplorador}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.94 }}
+          whileHover={{ scale: 1.06, y: -1 }}
+          whileTap={{ scale: 0.93 }}
+          className="hud-btn hud-btn-gold"
+          title="Perfil y estadísticas"
           style={{
+            width: isMobile ? 40 : 46,
+            height: isMobile ? 40 : 46,
+            borderRadius: 12,
+            flexDirection: 'column',
+            gap: 2,
             background: 'rgba(2,6,18,0.85)',
             backdropFilter: 'blur(10px)',
             border: '1.5px solid rgba(251,191,36,0.6)',
-            borderRadius: 10,
-            padding: '6px 10px',
-            cursor: 'pointer',
-            boxShadow: '0 0 10px rgba(251,191,36,0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            cursor: 'pointer',
           }}
         >
           {userAvatar ? (
             <img 
               src={userAvatar} 
-              alt="Perfil" 
-              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+              alt="Perfil"
+              style={{ 
+                width: isMobile ? 26 : 30, 
+                height: isMobile ? 26 : 30, 
+                borderRadius: '50%', 
+                objectFit: 'cover', 
+                border: '1.5px solid rgba(251,191,36,0.5)' 
+              }}
             />
           ) : (
-            <UserCircle size={20} color="#fbbf24" />
+            <>
+              <UserCircle size={isMobile ? 18 : 21} color="#fbbf24" />
+              {!isMobile && (
+                <span style={{ 
+                  fontSize: 7, 
+                  color: 'rgba(251,191,36,0.7)', 
+                  letterSpacing: '.06em', 
+                  fontWeight: 700 
+                }}>
+                  PERFIL
+                </span>
+              )}
+            </>
           )}
         </motion.button>
 
-        {/* Botón 2: Quest Log */}
+        {/* Botón Quest Log */}
         <motion.button
           onClick={onToggleQuestLog}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.94 }}
+          whileHover={{ scale: 1.06, y: -1 }}
+          whileTap={{ scale: 0.93 }}
+          className={`hud-btn ${showQuestLog ? 'hud-btn-danger' : 'hud-btn-gold'}`}
+          title={showQuestLog ? 'Cerrar descubrimientos' : 'Ver descubrimientos'}
           style={{
+            width: isMobile ? 40 : 46,
+            height: isMobile ? 40 : 46,
+            borderRadius: 12,
+            flexDirection: 'column',
+            gap: 2,
             background: 'rgba(2,6,18,0.85)',
             backdropFilter: 'blur(10px)',
             border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
-            borderRadius: 10,
-            padding: '6px 10px',
-            cursor: 'pointer',
-            boxShadow: showQuestLog
-              ? '0 0 12px rgba(239,68,68,0.3)'
-              : '0 0 10px rgba(251,191,36,0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'border-color .2s, box-shadow .2s',
+            cursor: 'pointer',
           }}
         >
-          {showQuestLog
-            ? <X size={20} color="#ef4444" />
-            : <Menu size={20} color="#fbbf24" />}
+          {showQuestLog ? (
+            <X size={isMobile ? 18 : 20} color="#f87171" />
+          ) : (
+            <>
+              <Menu size={isMobile ? 18 : 20} color="#fbbf24" />
+              {!isMobile && (
+                <span style={{ 
+                  fontSize: 7, 
+                  color: 'rgba(251,191,36,0.7)', 
+                  letterSpacing: '.06em', 
+                  fontWeight: 700 
+                }}>
+                  MAPA
+                </span>
+              )}
+            </>
+          )}
+          {/* Indicador de progreso en el botón del quest log */}
+          {!showQuestLog && discoveredPlaces.length > 0 && (
+            <div style={{
+              position: 'absolute', 
+              top: -4, 
+              right: -4,
+              width: 16, 
+              height: 16,
+              background: discoveredPlaces.length === totalLugares ? '#22c55e' : '#f59e0b',
+              borderRadius: '50%',
+              border: '2px solid rgba(2,6,18,0.9)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontSize: 7, 
+              fontWeight: 700, 
+              color: 'white',
+            }}>
+              {discoveredPlaces.length === totalLugares ? '✓' : discoveredPlaces.length}
+            </div>
+          )}
         </motion.button>
       </div>
     </motion.div>
   );
 };
 
-// 🗺️ Botón de ubicación actual
+// 🗺️ Botón de ubicación
 const BotonUbicacion = ({ userPosition, onCenter }) => {
   if (!userPosition) return null;
   return (
     <motion.button
       onClick={onCenter}
-      whileHover={{ scale: 1.08, boxShadow: '0 0 20px rgba(37,99,235,0.5)' }}
-      whileTap={{ scale: 0.94 }}
+      whileHover={{ scale: 1.08, y: -1 }}
+      whileTap={{ scale: 0.93 }}
       title="Centrar en mi ubicación"
+      className="hud-btn hud-btn-blue"
       style={{
-        position: 'absolute',
-        bottom: 80,
-        left: 16,
-        background: 'rgba(2,6,18,0.85)',
-        backdropFilter: 'blur(10px)',
-        border: '1.5px solid rgba(59,130,246,0.6)',
-        borderRadius: '50%',
-        width: 48, height: 48,
-        cursor: 'pointer',
+        position: 'absolute', bottom: 88, left: 16,
+        width: 46, height: 46, borderRadius: '50%',
         zIndex: 1000,
-        boxShadow: '0 0 12px rgba(59,130,246,0.2), 0 4px 12px rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
       <Navigation size={20} color="#60a5fa" />
@@ -373,7 +460,7 @@ const BotonUbicacion = ({ userPosition, onCenter }) => {
   );
 };
 
-// 📜 Quest Log Panel
+// 📜 Quest Log
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, onSelectLugar, isMobile }) => (
   <AnimatePresence>
     {show && (
@@ -385,41 +472,55 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, 
         className="hud-font quest-scroll"
         style={{
           position: 'absolute',
-          top: isMobile ? 58 : 68,
+          top: isMobile ? 62 : 72,
           right: 10,
           zIndex: 1000,
           background: 'rgba(2,6,18,0.97)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(34,197,94,0.3)',
-          borderRadius: 16,
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(34,197,94,0.2)',
+          borderRadius: 18,
           padding: '14px 12px',
           width: isMobile ? 'calc(100% - 20px)' : 300,
           maxWidth: 300,
           maxHeight: '68vh',
           overflowY: 'auto',
-          boxShadow: '0 0 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
+          boxShadow: '0 0 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.05)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10 }}>
-          <span style={{ fontSize: 16 }}>📜</span>
-          <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 15, letterSpacing: '.04em' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: 'rgba(251,191,36,0.12)',
+            border: '1px solid rgba(251,191,36,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13,
+          }}>📜</div>
+          <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 14, letterSpacing: '.06em' }}>
             DESCUBRIMIENTOS
           </span>
-          <span style={{
+          <div style={{
             marginLeft: 'auto',
-            background: 'rgba(34,197,94,0.15)',
-            border: '1px solid rgba(34,197,94,0.3)',
-            borderRadius: 20,
-            padding: '1px 8px',
-            fontSize: 11,
-            color: '#4ade80',
-            fontWeight: 700,
+            background: discoveredPlaces.length === lugares.length ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.1)',
+            border: `1px solid ${discoveredPlaces.length === lugares.length ? 'rgba(34,197,94,0.5)' : 'rgba(34,197,94,0.2)'}`,
+            borderRadius: 20, padding: '2px 9px',
+            fontSize: 10, color: '#4ade80', fontWeight: 700,
           }}>
             {discoveredPlaces.length}/{lugares.length}
-          </span>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {/* Barra progreso total */}
+        <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 10, overflow: 'hidden' }}>
+          <motion.div
+            animate={{ width: lugares.length > 0 ? `${(discoveredPlaces.length / lugares.length) * 100}%` : '0%' }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            style={{ height: '100%', background: 'linear-gradient(90deg, #22c55e, #4ade80)', borderRadius: 4 }}
+          />
+        </div>
+
+        {/* Lista */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {lugares.map((lugar, i) => {
             const found = discoveredPlaces.includes(lugar.id);
             return (
@@ -427,40 +528,35 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, 
                 key={lugar.id}
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.03 }}
+                transition={{ delay: i * 0.025 }}
                 onClick={() => { onClose(); onSelectLugar(lugar); }}
                 style={{
-                  padding: '8px 10px',
+                  padding: '7px 9px',
                   borderRadius: 10,
                   cursor: 'pointer',
-                  background: found ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
-                  border: found ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'background .15s',
+                  background: found ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.02)',
+                  border: found ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  transition: 'all .15s',
                 }}
-                whileHover={{ background: found ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.07)' }}
+                whileHover={{ background: found ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)', x: 2 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: found ? '#4ade80' : '#6b7280', fontSize: 14, opacity: found ? 1 : 0.7 }}>
+                  <span style={{ opacity: found ? 1 : 0.4, transition: 'opacity .15s' }}>
                     {getTipoIcon(lugar.tipo)}
                   </span>
                   <span style={{
-                    color: found ? '#e2e8f0' : '#6b7280',
-                    fontSize: 13,
-                    fontWeight: found ? 600 : 400,
-                    maxWidth: 160,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    color: found ? '#e2e8f0' : '#4b5563',
+                    fontSize: 12, fontWeight: found ? 600 : 400,
+                    maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {found ? lugar.nombre : '???'}
+                    {found ? lugar.nombre : '— Por descubrir —'}
                   </span>
                 </div>
                 {found
-                  ? <span style={{ color: '#4ade80', fontSize: 13, fontWeight: 700 }}>✓</span>
-                  : <span style={{ fontSize: 11, color: '#6b7280' }}>⚔️</span>}
+                  ? <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#4ade80', fontWeight: 700, flexShrink: 0 }}>✓</div>
+                  : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, flexShrink: 0 }}>⚔️</div>
+                }
               </motion.div>
             );
           })}
@@ -481,70 +577,30 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
         transition={{ type: 'spring', damping: 22 }}
         className="hud-font"
         style={{
-          position: 'absolute',
-          bottom: 110,
-          left: '50%',
-          transform: 'translateX(-50%)',
+          position: 'absolute', bottom: 110, left: '50%', transform: 'translateX(-50%)',
           zIndex: 2000,
-          background: 'rgba(2,6,18,0.97)',
-          backdropFilter: 'blur(14px)',
-          border: '1.5px solid rgba(34,197,94,0.5)',
-          borderRadius: 20,
-          padding: '20px 24px',
-          width: '88%',
-          maxWidth: 340,
-          boxShadow: '0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(34,197,94,0.08)',
+          background: 'rgba(2,6,18,0.97)', backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(34,197,94,0.3)', borderRadius: 22,
+          padding: '22px 26px', width: '88%', maxWidth: 340,
+          boxShadow: '0 0 60px rgba(0,0,0,0.7), 0 0 40px rgba(34,197,94,0.06)',
           textAlign: 'center',
         }}
       >
-        <motion.div
-          animate={{ scale: [1, 1.12, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          style={{ marginBottom: 12 }}
-        >
+        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ marginBottom: 14 }}>
           <LocateFixed size={44} color="#4ade80" style={{ margin: '0 auto' }} />
         </motion.div>
-
-        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 17, marginBottom: 6, letterSpacing: '.03em' }}>
+        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 16, marginBottom: 8, letterSpacing: '.04em' }}>
           ¿ACTIVAMOS TU UBICACIÓN?
         </h3>
-        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 20, lineHeight: 1.65 }}>
           Necesitamos tu ubicación para descubrir lugares automáticamente cuando estés cerca.
         </p>
-
         <div style={{ display: 'flex', gap: 10 }}>
-          <motion.button
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={onAccept}
-            style={{
-              flex: 1,
-              background: 'linear-gradient(135deg, #16a34a, #14532d)',
-              color: 'white',
-              padding: '10px 0',
-              borderRadius: 12,
-              fontWeight: 700,
-              fontSize: 14,
-              border: '1px solid #22c55e',
-              cursor: 'pointer',
-              letterSpacing: '.04em',
-              boxShadow: '0 0 12px rgba(34,197,94,0.25)',
-            }}
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onAccept}
+            style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 14, border: '1px solid rgba(34,197,94,0.5)', cursor: 'pointer', letterSpacing: '.05em', boxShadow: '0 0 16px rgba(34,197,94,0.2)' }}
           >ACTIVAR</motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={onDeny}
-            style={{
-              flex: 1,
-              background: 'rgba(255,255,255,0.06)',
-              color: 'rgba(255,255,255,0.5)',
-              padding: '10px 0',
-              borderRadius: 12,
-              fontWeight: 600,
-              fontSize: 14,
-              border: '1px solid rgba(255,255,255,0.1)',
-              cursor: 'pointer',
-              letterSpacing: '.04em',
-            }}
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onDeny}
+            style={{ flex: 1, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', padding: '11px 0', borderRadius: 12, fontWeight: 600, fontSize: 14, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}
           >AHORA NO</motion.button>
         </div>
       </motion.div>
@@ -555,112 +611,35 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
 // 🎯 Modal de Evento
 const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
   <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 3000,
-      padding: 16,
-    }}
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: 16 }}
     onClick={(e) => e.target === e.currentTarget && onClose()}
   >
     <motion.div
-      initial={{ scale: 0.88, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.88, y: 20 }}
+      initial={{ scale: 0.88, y: 24 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 24 }}
       transition={{ type: 'spring', damping: 22 }}
       className="hud-font"
-      style={{
-        background: 'rgba(2,6,18,0.99)',
-        border: '1.5px solid rgba(251,191,36,0.5)',
-        borderRadius: 22,
-        maxWidth: 380,
-        width: '100%',
-        padding: 26,
-        boxShadow: '0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(251,191,36,0.08)',
-      }}
+      style={{ background: 'rgba(2,6,18,0.99)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 24, maxWidth: 380, width: '100%', padding: 26, boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 30px rgba(251,191,36,0.05)' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{
-          width: 40, height: 40,
-          background: 'linear-gradient(135deg, #b45309, #78350f)',
-          borderRadius: 12,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 20, border: '1px solid rgba(251,191,36,0.4)',
-        }}>🎯</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+        <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #b45309, #78350f)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 0 12px rgba(245,158,11,0.2)' }}>🎯</div>
         <div>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: '.1em', marginBottom: 2 }}>EVENTO DIARIO</div>
+          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, letterSpacing: '.12em', marginBottom: 3 }}>EVENTO DIARIO</div>
           <h3 style={{ color: '#fcd34d', fontWeight: 700, fontSize: 16, margin: 0 }}>{evento.titulo}</h3>
         </div>
-        <button
-          onClick={onClose}
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
-        >×</button>
+        <button onClick={onClose} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.4)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' }}>×</button>
       </div>
-
-      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 16, lineHeight: 1.6, borderLeft: '2px solid rgba(251,191,36,0.3)', paddingLeft: 12 }}>
-        {evento.pregunta}
-      </p>
-
-      <input
-        type="text"
-        value={respuesta}
-        onChange={(e) => setRespuesta(e.target.value)}
-        placeholder="Tu respuesta..."
-        onKeyPress={(e) => e.key === 'Enter' && onResponder()}
-        style={{
-          width: '100%',
-          padding: '11px 14px',
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 12,
-          marginBottom: 14,
-          color: 'white',
-          fontSize: 14,
-          outline: 'none',
-          boxSizing: 'border-box',
-        }}
+      <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, marginBottom: 18, lineHeight: 1.65, borderLeft: '2px solid rgba(251,191,36,0.25)', paddingLeft: 12 }}>{evento.pregunta}</p>
+      <input type="text" value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
+        placeholder="Tu respuesta..." onKeyPress={(e) => e.key === 'Enter' && onResponder()}
+        style={{ width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, marginBottom: 14, color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s' }}
       />
-
       <div style={{ display: 'flex', gap: 10 }}>
-        <motion.button
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={onResponder}
-          style={{
-            flex: 1,
-            background: 'linear-gradient(135deg, #16a34a, #14532d)',
-            color: 'white',
-            padding: '11px 0',
-            borderRadius: 12,
-            fontWeight: 700,
-            fontSize: 14,
-            border: '1px solid #22c55e',
-            cursor: 'pointer',
-            letterSpacing: '.04em',
-          }}
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onResponder}
+          style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '12px 0', borderRadius: 12, fontWeight: 700, fontSize: 14, border: '1px solid rgba(34,197,94,0.4)', cursor: 'pointer', letterSpacing: '.05em', boxShadow: '0 0 16px rgba(34,197,94,0.15)' }}
         >RESPONDER</motion.button>
-        <motion.button
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={onClose}
-          style={{
-            flex: 1,
-            background: 'rgba(255,255,255,0.05)',
-            color: 'rgba(255,255,255,0.45)',
-            padding: '11px 0',
-            borderRadius: 12,
-            fontWeight: 600,
-            fontSize: 14,
-            border: '1px solid rgba(255,255,255,0.1)',
-            cursor: 'pointer',
-            letterSpacing: '.04em',
-          }}
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClose}
+          style={{ flex: 1, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)', padding: '12px 0', borderRadius: 12, fontWeight: 600, fontSize: 14, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}
         >CANCELAR</motion.button>
       </div>
     </motion.div>
@@ -669,38 +648,29 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
 
 // 📍 Pin de lugar en el mapa
 const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
-  const TIPO_EMOJI = {
-    historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️',
-  };
-  const size = isMobile ? 38 : 46;
-
+  const TIPO_EMOJI = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
+  const size = isMobile ? 36 : 44;
   return (
     <motion.div
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      whileHover={{ scale: 1.12 }}
-      whileTap={{ scale: 0.94 }}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      whileHover={{ scale: 1.15, y: -2 }}
+      whileTap={{ scale: 0.93 }}
       style={{ cursor: 'pointer' }}
     >
       <div
         className={discovered ? 'pin-discovered' : 'pin-undiscovered'}
         style={{
-          width: size,
-          height: size,
+          width: size, height: size,
           background: discovered
-            ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
-            : 'linear-gradient(135deg, #ef4444, #b91c1c)',
+            ? 'linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b)'
+            : 'linear-gradient(135deg, #f87171, #ef4444, #b91c1c)',
           borderRadius: '50% 50% 50% 0',
           transform: 'rotate(-45deg)',
-          border: `${discovered ? 2.5 : 2}px solid white`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          border: `${discovered ? 2.5 : 2}px solid rgba(255,255,255,0.9)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
-        <span style={{ transform: 'rotate(45deg)', fontSize: isMobile ? 17 : 21 }}>
+        <span style={{ transform: 'rotate(45deg)', fontSize: isMobile ? 16 : 20 }}>
           {TIPO_EMOJI[lugar.tipo] || '📍'}
         </span>
       </div>
@@ -708,210 +678,112 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// 🏆 Popup del lugar seleccionado
+// 🏆 Popup del lugar
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
-  const distance = userPosition ? calcularDistancia(
-    userPosition.lat, userPosition.lng,
-    parseFloat(lugar.latitud), parseFloat(lugar.longitud)
-  ) : null;
-
+  const distance = userPosition ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud)) : null;
   const canExplore = distance !== null && distance <= 20;
   const metersToGo = distance ? Math.round(distance) : null;
 
-  const getTipoEmoji = (tipo) => {
-    const emojis = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
-    return emojis[tipo] || '📍';
-  };
+  const getTipoEmoji = (tipo) => ({ historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' }[tipo] || '📍');
+  const getTipoFotoEmoji = (tipo) => ({ historico: '🏰', natural: '🏞️', cultural: '🎨', gastronomico: '🍜' }[tipo] || '📸');
 
-  const getTipoFotoEmoji = (tipo) => {
-    const fotos = { 
-      historico: '🏰', 
-      natural: '🏞️', 
-      cultural: '🎨', 
-      gastronomico: '🍜' 
-    };
-    return fotos[tipo] || '📸';
-  };
-
-  const descripcionCorta = lugar.descripcion?.length > 80 
-    ? lugar.descripcion.substring(0, 80) + '...' 
+  const descripcionCorta = lugar.descripcion?.length > 80
+    ? lugar.descripcion.substring(0, 80) + '...'
     : lugar.descripcion || 'Un lugar maravilloso por descubrir en Concepción.';
 
   return (
     <div style={{ padding: '14px 16px', minWidth: 200, maxWidth: 240 }}>
+      {/* Imagen o emoji */}
       <div style={{
-        width: '100%',
-        height: 110,
-        borderRadius: 12,
-        marginBottom: 12,
-        background: `linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.2))`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 48,
-        border: '1px solid rgba(255,255,255,0.1)',
-        overflow: 'hidden',
+        width: '100%', height: 110, borderRadius: 12, marginBottom: 12,
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', position: 'relative',
       }}>
         {lugar.imagen_url ? (
-          <img 
-            src={lugar.imagen_url} 
-            alt={lugar.nombre}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.parentElement.innerHTML = `<span style="font-size: 52px;">${getTipoFotoEmoji(lugar.tipo)}</span>`;
-            }}
+          <img src={lugar.imagen_url} alt={lugar.nombre}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = `<span style="font-size:48px">${getTipoFotoEmoji(lugar.tipo)}</span>`; }}
           />
         ) : (
-          <span style={{ fontSize: 52 }}>{getTipoFotoEmoji(lugar.tipo)}</span>
+          <span style={{ fontSize: 48 }}>{getTipoFotoEmoji(lugar.tipo)}</span>
+        )}
+        {discovered && (
+          <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(34,197,94,0.9)', borderRadius: 20, padding: '2px 8px', fontSize: 9, color: 'white', fontWeight: 700, letterSpacing: '.06em' }}>
+            ✓ DESCUBIERTO
+          </div>
         )}
       </div>
 
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 20, padding: '2px 8px', marginBottom: 8,
-        fontSize: 10, color: 'rgba(255,255,255,0.5)',
-      }}>
+      {/* Tipo badge */}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '2px 8px', marginBottom: 8, fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: '.06em', textTransform: 'uppercase' }}>
         {getTipoEmoji(lugar.tipo)} {lugar.tipo}
       </div>
 
-      <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
-        {lugar.nombre}
-      </h3>
+      <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>{lugar.nombre}</h3>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 1.6, margin: '0 0 10px' }}>{descripcionCorta}</p>
 
-      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.55, marginBottom: 10 }}>
-        {descripcionCorta}
-      </p>
-
-      <div style={{
-        background: 'rgba(251,191,36,0.1)',
-        borderLeft: '2px solid #fbbf24',
-        padding: '6px 8px',
-        marginBottom: 12,
-        borderRadius: 6,
-      }}>
-        <span style={{ color: '#fbbf24', fontSize: 10, fontWeight: 600 }}>
-          🔍 ¡Visítanos para conocer toda la historia!
-        </span>
+      {/* Tip */}
+      <div style={{ background: 'rgba(251,191,36,0.06)', borderLeft: '2px solid rgba(251,191,36,0.35)', padding: '5px 8px', marginBottom: 12, borderRadius: '0 6px 6px 0' }}>
+        <span style={{ color: 'rgba(251,191,36,0.8)', fontSize: 9, fontWeight: 600 }}>🔍 Visítanos para conocer toda la historia</span>
       </div>
 
+      {/* Distancia */}
       {!canExplore && distance !== null && (
-        <div style={{
-          background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: 8, padding: '6px', marginBottom: 12, textAlign: 'center'
-        }}>
-          <span style={{ color: '#fca5a5', fontSize: 11 }}>
-            📍 A {metersToGo} metros
-          </span>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '6px 8px', marginBottom: 10, textAlign: 'center' }}>
+          <span style={{ color: '#fca5a5', fontSize: 11, fontWeight: 600 }}>📍 A {metersToGo} metros</span>
         </div>
       )}
 
+      {/* Botón explorar */}
       <motion.button
-        whileHover={canExplore ? { scale: 1.03 } : {}}
-        whileTap={canExplore ? { scale: 0.97 } : {}}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canExplore) onExplorar();
-        }}
+        whileHover={canExplore ? { scale: 1.03 } : {}} whileTap={canExplore ? { scale: 0.97 } : {}}
+        onClick={(e) => { e.stopPropagation(); if (canExplore) onExplorar(); }}
         disabled={!canExplore}
         style={{
-          width: '100%',
-          background: canExplore
-            ? 'linear-gradient(135deg, #15803d, #14532d)'
-            : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
-          color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
-          padding: '9px 0',
-          borderRadius: 10,
-          fontWeight: 700,
-          fontSize: 13,
-          border: canExplore ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(255,255,255,0.1)',
-          cursor: canExplore ? 'pointer' : 'not-allowed',
-          opacity: canExplore ? 1 : 0.6,
+          width: '100%', padding: '10px 0', borderRadius: 11, fontWeight: 700, fontSize: 12, cursor: canExplore ? 'pointer' : 'not-allowed', letterSpacing: '.05em',
+          background: canExplore ? 'linear-gradient(135deg, #15803d, #14532d)' : 'rgba(255,255,255,0.04)',
+          color: canExplore ? 'white' : 'rgba(255,255,255,0.3)',
+          border: canExplore ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.07)',
+          boxShadow: canExplore ? '0 0 16px rgba(34,197,94,0.15)' : 'none',
         }}
       >
-        {canExplore ? '✨ VER DETALLES COMPLETOS' : '🔒 ACERCATE MÁS'}
+        {canExplore ? '✨ VER DETALLES COMPLETOS' : '🔒 ACÉRCATE MÁS'}
       </motion.button>
+      {!canExplore && distance !== null && (
+        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 8, textAlign: 'center', marginTop: 7, letterSpacing: '.04em' }}>
+          NECESITAS ESTAR A MENOS DE 20 METROS
+        </p>
+      )}
     </div>
   );
 };
 
-// ⏳ Loading screen RPG
+// ⏳ Loading screen
 const LoadingScreen = () => (
-  <div style={{
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'radial-gradient(ellipse at 50% 40%, #0f1e0f, #0a0e1a)',
-    position: 'relative',
-    overflow: 'hidden',
-  }}>
-    <motion.div
-      animate={{ y: ['-100%', '200vh'] }}
-      transition={{ duration: 3, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
-      style={{
-        position: 'absolute',
-        left: 0, right: 0,
-        height: 2,
-        background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.4), transparent)',
-        pointerEvents: 'none',
-      }}
+  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(ellipse at 50% 35%, #0a1a0a, #0a0e1a 60%)', position: 'relative', overflow: 'hidden' }}>
+    <motion.div animate={{ y: ['-100%', '200vh'] }} transition={{ duration: 3.5, repeat: Infinity, ease: 'linear', repeatDelay: 0.8 }}
+      style={{ position: 'absolute', left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.35), transparent)', pointerEvents: 'none' }}
     />
-
-    <div style={{ position: 'relative', marginBottom: 32 }}>
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-        style={{
-          width: 80, height: 80,
-          border: '2px solid transparent',
-          borderTopColor: '#22c55e',
-          borderRightColor: 'rgba(34,197,94,0.3)',
-          borderRadius: '50%',
-        }}
+    <div style={{ position: 'relative', marginBottom: 36 }}>
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 3.5, repeat: Infinity, ease: 'linear' }}
+        style={{ width: 84, height: 84, border: '2px solid transparent', borderTopColor: '#22c55e', borderRightColor: 'rgba(34,197,94,0.25)', borderRadius: '50%' }}
       />
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-        style={{
-          position: 'absolute',
-          inset: 10,
-          border: '1.5px solid transparent',
-          borderTopColor: '#4ade80',
-          borderLeftColor: 'rgba(74,222,128,0.3)',
-          borderRadius: '50%',
-        }}
+      <motion.div animate={{ rotate: -360 }} transition={{ duration: 2.2, repeat: Infinity, ease: 'linear' }}
+        style={{ position: 'absolute', inset: 11, border: '1.5px solid transparent', borderTopColor: '#4ade80', borderLeftColor: 'rgba(74,222,128,0.25)', borderRadius: '50%' }}
       />
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 28,
-      }}>🦆</div>
+      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 1.6, repeat: Infinity }}
+        style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}
+      >🦆</motion.div>
     </div>
-
-    <div style={{ fontFamily: "'Rajdhani', system-ui", color: '#4ade80', fontWeight: 700, fontSize: 16, letterSpacing: '.18em', marginBottom: 6 }}>
-      CARGANDO MAPA
-    </div>
-    <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, letterSpacing: '.12em' }}>
-      CONCEPCIÓN · ANTIOQUIA
-    </div>
-
-    <motion.div
-      style={{ width: 200, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 4, marginTop: 24 }}
-    >
-      <motion.div
-        animate={{ width: ['0%', '100%'] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ height: '100%', background: 'linear-gradient(90deg, #16a34a, #4ade80)', borderRadius: 4 }}
+    <div style={{ fontFamily: "'Rajdhani',system-ui", color: '#4ade80', fontWeight: 700, fontSize: 15, letterSpacing: '.2em', marginBottom: 4 }}>CARGANDO MAPA</div>
+    <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, letterSpacing: '.14em', marginBottom: 28 }}>CONCEPCIÓN · ANTIOQUIA</div>
+    <div style={{ width: 180, height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+      <motion.div animate={{ width: ['0%', '100%'] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ height: '100%', background: 'linear-gradient(90deg, #16a34a, #4ade80)', borderRadius: 4, boxShadow: '0 0 8px rgba(74,222,128,0.4)' }}
       />
-    </motion.div>
+    </div>
   </div>
 );
 
@@ -945,138 +817,86 @@ function Mapa() {
   const [respuestaEvento, setRespuestaEvento] = useState('');
   const [userAvatar, setUserAvatar] = useState(null);
   const [viewState, setViewState] = useState({
-    longitude: -75.2592802,
-    latitude: 6.3953494,
-    zoom: 18,
-    pitch: 60,
-    bearing: 15,
+    longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 60, bearing: 15,
   });
 
   const navigate = useNavigate();
   const mapRef = useRef(null);
 
-  // ── Helpers ────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────
   const mostrarMensajeGuia = (mensaje, tipo = 'normal', duracion = 5000) => {
-    setMensajeGuia(mensaje);
-    setTipoGuia(tipo);
+    setMensajeGuia(mensaje); setTipoGuia(tipo);
     setTimeout(() => setMensajeGuia(''), duracion);
   };
 
-  const toggleMenuExplorador = () => {
-    setMostrarMenuExplorador(!mostrarMenuExplorador);
-  };
+  const toggleMenuExplorador = () => setMostrarMenuExplorador(prev => !prev);
 
   const getTipoIcon = (tipo) => {
     const icons = {
-      historico: <Landmark size={isMobile ? 15 : 18} color="#94a3b8" />,
-      natural:   <TreePine size={isMobile ? 15 : 18} color="#4ade80" />,
-      cultural:  <Users    size={isMobile ? 15 : 18} color="#a78bfa" />,
-      gastronomico: <Utensils size={isMobile ? 15 : 18} color="#fb923c" />,
+      historico:    <Landmark  size={isMobile ? 14 : 17} color="#94a3b8" />,
+      natural:      <TreePine  size={isMobile ? 14 : 17} color="#4ade80" />,
+      cultural:     <Users     size={isMobile ? 14 : 17} color="#a78bfa" />,
+      gastronomico: <Utensils  size={isMobile ? 14 : 17} color="#fb923c" />,
     };
-    return icons[tipo] || <MapPin size={isMobile ? 15 : 18} color="#94a3b8" />;
+    return icons[tipo] || <MapPin size={isMobile ? 14 : 17} color="#94a3b8" />;
   };
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3;
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    const R = 6371e3, φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const calcularSistemaExp = (totalLugares) => {
     const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
     const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
     const expBase = 10;
-    const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos)*totalLugares*expBase));
+    const expRequerida = pesosPorNivel.map(p => Math.round((p / sumaPesos) * totalLugares * expBase));
     const expAcumulada = [];
     expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
     return { expRequerida, expAcumulada, expBase };
   };
 
   const calcularNivelPorXP = (xpActual, expAcumulada) => {
-    for (let i = 0; i < expAcumulada.length; i++) {
-      if (xpActual < expAcumulada[i]) return i + 1;
-    }
+    for (let i = 0; i < expAcumulada.length; i++) if (xpActual < expAcumulada[i]) return i + 1;
     return expAcumulada.length + 1;
   };
 
   const cargarFotoPerfil = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        console.log('No hay token, usuario no autenticado');
-        return;
-      }
-      
+      if (!token) return;
       const response = await api.get('/auth/perfil');
-      if (response.data?.foto_perfil) {
-        setUserAvatar(response.data.foto_perfil);
-      }
+      if (response.data?.foto_perfil) setUserAvatar(response.data.foto_perfil);
     } catch (error) {
-      console.error('Error cargando foto de perfil:', error);
-      if (error.response?.status === 401) {
-        console.log('Token expirado, el usuario necesita autenticarse nuevamente');
-      }
+      if (error.response?.status !== 401) console.error('Error cargando foto de perfil:', error);
     }
   };
 
   const registrarDescubrimiento = async (lugar) => {
     try {
-      if (!userPosition) {
-        mostrarMensajeGuia('📍 Activa tu ubicación para explorar lugares', 'pensativo', 3000);
-        return false;
-      }
-      
-      const distance = calcularDistancia(
-        userPosition.lat, userPosition.lng,
-        parseFloat(lugar.latitud), parseFloat(lugar.longitud)
-      );
-      
-      if (distance > 20) {
-        mostrarMensajeGuia(`❌ Debes acercarte más al lugar (${Math.round(distance)} metros de distancia)`, 'pensativo', 3000);
-        return false;
-      }
-      
-      if (discoveredPlaces.includes(lugar.id)) {
-        mostrarMensajeGuia(`📖 Ya descubriste ${lugar.nombre}`, 'normal', 2000);
-        return false;
-      }
-      
-      const response = await api.post('/descubrimientos/registrar', {
-        lugar_id: lugar.id,
-        latitud: userPosition.lat,
-        longitud: userPosition.lng
-      });
-      
+      if (!userPosition) { mostrarMensajeGuia('📍 Activa tu ubicación para explorar lugares', 'pensativo', 3000); return false; }
+      const distance = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
+      if (distance > 20) { mostrarMensajeGuia(`❌ Debes acercarte más (${Math.round(distance)} m)`, 'pensativo', 3000); return false; }
+      if (discoveredPlaces.includes(lugar.id)) { mostrarMensajeGuia(`📖 Ya descubriste ${lugar.nombre}`, 'normal', 2000); return false; }
+      const response = await api.post('/descubrimientos/registrar', { lugar_id: lugar.id, latitud: userPosition.lat, longitud: userPosition.lng });
       if (response.data.success) {
         const nuevosDescubiertos = [...discoveredPlaces, lugar.id];
         setDiscoveredPlaces(nuevosDescubiertos);
         setLastVisitedPlace(lugar);
         setTimeout(() => setLastVisitedPlace(null), 3000);
-        
-        const nuevaXP = (nuevosDescubiertos.length) * sistemaExp.expBase;
+        const nuevaXP = nuevosDescubiertos.length * sistemaExp.expBase;
         setXp(nuevaXP);
         localStorage.setItem('player_xp', nuevaXP);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevosDescubiertos));
-        
         if (sistemaExp.expAcumulada.length > 0) {
           const nuevoNivel = Math.min(calcularNivelPorXP(nuevaXP, sistemaExp.expAcumulada), 5);
-          if (nuevoNivel > playerLevel) {
-            setPlayerLevel(nuevoNivel);
-            mostrarMensajeGuia(`🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}! 🎉`, 'celebrando', 5000);
-          }
+          if (nuevoNivel > playerLevel) { setPlayerLevel(nuevoNivel); mostrarMensajeGuia(`🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}!`, 'celebrando', 5000); }
         }
-        
         return true;
       }
     } catch (error) {
-      console.error('Error al registrar descubrimiento:', error);
       mostrarMensajeGuia(error.response?.data?.error || 'Error al registrar descubrimiento', 'error', 3000);
       return false;
     }
@@ -1084,124 +904,51 @@ function Mapa() {
 
   const handleExplorarLugar = async (lugar) => {
     const registrado = await registrarDescubrimiento(lugar);
-    if (registrado) {
-      setSelectedLugar(null);
-      navigate(`/lugar/${lugar.id}`);
-    }
+    if (registrado) { setSelectedLugar(null); navigate(`/lugar/${lugar.id}`); }
   };
 
-  const handleMarkerClick = (lugar) => {
-    setSelectedLugar(lugar);
-  };
+  const handleMarkerClick = (lugar) => setSelectedLugar(lugar);
 
   const cargarLugarEspecial = async () => {
     try {
-      const COORDENADAS_PARQUE = {
-        latitud: 6.3953494,
-        longitud: -75.2592802,
-        nombre: '📸 Parque Principal - Rincón de Recuerdos'
-      };
-
-      setLugarEspecial({
-        id: 'parque_principal_galeria',
-        nombre: COORDENADAS_PARQUE.nombre,
-        latitud: COORDENADAS_PARQUE.latitud,
-        longitud: COORDENADAS_PARQUE.longitud,
-        tipo: 'especial'
-      });
-      
-    } catch (e) { 
-      console.error('Error cargando lugar especial:', e);
-      setLugarEspecial({
-        id: 'fallback',
-        nombre: '📸 Galería de Recuerdos',
-        latitud: 6.3953494,
-        longitud: -75.2592802,
-        tipo: 'especial'
-      });
+      const COORDENADAS_PARQUE = { latitud: 6.3953494, longitud: -75.2592802, nombre: '📸 Parque Principal - Rincón de Recuerdos' };
+      setLugarEspecial({ id: 'parque_principal_galeria', nombre: COORDENADAS_PARQUE.nombre, latitud: COORDENADAS_PARQUE.latitud, longitud: COORDENADAS_PARQUE.longitud, tipo: 'especial' });
+    } catch (e) {
+      setLugarEspecial({ id: 'fallback', nombre: '📸 Galería de Recuerdos', latitud: 6.3953494, longitud: -75.2592802, tipo: 'especial' });
     }
   };
 
-  // ── Efectos ────────────────────────────────────────────────
-  useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  }, []);
+  // ── Efectos ─────────────────────────────────────────────
+  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 640); window.addEventListener('resize', h); return () => window.removeEventListener('resize', h); }, []);
 
-  useEffect(() => {
-    cargarLugarEspecial();
-    cargarFotoPerfil();
-  }, []);
+  useEffect(() => { cargarLugarEspecial(); cargarFotoPerfil(); }, []);
 
   useEffect(() => {
     const handleSessionExpired = (event) => {
-        mostrarMensajeGuia(
-            event.detail?.message || 'Tu sesión ha expirado. Serás redirigido al login.',
-            'error',
-            3000
-        );
-        
-        setTimeout(() => {
-            navigate('/login');
-        }, 2500);
+      mostrarMensajeGuia(event.detail?.message || 'Tu sesión ha expirado.', 'error', 3000);
+      setTimeout(() => navigate('/login'), 2500);
     };
-    
     window.addEventListener('sessionExpired', handleSessionExpired);
-    
-    return () => {
-        window.removeEventListener('sessionExpired', handleSessionExpired);
-    };
+    return () => window.removeEventListener('sessionExpired', handleSessionExpired);
   }, [navigate]);
 
-  useEffect(() => {
-    if (!loading && lugares.length > 0) {
-      mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000);
-      cargarEventos();
-    }
-  }, [loading]);
+  useEffect(() => { if (!loading && lugares.length > 0) { mostrarMensajeGuia('¡Bienvenido a Concepción! Explora el mapa y descubre lugares increíbles.', 'bienvenida', 6000); cargarEventos(); } }, [loading]);
+  useEffect(() => { if (lastVisitedPlace) mostrarMensajeGuia(`¡Has descubierto ${lastVisitedPlace.nombre}! +${sistemaExp.expBase} XP`, 'descubrimiento', 4000); }, [lastVisitedPlace]);
+  useEffect(() => { if (playerLevel > 1 && discoveredPlaces.length > 0) mostrarMensajeGuia(`¡Felicidades! Has alcanzado el nivel ${playerLevel}!`, 'nivel', 5000); }, [playerLevel]);
 
   useEffect(() => {
-    if (lastVisitedPlace) {
-      mostrarMensajeGuia(`¡Has descubierto ${lastVisitedPlace.nombre}! +${sistemaExp.expBase} XP`, 'descubrimiento', 4000);
-    }
-  }, [lastVisitedPlace]);
-
-  useEffect(() => {
-    if (playerLevel > 1 && discoveredPlaces.length > 0) {
-      mostrarMensajeGuia(`¡Felicidades! Has alcanzado el nivel ${playerLevel}!`, 'nivel', 5000);
-    }
-  }, [playerLevel]);
-
-  useEffect(() => {
-    const consejos = [
-      'Los marcadores dorados son lugares que ya descubriste.',
-      'Cada lugar descubierto te da 10 XP.',
-      'Tu avatar cambia de aspecto al subir de nivel.',
-      'Usa el botón azul para volver a tu ubicación.',
-      '¡Los eventos diarios te dan XP extra!',
-    ];
-    const id = setInterval(() => {
-      if (!lastVisitedPlace && !showQuestLog) {
-        mostrarMensajeGuia(consejos[Math.floor(Math.random() * consejos.length)], 'consejo', 4000);
-      }
-    }, 30000);
+    const consejos = ['Los marcadores dorados son lugares que ya descubriste.', 'Cada lugar descubierto te da 10 XP.', 'Tu avatar cambia de aspecto al subir de nivel.', 'Usa el botón azul para volver a tu ubicación.', '¡Los eventos diarios te dan XP extra!'];
+    const id = setInterval(() => { if (!lastVisitedPlace && !showQuestLog) mostrarMensajeGuia(consejos[Math.floor(Math.random() * consejos.length)], 'consejo', 4000); }, 30000);
     return () => clearInterval(id);
   }, [lastVisitedPlace, showQuestLog]);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setDiscoveredPlaces(parsed);
-      }
+      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed)) setDiscoveredPlaces(parsed); }
       const savedXp = localStorage.getItem('player_xp');
       if (savedXp) setXp(parseInt(savedXp));
-    } catch (e) {
-      console.error('Error cargando progreso:', e);
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    } catch (e) { localStorage.removeItem(STORAGE_KEY); }
   }, []);
 
   useEffect(() => {
@@ -1218,8 +965,7 @@ function Mapa() {
       setXp(nuevoXP);
       localStorage.setItem('player_xp', nuevoXP);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(discoveredPlaces));
-      if (sistemaExp.expAcumulada.length > 0)
-        setPlayerLevel(Math.min(calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada), 5));
+      if (sistemaExp.expAcumulada.length > 0) setPlayerLevel(Math.min(calcularNivelPorXP(nuevoXP, sistemaExp.expAcumulada), 5));
     }
   }, [discoveredPlaces, sistemaExp]);
 
@@ -1227,12 +973,12 @@ function Mapa() {
     const check = async () => {
       const saved = localStorage.getItem('locationResponse');
       if (saved === 'granted') { setShouldLocate(true); setLocationPermission('granted'); setUserResponded(true); return; }
-      if (saved === 'denied')  { setLocationPermission('denied'); setUserResponded(true); return; }
+      if (saved === 'denied') { setLocationPermission('denied'); setUserResponded(true); return; }
       if (navigator.permissions?.query) {
         try {
           const r = await navigator.permissions.query({ name: 'geolocation' });
-          if (r.state === 'granted') { setShouldLocate(true); setLocationPermission('granted'); setUserResponded(true); localStorage.setItem('locationResponse','granted'); }
-          else if (r.state === 'denied') { setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse','denied'); }
+          if (r.state === 'granted') { setShouldLocate(true); setLocationPermission('granted'); setUserResponded(true); localStorage.setItem('locationResponse', 'granted'); }
+          else if (r.state === 'denied') { setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse', 'denied'); }
           else setTimeout(() => setShowLocationPrompt(true), 1000);
         } catch { setTimeout(() => setShowLocationPrompt(true), 1000); }
       } else { setTimeout(() => setShowLocationPrompt(true), 1000); }
@@ -1242,77 +988,39 @@ function Mapa() {
 
   useEffect(() => {
     if (!shouldLocate || !navigator.geolocation) return undefined;
-
     const handlePosition = (pos) => {
-      setUserPosition({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        accuracy: pos.coords.accuracy,
-        updatedAt: pos.timestamp,
-      });
+      setUserPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, updatedAt: pos.timestamp });
       setLocationPermission('granted');
     };
-
     const handleError = (error) => {
-      console.error('Error siguiendo ubicación:', error);
-      if (error.code === error.PERMISSION_DENIED) {
-        setLocationPermission('denied');
-        localStorage.setItem('locationResponse', 'denied');
-      }
+      if (error.code === error.PERMISSION_DENIED) { setLocationPermission('denied'); localStorage.setItem('locationResponse', 'denied'); }
     };
-
-    const watchId = navigator.geolocation.watchPosition(
-      handlePosition,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        maximumAge: 3000,
-        timeout: 15000,
-      }
-    );
-
+    const watchId = navigator.geolocation.watchPosition(handlePosition, handleError, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
     return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldLocate]);
 
   const cargarLugares = async () => {
-    try {
-      const r = await api.get('/lugares');
-      if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    try { const r = await api.get('/lugares'); if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data); }
+    catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const cargarEventos = async () => {
-    try {
-      const r = await api.get('/eventos/activos');
-      setEventos(r.data.eventos || []);
-    } catch (e) { console.error(e); }
+    try { const r = await api.get('/eventos/activos'); setEventos(r.data.eventos || []); } catch (e) { console.error(e); }
   };
 
   const handleCompletarEvento = async (eventoId, respuesta) => {
     try {
       const r = await api.post('/eventos/completar', { eventoId, respuesta });
-      if (r.data.success) {
-        mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${r.data.xp_ganada} XP`, 'celebrando', 4000);
-        setEventoSeleccionado(null);
-        setRespuestaEvento('');
-        cargarEventos();
-      }
-    } catch {
-      mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
-    }
+      if (r.data.success) { mostrarMensajeGuia(`🎉 ¡Completaste el reto! +${r.data.xp_ganada} XP`, 'celebrando', 4000); setEventoSeleccionado(null); setRespuestaEvento(''); cargarEventos(); }
+    } catch { mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000); }
   };
 
   useEffect(() => { cargarLugares(); }, []);
 
   if (loading) return <LoadingScreen />;
-
   if (!MAPBOX_TOKEN) return (
     <div className="h-screen flex items-center justify-center bg-red-950 p-4">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-red-400">Error de Configuración</h2>
-        <p className="text-red-500 text-sm mt-1">No se detectó VITE_MAPBOX_TOKEN</p>
-      </div>
+      <div className="text-center"><h2 className="text-xl font-bold text-red-400">Error de Configuración</h2><p className="text-red-500 text-sm mt-1">No se detectó VITE_MAPBOX_TOKEN</p></div>
     </div>
   );
 
@@ -1336,50 +1044,22 @@ function Mapa() {
         userAvatar={userAvatar}
       />
 
-      <BrujulaFuncional
-        bearing={viewState.bearing}
-        onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))}
-      />
+      <BrujulaFuncional bearing={viewState.bearing} onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))} />
 
       <CompaneroVirtual
-        mensaje={mensajeGuia}
-        nivel={playerLevel}
-        tipo={tipoGuia}
+        mensaje={mensajeGuia} nivel={playerLevel} tipo={tipoGuia}
         emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
       />
 
-      {mostrarGaleria && (
-        <GaleriaFotos 
-          nivelUsuario={playerLevel}
-          onCerrar={() => setMostrarGaleria(false)}
-        />
-      )}
+      {mostrarGaleria && <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />}
 
       <LocationPrompt
         show={showLocationPrompt && !userResponded}
-        onAccept={() => {
-          setShowLocationPrompt(false);
-          setShouldLocate(true);
-          setUserResponded(true);
-          localStorage.setItem('locationResponse', 'granted');
-        }}
-        onDeny={() => {
-          setShowLocationPrompt(false);
-          setLocationPermission('denied');
-          setUserResponded(true);
-          localStorage.setItem('locationResponse', 'denied');
-        }}
+        onAccept={() => { setShowLocationPrompt(false); setShouldLocate(true); setUserResponded(true); localStorage.setItem('locationResponse', 'granted'); }}
+        onDeny={() => { setShowLocationPrompt(false); setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse', 'denied'); }}
       />
 
-      <QuestLogPanel
-        show={showQuestLog}
-        lugares={lugares}
-        discoveredPlaces={discoveredPlaces}
-        getTipoIcon={getTipoIcon}
-        onClose={() => setShowQuestLog(false)}
-        onSelectLugar={handleMarkerClick}
-        isMobile={isMobile}
-      />
+      <QuestLogPanel show={showQuestLog} lugares={lugares} discoveredPlaces={discoveredPlaces} getTipoIcon={getTipoIcon} onClose={() => setShowQuestLog(false)} onSelectLugar={handleMarkerClick} isMobile={isMobile} />
 
       <MenuExplorador
         nivel={playerLevel}
@@ -1405,153 +1085,77 @@ function Mapa() {
         <Map3DEffect />
         <NavigationControl position="top-right" />
 
+        {/* Avatar del jugador */}
         {userPosition && (
           <Marker longitude={userPosition.lng} latitude={userPosition.lat}>
             <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
 
+        {/* Lugares */}
         {lugares.map((lugar) => (
-          <Marker
-            key={lugar.id}
-            longitude={parseFloat(lugar.longitud)}
-            latitude={parseFloat(lugar.latitud)}
-            onClick={(e) => {
-              e.originalEvent.stopPropagation();
-              handleMarkerClick(lugar);
-            }}
+          <Marker key={lugar.id} longitude={parseFloat(lugar.longitud)} latitude={parseFloat(lugar.latitud)}
+            onClick={(e) => { e.originalEvent.stopPropagation(); handleMarkerClick(lugar); }}
           >
-            <LugarPin
-              lugar={lugar}
-              discovered={discoveredPlaces.includes(lugar.id)}
-              isMobile={isMobile}
-              onClick={() => handleMarkerClick(lugar)}
-            />
+            <LugarPin lugar={lugar} discovered={discoveredPlaces.includes(lugar.id)} isMobile={isMobile} onClick={() => handleMarkerClick(lugar)} />
           </Marker>
         ))}
 
+        {/* Marcador especial galería */}
         {lugarEspecial && (
-          <Marker 
-            longitude={parseFloat(lugarEspecial.longitud)} 
-            latitude={parseFloat(lugarEspecial.latitud)}
-            anchor="bottom"
-            style={{ zIndex: 3000 }}
-          >
+          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 3000 }}>
             <motion.div
-              animate={{ 
-                scale: [1, 1.15, 1], 
-                y: [0, -6, 0] 
-              }}
+              animate={{ scale: [1, 1.14, 1], y: [0, -7, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
               onClick={() => {
                 setMostrarGaleria(true);
-                if (playerLevel >= 5) {
-                  mostrarMensajeGuia('📸 ¡Bienvenido a la Galería de Recuerdos!', 'celebrando', 3000);
-                } else {
-                  mostrarMensajeGuia(
-                    `🔒 Puedes ver la Galería, pero necesitas nivel 5 para subir fotos. ¡Tu nivel actual es ${playerLevel}! Sigue explorando.`,
-                    'pensativo',
-                    5000
-                  );
-                }
+                mostrarMensajeGuia(
+                  playerLevel >= 5 ? '📸 ¡Bienvenido a la Galería de Recuerdos!' : `🔒 Necesitas nivel 5 para subir fotos. ¡Sigue explorando!`,
+                  playerLevel >= 5 ? 'celebrando' : 'pensativo', 4000
+                );
               }}
               style={{
-                width: isMobile ? 60 : 72,
-                height: isMobile ? 60 : 72,
+                width: isMobile ? 60 : 72, height: isMobile ? 60 : 72,
                 background: 'linear-gradient(135deg, #fde68a 0%, #fbbf24 45%, #d97706 100%)',
-                borderRadius: '50%',
-                border: '4px solid white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                borderRadius: '50%', border: '4px solid rgba(255,255,255,0.9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: isMobile ? 28 : 34,
-                boxShadow: '0 0 32px rgba(251,191,36,0.9), 0 8px 22px rgba(0,0,0,0.55)',
-                cursor: 'pointer',
-                opacity: 1,
-                zIndex: 3000,
-                position: 'relative',
+                boxShadow: '0 0 36px rgba(251,191,36,0.85), 0 8px 24px rgba(0,0,0,0.55)',
+                cursor: 'pointer', position: 'relative',
               }}
             >
-              <span style={{ filter: 'none', fontSize: isMobile ? 28 : 34 }}>📸</span>
+              <span style={{ fontSize: isMobile ? 28 : 34 }}>📸</span>
               {playerLevel < 5 && (
-                <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 18, filter: 'none' }}>🔒</span>
+                <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 18 }}>🔒</span>
               )}
             </motion.div>
           </Marker>
         )}
 
+        {/* Eventos */}
         {eventos.map((evento) => (
-          <Marker
-            key={`evento_${evento.id}`}
-            longitude={parseFloat(evento.longitud)}
-            latitude={parseFloat(evento.latitud)}
-            onClick={() => setEventoSeleccionado(evento)}
-          >
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 1.4, repeat: Infinity }}
-              style={{
-                width: 44, height: 44,
-                background: 'linear-gradient(135deg, #b45309, #78350f)',
-                borderRadius: '50%',
-                border: '2px solid #fbbf24',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20,
-                cursor: 'pointer',
-                boxShadow: '0 0 14px rgba(251,191,36,0.4)',
-              }}
+          <Marker key={`evento_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)} onClick={() => setEventoSeleccionado(evento)}>
+            <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.4, repeat: Infinity }}
+              style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #b45309, #78350f)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 18px rgba(251,191,36,0.45), 0 4px 12px rgba(0,0,0,0.4)' }}
             >❓</motion.div>
           </Marker>
         ))}
 
+        {/* Popup */}
         {selectedLugar && (
-          <Popup
-            longitude={parseFloat(selectedLugar.longitud)}
-            latitude={parseFloat(selectedLugar.latitud)}
-            onClose={() => setSelectedLugar(null)}
-            closeButton={true}
-            closeOnClick={false}
-            anchor="bottom"
-            offset={16}
-          >
-            <LugarPopupContent
-              lugar={selectedLugar}
-              discovered={discoveredPlaces.includes(selectedLugar.id)}
-              userPosition={userPosition}
-              onExplorar={() => handleExplorarLugar(selectedLugar)}
-              calcularDistancia={calcularDistancia}
-            />
+          <Popup longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)} onClose={() => setSelectedLugar(null)} closeButton={true} closeOnClick={false} anchor="bottom" offset={16}>
+            <LugarPopupContent lugar={selectedLugar} discovered={discoveredPlaces.includes(selectedLugar.id)} userPosition={userPosition} onExplorar={() => handleExplorarLugar(selectedLugar)} calcularDistancia={calcularDistancia} />
           </Popup>
         )}
       </Map>
 
-      <BotonUbicacion
-        userPosition={userPosition}
-        onCenter={() => userPosition && setViewState(prev => ({
-          ...prev,
-          longitude: userPosition.lng,
-          latitude: userPosition.lat,
-          zoom: 16,
-        }))}
-      />
+      <BotonUbicacion userPosition={userPosition} onCenter={() => userPosition && setViewState(prev => ({ ...prev, longitude: userPosition.lng, latitude: userPosition.lat, zoom: 16 }))} />
 
-      {mostrarAnclar && (
-        <AnclarGuardian
-          userPosition={userPosition}
-          onClose={() => setMostrarAnclar(false)}
-          onAnclado={() => setMostrarAnclar(false)}
-        />
-      )}
+      {mostrarAnclar && <AnclarGuardian userPosition={userPosition} onClose={() => setMostrarAnclar(false)} onAnclado={() => setMostrarAnclar(false)} />}
 
       <AnimatePresence>
         {eventoSeleccionado && (
-          <EventoModal
-            evento={eventoSeleccionado}
-            respuesta={respuestaEvento}
-            setRespuesta={setRespuestaEvento}
-            onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
-            onClose={() => setEventoSeleccionado(null)}
-          />
+          <EventoModal evento={eventoSeleccionado} respuesta={respuestaEvento} setRespuesta={setRespuestaEvento} onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)} onClose={() => setEventoSeleccionado(null)} />
         )}
       </AnimatePresence>
 
