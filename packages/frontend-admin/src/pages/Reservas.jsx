@@ -12,15 +12,14 @@ import {
   Filter
 } from 'lucide-react';
 import api from '../services/api';
-import AsignarGuiaModal from '../components/AsignarGuiaModal';
+import { useAuth } from '../hooks/useAuth';
 
 function Reservas() {
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [busqueda, setBusqueda] = useState('');
-  const [modalAsignar, setModalAsignar] = useState({ open: false, reservaId: null });
-
+  const { user } = useAuth();
   useEffect(() => {
     cargarReservas();
   }, []);
@@ -74,16 +73,6 @@ function Reservas() {
       case 'completada': return <UserCheck className="w-4 h-4" />;
       case 'cancelada': return <XCircle className="w-4 h-4" />;
       default: return null;
-    }
-  };
-
-  const handleAsignarGuia = async (reservaId, guiaId) => {
-    try {
-      await api.put(`/reservas/${reservaId}/asignar-guia`, { guia_id: guiaId });
-      await cargarReservas();
-      setModalAsignar({ open: false, reservaId: null });
-    } catch (error) {
-      console.error('Error al asignar guía:', error);
     }
   };
 
@@ -211,13 +200,13 @@ function Reservas() {
 
               {/* Acciones */}
               <div className="flex flex-col gap-2 min-w-[200px]">
-                {reserva.estado === 'pendiente' && (
+                {user?.rol === 'guia' && reserva.estado === 'pendiente' && (
                   <button
-                    onClick={() => setModalAsignar({ open: true, reservaId: reserva.id })}
+                    onClick={() => handleCambiarEstado(reserva.id, 'confirmada')}
                     className="w-full bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium
                              hover:bg-green-700 transition-colors"
                   >
-                    Asignar Guía
+                    Aceptar Reserva
                   </button>
                 )}
                 
@@ -252,14 +241,6 @@ function Reservas() {
         )}
       </div>
 
-      {/* Modal de asignación de guía */}
-      {modalAsignar.open && (
-        <AsignarGuiaModal
-          reservaId={modalAsignar.reservaId}
-          onAsignar={handleAsignarGuia}
-          onClose={() => setModalAsignar({ open: false, reservaId: null })}
-        />
-      )}
     </div>
   );
 }
