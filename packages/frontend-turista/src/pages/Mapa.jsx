@@ -204,29 +204,6 @@ const HUDHeader = ({
     >
       {/* ── Lado izquierdo ── */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'auto', flexWrap: 'wrap' }}>
-
-        {/* Avatar perfil */}
-        <div style={{
-          width: 40, height: 40, borderRadius: '50%',
-          background: `linear-gradient(135deg, ${lc.border}, rgba(0,0,0,0.6))`,
-          padding: 2,
-          boxShadow: `0 0 14px ${lc.glow}, 0 2px 8px rgba(0,0,0,0.5)`,
-          flexShrink: 0,
-        }}>
-          {userAvatar ? (
-            <img src={userAvatar} alt="Perfil"
-              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{
-              width: '100%', height: '100%', borderRadius: '50%',
-              background: '#0a0e1a',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <User size={17} color={lc.text} />
-            </div>
-          )}
-        </div>
-
         {/* Badge nivel */}
         <div className="level-badge" style={{
           background: `linear-gradient(150deg, ${lc.from}, ${lc.to})`,
@@ -345,7 +322,7 @@ const HUDHeader = ({
       {/* ── Lado derecho — botones de navegación ── */}
       <div style={{ display: 'flex', gap: 6, pointerEvents: 'auto', flexShrink: 0 }}>
 
-        {/* Botón Perfil / Menú Explorador */}
+        {/* Botón Perfil / Menú Explorador - Abre la barra lateral */}
         <motion.button
           onClick={onToggleMenuExplorador}
           whileHover={{ scale: 1.06, y: -1 }}
@@ -358,17 +335,37 @@ const HUDHeader = ({
             borderRadius: 12,
             flexDirection: 'column',
             gap: 2,
+            background: 'rgba(2,6,18,0.85)',
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid rgba(251,191,36,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
           }}
         >
           {userAvatar ? (
-            <img src={userAvatar} alt="Perfil"
-              style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(251,191,36,0.5)' }}
+            <img 
+              src={userAvatar} 
+              alt="Perfil"
+              style={{ 
+                width: isMobile ? 26 : 30, 
+                height: isMobile ? 26 : 30, 
+                borderRadius: '50%', 
+                objectFit: 'cover', 
+                border: '1.5px solid rgba(251,191,36,0.5)' 
+              }}
             />
           ) : (
             <>
               <UserCircle size={isMobile ? 18 : 21} color="#fbbf24" />
               {!isMobile && (
-                <span style={{ fontSize: 7, color: 'rgba(251,191,36,0.7)', letterSpacing: '.06em', fontWeight: 700 }}>
+                <span style={{ 
+                  fontSize: 7, 
+                  color: 'rgba(251,191,36,0.7)', 
+                  letterSpacing: '.06em', 
+                  fontWeight: 700 
+                }}>
                   PERFIL
                 </span>
               )}
@@ -389,6 +386,13 @@ const HUDHeader = ({
             borderRadius: 12,
             flexDirection: 'column',
             gap: 2,
+            background: 'rgba(2,6,18,0.85)',
+            backdropFilter: 'blur(10px)',
+            border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
           }}
         >
           {showQuestLog ? (
@@ -397,7 +401,12 @@ const HUDHeader = ({
             <>
               <Menu size={isMobile ? 18 : 20} color="#fbbf24" />
               {!isMobile && (
-                <span style={{ fontSize: 7, color: 'rgba(251,191,36,0.7)', letterSpacing: '.06em', fontWeight: 700 }}>
+                <span style={{ 
+                  fontSize: 7, 
+                  color: 'rgba(251,191,36,0.7)', 
+                  letterSpacing: '.06em', 
+                  fontWeight: 700 
+                }}>
                   MAPA
                 </span>
               )}
@@ -406,13 +415,20 @@ const HUDHeader = ({
           {/* Indicador de progreso en el botón del quest log */}
           {!showQuestLog && discoveredPlaces.length > 0 && (
             <div style={{
-              position: 'absolute', top: -4, right: -4,
-              width: 16, height: 16,
+              position: 'absolute', 
+              top: -4, 
+              right: -4,
+              width: 16, 
+              height: 16,
               background: discoveredPlaces.length === totalLugares ? '#22c55e' : '#f59e0b',
               borderRadius: '50%',
               border: '2px solid rgba(2,6,18,0.9)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 7, fontWeight: 700, color: 'white',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontSize: 7, 
+              fontWeight: 700, 
+              color: 'white',
             }}>
               {discoveredPlaces.length === totalLugares ? '✓' : discoveredPlaces.length}
             </div>
