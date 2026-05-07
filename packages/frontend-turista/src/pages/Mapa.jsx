@@ -60,12 +60,6 @@ const GLOBAL_STYLES = `
     0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.4), 0 4px 15px rgba(0,0,0,0.3); }
     50%       { box-shadow: 0 0 16px 6px rgba(251,191,36,0.7), 0 4px 15px rgba(0,0,0,0.3); }
   }
-  @keyframes scan-line {
-    0%   { transform: translateY(-100%); opacity: 0; }
-    10%  { opacity: 0.15; }
-    90%  { opacity: 0.15; }
-    100% { transform: translateY(100vh); opacity: 0; }
-  }
   .pin-undiscovered { animation: pin-pulse 2.2s ease-in-out infinite; }
   .pin-discovered   { animation: pin-glow 2s ease-in-out infinite; }
 `;
@@ -130,7 +124,7 @@ const HUDHeader = ({
   playerLevel, discoveredPlaces, totalLugares, xp,
   lugarEspecial, onOpenGaleria, onOpenAnclar,
   onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
-  userAvatar, // Nueva prop para la foto de perfil
+  userAvatar,
 }) => {
   const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
   const xpAnterior = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
@@ -168,7 +162,6 @@ const HUDHeader = ({
     >
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {/* Foto de perfil del usuario */}
           <div
             style={{
               width: 38,
@@ -647,7 +640,10 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
 
   return (
     <motion.div
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       whileHover={{ scale: 1.12 }}
       whileTap={{ scale: 0.94 }}
       style={{ cursor: 'pointer' }}
@@ -676,8 +672,8 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// 🏆 Popup del lugar seleccionado - NUEVO VERSION CON FOTO Y DESCRIPCION CORTA
-const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia, onClose }) => {
+// 🏆 Popup del lugar seleccionado
+const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
     userPosition.lat, userPosition.lng,
     parseFloat(lugar.latitud), parseFloat(lugar.longitud)
@@ -701,14 +697,12 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
     return fotos[tipo] || '📸';
   };
 
-  // Descripción corta (primeros 80 caracteres)
-  const descripcionCorta = lugar.descripcion.length > 80 
+  const descripcionCorta = lugar.descripcion?.length > 80 
     ? lugar.descripcion.substring(0, 80) + '...' 
-    : lugar.descripcion;
+    : lugar.descripcion || 'Un lugar maravilloso por descubrir en Concepción.';
 
   return (
     <div style={{ padding: '14px 16px', minWidth: 200, maxWidth: 240 }}>
-      {/* Imagen de preview del lugar */}
       <div style={{
         width: '100%',
         height: 110,
@@ -731,6 +725,10 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
               height: '100%',
               objectFit: 'cover',
             }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentElement.innerHTML = `<span style="font-size: 52px;">${getTipoFotoEmoji(lugar.tipo)}</span>`;
+            }}
           />
         ) : (
           <span style={{ fontSize: 52 }}>{getTipoFotoEmoji(lugar.tipo)}</span>
@@ -750,12 +748,10 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         {lugar.nombre}
       </h3>
 
-      {/* Descripción corta */}
       <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.55, marginBottom: 10 }}>
         {descripcionCorta}
       </p>
 
-      {/* Indicador de que se necesita visitar para ver más */}
       <div style={{
         background: 'rgba(251,191,36,0.1)',
         borderLeft: '2px solid #fbbf24',
@@ -782,7 +778,10 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
       <motion.button
         whileHover={canExplore ? { scale: 1.03 } : {}}
         whileTap={canExplore ? { scale: 0.97 } : {}}
-        onClick={canExplore ? onExplorar : null}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (canExplore) onExplorar();
+        }}
         disabled={!canExplore}
         style={{
           width: '100%',
@@ -907,7 +906,7 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
-  const [userAvatar, setUserAvatar] = useState(null); // Estado para la foto de perfil
+  const [userAvatar, setUserAvatar] = useState(null);
   const [viewState, setViewState] = useState({
     longitude: -75.2592802,
     latitude: 6.3953494,
@@ -917,6 +916,7 @@ function Mapa() {
   });
 
   const navigate = useNavigate();
+  const mapRef = useRef(null);
 
   // ── Helpers ────────────────────────────────────────────────
   const mostrarMensajeGuia = (mensaje, tipo = 'normal', duracion = 5000) => {
@@ -965,7 +965,6 @@ function Mapa() {
     return expAcumulada.length + 1;
   };
 
-  // ── Función para cargar la foto de perfil ─────────────────
   const cargarFotoPerfil = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -980,7 +979,6 @@ function Mapa() {
     }
   };
 
-  // ── Función para registrar descubrimiento ───────────────────
   const registrarDescubrimiento = async (lugar) => {
     try {
       if (!userPosition) {
@@ -1045,15 +1043,11 @@ function Mapa() {
     }
   };
 
-  // ── Función para cerrar popup haciendo clic fuera ──────────
-  const handleClickOutsidePopup = (e) => {
-    // Si el clic es fuera del popup, lo cerramos
-    if (selectedLugar && !e.target.closest('.mapboxgl-popup')) {
-      setSelectedLugar(null);
-    }
+  // Función para manejar clic en marcador
+  const handleMarkerClick = (lugar) => {
+    setSelectedLugar(lugar);
   };
 
-  // ── Función para cargar lugar especial ───────────────────
   const cargarLugarEspecial = async () => {
     try {
       const COORDENADAS_PARQUE = {
@@ -1090,10 +1084,9 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    console.log('🎮 Cargando lugar especial...');
     cargarLugarEspecial();
-    cargarFotoPerfil(); // Cargar foto de perfil
-  }, []); // Solo se ejecuta una vez al montar
+    cargarFotoPerfil();
+  }, []);
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
@@ -1212,12 +1205,9 @@ function Mapa() {
       }
     );
 
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
-    }
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldLocate]);
 
-  // ── Carga de datos ─────────────────────────────────────────
   const cargarLugares = async () => {
     try {
       const r = await api.get('/lugares');
@@ -1249,7 +1239,6 @@ function Mapa() {
 
   useEffect(() => { cargarLugares(); }, []);
 
-  // ── Renders condicionales ──────────────────────────────────
   if (loading) return <LoadingScreen />;
 
   if (!MAPBOX_TOKEN) return (
@@ -1261,12 +1250,8 @@ function Mapa() {
     </div>
   );
 
-  // ── Render principal ───────────────────────────────────────
   return (
-    <div 
-      className="h-screen relative overflow-hidden" 
-      onClick={handleClickOutsidePopup}
-    >
+    <div className="h-screen relative overflow-hidden">
       <StyleInjector />
 
       <HUDHeader
@@ -1325,11 +1310,12 @@ function Mapa() {
         discoveredPlaces={discoveredPlaces}
         getTipoIcon={getTipoIcon}
         onClose={() => setShowQuestLog(false)}
-        onSelectLugar={setSelectedLugar}
+        onSelectLugar={handleMarkerClick}
         isMobile={isMobile}
       />
 
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
         style={{ width: '100%', height: '100%' }}
@@ -1337,6 +1323,7 @@ function Mapa() {
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
         onError={(e) => console.log('Mapbox Error:', e)}
+        onClick={() => setSelectedLugar(null)}
       >
         <Map3DEffect />
         <NavigationControl position="top-right" />
@@ -1352,18 +1339,20 @@ function Mapa() {
             key={lugar.id}
             longitude={parseFloat(lugar.longitud)}
             latitude={parseFloat(lugar.latitud)}
-            onClick={() => setSelectedLugar(lugar)}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              handleMarkerClick(lugar);
+            }}
           >
             <LugarPin
               lugar={lugar}
               discovered={discoveredPlaces.includes(lugar.id)}
               isMobile={isMobile}
-              onClick={() => setSelectedLugar(lugar)}
+              onClick={() => handleMarkerClick(lugar)}
             />
           </Marker>
         ))}
 
-        {/* Marcador especial para la Galería - SIEMPRE VISIBLE */}
         {lugarEspecial && (
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
@@ -1406,22 +1395,9 @@ function Mapa() {
                 position: 'relative',
               }}
             >
-              <span style={{ 
-                filter: 'none',
-                fontSize: isMobile ? 28 : 34 
-              }}>
-                📸
-              </span>
+              <span style={{ filter: 'none', fontSize: isMobile ? 28 : 34 }}>📸</span>
               {playerLevel < 5 && (
-                <span style={{
-                  position: 'absolute',
-                  top: -5,
-                  right: -5,
-                  fontSize: 18,
-                  filter: 'none'
-                }}>
-                  🔒
-                </span>
+                <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 18, filter: 'none' }}>🔒</span>
               )}
             </motion.div>
           </Marker>
@@ -1467,7 +1443,6 @@ function Mapa() {
               userPosition={userPosition}
               onExplorar={() => handleExplorarLugar(selectedLugar)}
               calcularDistancia={calcularDistancia}
-              onClose={() => setSelectedLugar(null)}
             />
           </Popup>
         )}
