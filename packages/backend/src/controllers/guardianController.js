@@ -1,5 +1,6 @@
 // controllers/guardianController.js
 const pool = require('../config/database');
+const { verificarYOtorgarInsignias } = require('../services/insigniaService');
 
 const guardianController = {
     // Obtener perfil de guardián
@@ -35,7 +36,7 @@ const guardianController = {
             // Obtener insignias
             const insigniasResult = await pool.query(`
                 SELECT i.*, ui.fecha_obtenida 
-                FROM usuario_insignias ui 
+                FROM usuarios_insignias ui 
                 JOIN insignias i ON ui.insignia_id = i.id 
                 WHERE ui.usuario_id = $1 
                 ORDER BY ui.fecha_obtenida DESC`, [usuarioId]);
@@ -152,20 +153,9 @@ const guardianController = {
                 RETURNING *
             `, [usuarioId, latitud, longitud, mensaje]);
             
-            // Otorgar insignia de guardián si no la tiene
-            const insigniaGuardian = await pool.query(
-                "SELECT id FROM insignias WHERE nombre LIKE '%Guardián%' LIMIT 1"
-            );
+            const nuevasInsignias = await verificarYOtorgarInsignias(usuarioId);
             
-            if (insigniaGuardian.rows[0]) {
-                await pool.query(`
-                    INSERT INTO usuario_insignias (usuario_id, insignia_id)
-                    VALUES ($1, $2)
-                    ON CONFLICT (usuario_id, insignia_id) DO NOTHING
-                `, [usuarioId, insigniaGuardian.rows[0].id]);
-            }
-            
-            res.json({ success: true, guardian: result.rows[0] });
+            res.json({ success: true, guardian: result.rows[0], nuevas_insignias: nuevasInsignias });
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al anclar guardián' });
@@ -236,7 +226,7 @@ const guardianController = {
             
             const result = await pool.query(`
                 SELECT i.*, ui.fecha_obtenida
-                FROM usuario_insignias ui
+                FROM usuarios_insignias ui
                 JOIN insignias i ON ui.insignia_id = i.id
                 WHERE ui.usuario_id = $1
                 ORDER BY ui.fecha_obtenida DESC

@@ -13,7 +13,6 @@ router.use(authMiddleware);
 
 router.get('/', reservaController.getAll);
 router.get('/:id', reservaController.getById);
-router.put('/:id/asignar-guia', reservaController.asignarGuia);
 router.patch('/:id/estado', reservaController.updateEstado);
 
 module.exports = router;

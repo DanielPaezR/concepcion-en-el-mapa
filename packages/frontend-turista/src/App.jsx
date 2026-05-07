@@ -11,6 +11,8 @@ import MisLogros from './pages/MisLogros';
 import MisReservas from './pages/MisReservas';
 import PerfilGuardian from './pages/PerfilGuardian';
 import MisFavoritos from './pages/MisFavoritos';
+import NotificacionInsignia from './components/NotificacionInsignia';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   useEffect(() => {
@@ -19,19 +21,22 @@ function App() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/" element={<Mapa />} />
-      <Route path="/mapa" element={<Mapa />} />
-      <Route path="/lugar/:id" element={<LugarDetalle />} />
-      <Route path="/solicitar-guia/:lugarId" element={<SolicitarGuia />} />
-      <Route path="/encuesta/:reservaId" element={<Encuesta />} />
-      <Route path="/registro" element={<Registro />} />
-      <Route path="/login-turista" element={<LoginTurista />} />
-      <Route path="/mis-logros" element={<MisLogros />} />
-      <Route path="/mis-reservas" element={<MisReservas />} />
-      <Route path="/perfil/:id" element={<PerfilGuardian />} />
-      <Route path="/mis-favoritos" element={<MisFavoritos />} />
-    </Routes>
+    <>
+      <NotificacionInsignia />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/mapa" element={<Mapa />} />
+        <Route path="/lugar/:id" element={<LugarDetalle />} />
+        <Route path="/solicitar-guia/:lugarId" element={<SolicitarGuia />} />
+        <Route path="/encuesta/:reservaId" element={<Encuesta />} />
+        <Route path="/registro" element={<Registro />} />
+        <Route path="/login-turista" element={<LoginTurista />} />
+        <Route path="/mis-logros" element={<MisLogros />} />
+        <Route path="/mis-reservas" element={<MisReservas />} />
+        <Route path="/perfil/:id" element={<PerfilGuardian />} />
+        <Route path="/mis-favoritos" element={<MisFavoritos />} />
+      </Routes>
+    </>
   );
 }
 

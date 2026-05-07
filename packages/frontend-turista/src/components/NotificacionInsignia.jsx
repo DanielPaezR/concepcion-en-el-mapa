@@ -11,6 +11,9 @@ export default function NotificacionInsignia() {
         // Consultar cada 30 segundos o después de acciones
         const checkNewInsignias = async () => {
             try {
+                const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
+                if (!token) return;
+
                 const res = await api.get('/insignias/nuevas');
                 if (res.data.insignias?.length > 0) {
                     res.data.insignias.forEach(insignia => {
@@ -34,7 +37,10 @@ export default function NotificacionInsignia() {
                     });
                 }
             } catch (error) {
-                console.error('Error al verificar insignias:', error);
+                // Solo mostrar error si no es 401 (no autenticado)
+                if (error.response?.status !== 401) {
+                    console.error('Error al verificar insignias:', error);
+                }
             }
         };
 

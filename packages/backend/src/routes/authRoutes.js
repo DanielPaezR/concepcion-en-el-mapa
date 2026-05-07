@@ -30,4 +30,40 @@ router.put('/usuarios/:id', authMiddleware, authController.actualizarUsuario);
 // Rutas de guía
 router.patch('/disponibilidad', authMiddleware, authController.cambiarDisponibilidad);
 
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token requerido' });
+    }
+    
+    // Verificar el refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    
+    // Generar nuevo token
+    const newToken = jwt.sign(
+      { id: decoded.id, email: decoded.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    // Opcional: generar nuevo refresh token
+    const newRefreshToken = jwt.sign(
+      { id: decoded.id, email: decoded.email },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      token: newToken,
+      refreshToken: newRefreshToken
+    });
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    res.status(401).json({ error: 'Refresh token inválido o expirado' });
+  }
+});
+
 module.exports = router;

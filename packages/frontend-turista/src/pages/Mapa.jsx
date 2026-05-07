@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass, Navigation, Award, LocateFixed,
   Star, Zap, Crown, Sparkles, Menu, X,
-  MapPin, Users, Landmark, TreePine, Utensils,
+  MapPin, Users, Landmark, TreePine, Utensils, User,
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
@@ -59,12 +59,6 @@ const GLOBAL_STYLES = `
   @keyframes pin-glow {
     0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.4), 0 4px 15px rgba(0,0,0,0.3); }
     50%       { box-shadow: 0 0 16px 6px rgba(251,191,36,0.7), 0 4px 15px rgba(0,0,0,0.3); }
-  }
-  @keyframes scan-line {
-    0%   { transform: translateY(-100%); opacity: 0; }
-    10%  { opacity: 0.15; }
-    90%  { opacity: 0.15; }
-    100% { transform: translateY(100vh); opacity: 0; }
   }
   .pin-undiscovered { animation: pin-pulse 2.2s ease-in-out infinite; }
   .pin-discovered   { animation: pin-glow 2s ease-in-out infinite; }
@@ -130,6 +124,7 @@ const HUDHeader = ({
   playerLevel, discoveredPlaces, totalLugares, xp,
   lugarEspecial, onOpenGaleria, onOpenAnclar,
   onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
+  userAvatar,
 }) => {
   const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
   const xpAnterior = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
@@ -167,6 +162,44 @@ const HUDHeader = ({
     >
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+              padding: 2,
+              boxShadow: '0 0 10px rgba(251,191,36,0.4)',
+            }}
+          >
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt="Perfil"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: '50%',
+                  background: '#1e1b2e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <User size={18} color="#fbbf24" />
+              </div>
+            )}
+          </div>
+
           <div style={{
             background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
             border: `1.5px solid ${lc.border}`,
@@ -607,7 +640,10 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
 
   return (
     <motion.div
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       whileHover={{ scale: 1.12 }}
       whileTap={{ scale: 0.94 }}
       style={{ cursor: 'pointer' }}
@@ -651,8 +687,54 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
     return emojis[tipo] || '📍';
   };
 
+  const getTipoFotoEmoji = (tipo) => {
+    const fotos = { 
+      historico: '🏰', 
+      natural: '🏞️', 
+      cultural: '🎨', 
+      gastronomico: '🍜' 
+    };
+    return fotos[tipo] || '📸';
+  };
+
+  const descripcionCorta = lugar.descripcion?.length > 80 
+    ? lugar.descripcion.substring(0, 80) + '...' 
+    : lugar.descripcion || 'Un lugar maravilloso por descubrir en Concepción.';
+
   return (
-    <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
+    <div style={{ padding: '14px 16px', minWidth: 200, maxWidth: 240 }}>
+      <div style={{
+        width: '100%',
+        height: 110,
+        borderRadius: 12,
+        marginBottom: 12,
+        background: `linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.2))`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 48,
+        border: '1px solid rgba(255,255,255,0.1)',
+        overflow: 'hidden',
+      }}>
+        {lugar.imagen_url ? (
+          <img 
+            src={lugar.imagen_url} 
+            alt={lugar.nombre}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentElement.innerHTML = `<span style="font-size: 52px;">${getTipoFotoEmoji(lugar.tipo)}</span>`;
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 52 }}>{getTipoFotoEmoji(lugar.tipo)}</span>
+        )}
+      </div>
+
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
@@ -666,9 +748,21 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         {lugar.nombre}
       </h3>
 
-      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
-        {lugar.descripcion}
+      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.55, marginBottom: 10 }}>
+        {descripcionCorta}
       </p>
+
+      <div style={{
+        background: 'rgba(251,191,36,0.1)',
+        borderLeft: '2px solid #fbbf24',
+        padding: '6px 8px',
+        marginBottom: 12,
+        borderRadius: 6,
+      }}>
+        <span style={{ color: '#fbbf24', fontSize: 10, fontWeight: 600 }}>
+          🔍 ¡Visítanos para conocer toda la historia!
+        </span>
+      </div>
 
       {!canExplore && distance !== null && (
         <div style={{
@@ -676,7 +770,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
           borderRadius: 8, padding: '6px', marginBottom: 12, textAlign: 'center'
         }}>
           <span style={{ color: '#fca5a5', fontSize: 11 }}>
-            📍 A {metersToGo} metros del lugar
+            📍 A {metersToGo} metros
           </span>
         </div>
       )}
@@ -684,7 +778,10 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
       <motion.button
         whileHover={canExplore ? { scale: 1.03 } : {}}
         whileTap={canExplore ? { scale: 0.97 } : {}}
-        onClick={canExplore ? onExplorar : null}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (canExplore) onExplorar();
+        }}
         disabled={!canExplore}
         style={{
           width: '100%',
@@ -701,14 +798,8 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
           opacity: canExplore ? 1 : 0.6,
         }}
       >
-        {canExplore ? '✨ EXPLORAR AHORA' : '🔒 ACERCATE MÁS'}
+        {canExplore ? '✨ VER DETALLES COMPLETOS' : '🔒 ACERCATE MÁS'}
       </motion.button>
-
-      {!canExplore && distance && (
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
-          Necesitas estar a menos de 20 metros
-        </p>
-      )}
     </div>
   );
 };
@@ -815,6 +906,7 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
+  const [userAvatar, setUserAvatar] = useState(null);
   const [viewState, setViewState] = useState({
     longitude: -75.2592802,
     latitude: 6.3953494,
@@ -824,6 +916,7 @@ function Mapa() {
   });
 
   const navigate = useNavigate();
+  const mapRef = useRef(null);
 
   // ── Helpers ────────────────────────────────────────────────
   const mostrarMensajeGuia = (mensaje, tipo = 'normal', duracion = 5000) => {
@@ -872,7 +965,28 @@ function Mapa() {
     return expAcumulada.length + 1;
   };
 
-  // ── Función para registrar descubrimiento ───────────────────
+  const cargarFotoPerfil = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No hay token, usuario no autenticado');
+        return;
+      }
+      
+      const response = await api.get('/auth/perfil');
+      if (response.data?.foto_perfil) {
+        setUserAvatar(response.data.foto_perfil);
+      }
+    } catch (error) {
+      console.error('Error cargando foto de perfil:', error);
+      // Si es 401, probablemente el token expiró
+      if (error.response?.status === 401) {
+        console.log('Token expirado, el usuario necesita autenticarse nuevamente');
+        // No hacemos logout automático aquí, el interceptor se encargará
+      }
+    }
+  };
+
   const registrarDescubrimiento = async (lugar) => {
     try {
       if (!userPosition) {
@@ -937,7 +1051,11 @@ function Mapa() {
     }
   };
 
-  // ── Función para cargar lugar especial ───────────────────
+  // Función para manejar clic en marcador
+  const handleMarkerClick = (lugar) => {
+    setSelectedLugar(lugar);
+  };
+
   const cargarLugarEspecial = async () => {
     try {
       const COORDENADAS_PARQUE = {
@@ -974,9 +1092,31 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    console.log('🎮 Cargando lugar especial...');
     cargarLugarEspecial();
-  }, []); // Solo se ejecuta una vez al montar
+    cargarFotoPerfil();
+  }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = (event) => {
+        // Mostrar mensaje al usuario
+        mostrarMensajeGuia(
+            event.detail?.message || 'Tu sesión ha expirado. Serás redirigido al login.',
+            'error',
+            3000
+        );
+        
+        // Redirigir después de mostrar el mensaje
+        setTimeout(() => {
+            navigate('/login');
+        }, 2500);
+    };
+    
+    window.addEventListener('sessionExpired', handleSessionExpired);
+    
+    return () => {
+        window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
+  }, [navigate]);
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
@@ -1095,12 +1235,9 @@ function Mapa() {
       }
     );
 
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
-    }
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldLocate]);
 
-  // ── Carga de datos ─────────────────────────────────────────
   const cargarLugares = async () => {
     try {
       const r = await api.get('/lugares');
@@ -1132,7 +1269,6 @@ function Mapa() {
 
   useEffect(() => { cargarLugares(); }, []);
 
-  // ── Renders condicionales ──────────────────────────────────
   if (loading) return <LoadingScreen />;
 
   if (!MAPBOX_TOKEN) return (
@@ -1144,7 +1280,6 @@ function Mapa() {
     </div>
   );
 
-  // ── Render principal ───────────────────────────────────────
   return (
     <div className="h-screen relative overflow-hidden">
       <StyleInjector />
@@ -1161,6 +1296,7 @@ function Mapa() {
         onToggleQuestLog={() => setShowQuestLog(!showQuestLog)}
         showQuestLog={showQuestLog}
         isMobile={isMobile}
+        userAvatar={userAvatar}
       />
 
       <BrujulaFuncional
@@ -1204,11 +1340,12 @@ function Mapa() {
         discoveredPlaces={discoveredPlaces}
         getTipoIcon={getTipoIcon}
         onClose={() => setShowQuestLog(false)}
-        onSelectLugar={setSelectedLugar}
+        onSelectLugar={handleMarkerClick}
         isMobile={isMobile}
       />
 
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
         style={{ width: '100%', height: '100%' }}
@@ -1216,6 +1353,7 @@ function Mapa() {
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
         onError={(e) => console.log('Mapbox Error:', e)}
+        onClick={() => setSelectedLugar(null)}
       >
         <Map3DEffect />
         <NavigationControl position="top-right" />
@@ -1231,18 +1369,20 @@ function Mapa() {
             key={lugar.id}
             longitude={parseFloat(lugar.longitud)}
             latitude={parseFloat(lugar.latitud)}
-            onClick={() => setSelectedLugar(lugar)}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              handleMarkerClick(lugar);
+            }}
           >
             <LugarPin
               lugar={lugar}
               discovered={discoveredPlaces.includes(lugar.id)}
               isMobile={isMobile}
-              onClick={() => setSelectedLugar(lugar)}
+              onClick={() => handleMarkerClick(lugar)}
             />
           </Marker>
         ))}
 
-        {/* Marcador especial para la Galería - SIEMPRE VISIBLE */}
         {lugarEspecial && (
           <Marker 
             longitude={parseFloat(lugarEspecial.longitud)} 
@@ -1285,22 +1425,9 @@ function Mapa() {
                 position: 'relative',
               }}
             >
-              <span style={{ 
-                filter: 'none',
-                fontSize: isMobile ? 28 : 34 
-              }}>
-                📸
-              </span>
+              <span style={{ filter: 'none', fontSize: isMobile ? 28 : 34 }}>📸</span>
               {playerLevel < 5 && (
-                <span style={{
-                  position: 'absolute',
-                  top: -5,
-                  right: -5,
-                  fontSize: 18,
-                  filter: 'none'
-                }}>
-                  🔒
-                </span>
+                <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 18, filter: 'none' }}>🔒</span>
               )}
             </motion.div>
           </Marker>
@@ -1366,6 +1493,7 @@ function Mapa() {
         xp={xp}
         lugaresDescubiertos={discoveredPlaces.length}
         totalLugares={lugares.length}
+        userAvatar={userAvatar}
       />
 
       {mostrarAnclar && (

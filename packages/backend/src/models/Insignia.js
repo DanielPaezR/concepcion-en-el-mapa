@@ -70,7 +70,7 @@ const Insignia = {
         // 1. Insignias por NIVEL
         const insigniasNivel = await pool.query(`
             SELECT * FROM insignias 
-            WHERE tipo = 'nivel' 
+            WHERE tipo = 'nivel'
                 AND nivel_requerido IS NOT NULL 
                 AND nivel_requerido <= $1
                 AND NOT EXISTS (
@@ -87,7 +87,7 @@ const Insignia = {
         // 2. Insignias por LUGARES
         const insigniasLugares = await pool.query(`
             SELECT * FROM insignias 
-            WHERE tipo = 'lugares' 
+            WHERE tipo = 'lugares'
                 AND lugares_requeridos IS NOT NULL 
                 AND lugares_requeridos <= $1
                 AND NOT EXISTS (
@@ -108,7 +108,7 @@ const Insignia = {
         // 3. Insignias por EVENTOS
         const insigniasEventos = await pool.query(`
             SELECT * FROM insignias 
-            WHERE tipo = 'eventos' 
+            WHERE tipo IN ('eventos', 'evento')
                 AND lugares_requeridos IS NOT NULL 
                 AND lugares_requeridos <= $1
                 AND NOT EXISTS (
@@ -125,7 +125,7 @@ const Insignia = {
         // 4. Insignias por FOTOS
         const insigniasFotos = await pool.query(`
             SELECT * FROM insignias 
-            WHERE tipo = 'fotos' 
+            WHERE tipo IN ('fotos', 'foto')
                 AND lugares_requeridos IS NOT NULL 
                 AND lugares_requeridos <= $1
                 AND NOT EXISTS (
@@ -142,7 +142,7 @@ const Insignia = {
         // 5. Insignias por GUARDIANES
         const insigniasGuardianes = await pool.query(`
             SELECT * FROM insignias 
-            WHERE tipo = 'guardianes' 
+            WHERE tipo IN ('guardianes', 'guardian')
                 AND lugares_requeridos IS NOT NULL 
                 AND lugares_requeridos <= $1
                 AND NOT EXISTS (
@@ -198,17 +198,27 @@ const Insignia = {
     
     // Método privado para otorgar insignia y guardar notificación
     async _otorgarInsignia(usuarioId, insignia) {
+        // Verificar si ya la tiene
+        const existe = await pool.query(
+            'SELECT id FROM usuarios_insignias WHERE usuario_id = $1 AND insignia_id = $2',
+            [usuarioId, insignia.id]
+        );
+        
+        if (existe.rows.length > 0) return;
+        
         // Otorgar insignia
         await pool.query(
-            'INSERT INTO usuarios_insignias (usuario_id, insignia_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            'INSERT INTO usuarios_insignias (usuario_id, insignia_id) VALUES ($1, $2)',
             [usuarioId, insignia.id]
         );
         
         // Guardar notificación
+        const mensajeNotificacion = `🎉 ¡NUEVA INSIGNIA! ${insignia.nombre}\n${insignia.descripcion || '¡Logro desbloqueado!'}`;
+        
         await pool.query(`
             INSERT INTO notificaciones_insignias (usuario_id, insignia_id, mensaje, leida)
             VALUES ($1, $2, $3, false)
-        `, [usuarioId, insignia.id, `🎉 ¡NUEVA INSIGNIA! ${insignia.nombre}\n${insignia.descripcion || '¡Logro desbloqueado!'}`]);
+        `, [usuarioId, insignia.id, mensajeNotificacion]);
         
         console.log(`🏅 [${new Date().toISOString()}] Usuario ${usuarioId} obtuvo: ${insignia.nombre}`);
     }
