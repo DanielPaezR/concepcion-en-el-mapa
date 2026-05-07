@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass, Navigation, Award, LocateFixed,
   Star, Zap, Crown, Sparkles, Menu, X,
-  MapPin, Users, Landmark, TreePine, Utensils, User,
+  MapPin, Users, Landmark, TreePine, Utensils, User, UserCircle,
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
@@ -123,7 +123,7 @@ const BrujulaFuncional = ({ bearing, onRotate }) => {
 const HUDHeader = ({
   playerLevel, discoveredPlaces, totalLugares, xp,
   lugarEspecial, onOpenGaleria, onOpenAnclar,
-  onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
+  onToggleQuestLog, onToggleMenuExplorador, showQuestLog, isMobile, sistemaExp,
   userAvatar,
 }) => {
   const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
@@ -160,6 +160,7 @@ const HUDHeader = ({
         gap: 8,
       }}
     >
+      {/* Parte izquierda */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', pointerEvents: 'auto', flexDirection: 'column' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <div
@@ -282,28 +283,63 @@ const HUDHeader = ({
         </div>
       </div>
 
-      <motion.button
-        onClick={onToggleQuestLog}
-        whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
-        style={{
-          background: 'rgba(2,6,18,0.85)',
-          backdropFilter: 'blur(10px)',
-          border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
-          borderRadius: 10,
-          padding: '8px 10px',
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-          boxShadow: showQuestLog
-            ? '0 0 12px rgba(239,68,68,0.3)'
-            : '0 0 10px rgba(251,191,36,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'border-color .2s, box-shadow .2s',
-        }}
-      >
-        {showQuestLog
-          ? <X size={20} color="#ef4444" />
-          : <Menu size={20} color="#fbbf24" />}
-      </motion.button>
+      {/* Parte derecha - DOS BOTONES */}
+      <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
+        {/* Botón 1: Perfil / Usuario */}
+        <motion.button
+          onClick={onToggleMenuExplorador}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94 }}
+          style={{
+            background: 'rgba(2,6,18,0.85)',
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid rgba(251,191,36,0.6)',
+            borderRadius: 10,
+            padding: '6px 10px',
+            cursor: 'pointer',
+            boxShadow: '0 0 10px rgba(251,191,36,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {userAvatar ? (
+            <img 
+              src={userAvatar} 
+              alt="Perfil" 
+              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <UserCircle size={20} color="#fbbf24" />
+          )}
+        </motion.button>
+
+        {/* Botón 2: Quest Log */}
+        <motion.button
+          onClick={onToggleQuestLog}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94 }}
+          style={{
+            background: 'rgba(2,6,18,0.85)',
+            backdropFilter: 'blur(10px)',
+            border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
+            borderRadius: 10,
+            padding: '6px 10px',
+            cursor: 'pointer',
+            boxShadow: showQuestLog
+              ? '0 0 12px rgba(239,68,68,0.3)'
+              : '0 0 10px rgba(251,191,36,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'border-color .2s, box-shadow .2s',
+          }}
+        >
+          {showQuestLog
+            ? <X size={20} color="#ef4444" />
+            : <Menu size={20} color="#fbbf24" />}
+        </motion.button>
+      </div>
     </motion.div>
   );
 };
@@ -887,6 +923,7 @@ function Mapa() {
   const [loading, setLoading] = useState(true);
   const [selectedLugar, setSelectedLugar] = useState(null);
   const [showQuestLog, setShowQuestLog] = useState(false);
+  const [mostrarMenuExplorador, setMostrarMenuExplorador] = useState(false);
   const [playerLevel, setPlayerLevel] = useState(1);
   const [discoveredPlaces, setDiscoveredPlaces] = useState([]);
   const [userPosition, setUserPosition] = useState(null);
@@ -923,6 +960,10 @@ function Mapa() {
     setMensajeGuia(mensaje);
     setTipoGuia(tipo);
     setTimeout(() => setMensajeGuia(''), duracion);
+  };
+
+  const toggleMenuExplorador = () => {
+    setMostrarMenuExplorador(!mostrarMenuExplorador);
   };
 
   const getTipoIcon = (tipo) => {
@@ -979,10 +1020,8 @@ function Mapa() {
       }
     } catch (error) {
       console.error('Error cargando foto de perfil:', error);
-      // Si es 401, probablemente el token expiró
       if (error.response?.status === 401) {
         console.log('Token expirado, el usuario necesita autenticarse nuevamente');
-        // No hacemos logout automático aquí, el interceptor se encargará
       }
     }
   };
@@ -1051,7 +1090,6 @@ function Mapa() {
     }
   };
 
-  // Función para manejar clic en marcador
   const handleMarkerClick = (lugar) => {
     setSelectedLugar(lugar);
   };
@@ -1098,14 +1136,12 @@ function Mapa() {
 
   useEffect(() => {
     const handleSessionExpired = (event) => {
-        // Mostrar mensaje al usuario
         mostrarMensajeGuia(
             event.detail?.message || 'Tu sesión ha expirado. Serás redirigido al login.',
             'error',
             3000
         );
         
-        // Redirigir después de mostrar el mensaje
         setTimeout(() => {
             navigate('/login');
         }, 2500);
@@ -1294,6 +1330,7 @@ function Mapa() {
         onOpenGaleria={() => setMostrarGaleria(true)}
         onOpenAnclar={() => setMostrarAnclar(true)}
         onToggleQuestLog={() => setShowQuestLog(!showQuestLog)}
+        onToggleMenuExplorador={toggleMenuExplorador}
         showQuestLog={showQuestLog}
         isMobile={isMobile}
         userAvatar={userAvatar}
@@ -1342,6 +1379,16 @@ function Mapa() {
         onClose={() => setShowQuestLog(false)}
         onSelectLugar={handleMarkerClick}
         isMobile={isMobile}
+      />
+
+      <MenuExplorador
+        nivel={playerLevel}
+        xp={xp}
+        lugaresDescubiertos={discoveredPlaces.length}
+        totalLugares={lugares.length}
+        fotoPerfil={userAvatar}
+        isOpen={mostrarMenuExplorador}
+        onClose={() => setMostrarMenuExplorador(false)}
       />
 
       <Map
@@ -1486,14 +1533,6 @@ function Mapa() {
           latitude: userPosition.lat,
           zoom: 16,
         }))}
-      />
-
-      <MenuExplorador
-        nivel={playerLevel}
-        xp={xp}
-        lugaresDescubiertos={discoveredPlaces.length}
-        totalLugares={lugares.length}
-        userAvatar={userAvatar}
       />
 
       {mostrarAnclar && (
