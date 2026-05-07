@@ -8,50 +8,30 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      // 🔥 Cambiar de injectManifest a generateSW
-      strategies: 'generateSW',  // ← Este es el cambio clave
+      strategies: 'generateSW',
       manifest: {
         name: 'Concepción en el Mapa - Turista',
-        short_name: 'Concepción Turista',
+        short_name: 'Concepción',
         description: 'Descubre Concepción con nuestros guías locales',
         display: 'standalone',
         scope: '/',
         start_url: '/',
-        theme_color: '#3B82F6',
-        background_color: '#FFFFFF',
+        theme_color: '#16a34a',
+        background_color: '#ffffff',
+        orientation: 'portrait',
         categories: ['travel', 'lifestyle'],
-        screenshots: [
-          {
-            src: '/icons/screenshot-1.png',
-            sizes: '540x720',
-            type: 'image/png',
-            form_factor: 'narrow'
-          },
-          {
-            src: '/icons/screenshot-2.png',
-            sizes: '1280x720',
-            type: 'image/png',
-            form_factor: 'wide'
-          }
-        ],
         icons: [
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
+            purpose: 'any maskable'
           }
         ]
       },
@@ -76,13 +56,11 @@ export default defineConfig({
             options: {}
           }
         ],
-        // Saltar recursos que no existan
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/_/, /\/site\.webmanifest$/]
+        navigateFallbackDenylist: [/^\/api\//, /^\/_/]
       },
       devOptions: {
-        enabled: false,
-        type: 'module'
+        enabled: false
       }
     })
   ],
