@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      // 🔥 Cambiar de injectManifest a generateSW
+      strategies: 'generateSW',  // ← Este es el cambio clave
       manifest: {
         name: 'Concepción en el Mapa - Turista',
         short_name: 'Concepción Turista',
@@ -62,15 +66,24 @@ export default defineConfig({
               networkTimeoutSeconds: 10,
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 5 * 60 // 5 minutos
+                maxAgeSeconds: 5 * 60
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/events\.mapbox\.com\/.*/i,
+            handler: 'NetworkOnly',
+            options: {}
           }
-        ]
+        ],
+        // Saltar recursos que no existan
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/_/, /\/site\.webmanifest$/]
       },
-      strategies: 'injectManifest',
-      srcDir: 'public',
-      filename: 'sw.js'
+      devOptions: {
+        enabled: false,
+        type: 'module'
+      }
     })
   ],
   server: { port: 5173, open: true },

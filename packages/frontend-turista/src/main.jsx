@@ -34,18 +34,32 @@ initAnonymousUser().then(() => {
 // Registro del Service Worker solo en producción para evitar cache viejo durante desarrollo.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then(async (reg) => {
-                console.log('✅ PWA: Service Worker registrado con éxito', reg.scope);
-                if ('Notification' in window) {
-                    const permission = await Notification.requestPermission();
-                    console.log('🔔 Permiso de notificaciones:', permission);
-                    if (permission === 'granted') {
-                        await subscribeUser();
-                    }
+        // Esperar a que el SW generado por VitePWA esté listo
+        const { Workbox } = await import('workbox-window');
+        
+        if ('serviceWorker' in navigator) {
+            const wb = new Workbox('/sw.js');
+            
+            wb.addEventListener('installed', (event) => {
+                if (event.isUpdate) {
+                    console.log('🔄 PWA: Nueva versión disponible');
+                } else {
+                    console.log('✅ PWA: Service Worker instalado');
                 }
-            })
-            .catch(err => console.error('❌ PWA: Error al registrar Service Worker', err));
+            });
+            
+            wb.register();
+            
+            // Notificaciones
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                console.log('🔔 Permiso de notificaciones:', permission);
+                if (permission === 'granted') {
+                    const { subscribeUser } = await import('./services/pushNotifications');
+                    await subscribeUser();
+                }
+            }
+        }
     });
 } else if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations()

@@ -2,7 +2,7 @@ const CACHE_NAME = 'concepcion-admin-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/site.webmanifest'
 ];
 
 self.addEventListener('install', (event) => {
