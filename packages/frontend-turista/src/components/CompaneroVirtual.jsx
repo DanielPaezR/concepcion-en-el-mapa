@@ -331,7 +331,6 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
                 inset: -10,
                 borderRadius: '50%',
                 background: `radial-gradient(ellipse, ${frame.glow}, transparent 70%)`,
-                pointerEvents: 'none',
               }}
             />
           )}
