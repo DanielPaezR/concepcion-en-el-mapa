@@ -265,7 +265,6 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
                 padding: '10px 14px',
                 position: 'relative',
                 boxShadow: `0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px ${burbuja.border}22`,
-                pointerEvents: 'none'
               }}
             >
               {/* Indicador de tipo */}
