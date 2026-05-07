@@ -968,7 +968,10 @@ function Mapa() {
   const cargarFotoPerfil = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        console.log('No hay token, usuario no autenticado');
+        return;
+      }
       
       const response = await api.get('/auth/perfil');
       if (response.data?.foto_perfil) {
@@ -976,6 +979,11 @@ function Mapa() {
       }
     } catch (error) {
       console.error('Error cargando foto de perfil:', error);
+      // Si es 401, probablemente el token expiró
+      if (error.response?.status === 401) {
+        console.log('Token expirado, el usuario necesita autenticarse nuevamente');
+        // No hacemos logout automático aquí, el interceptor se encargará
+      }
     }
   };
 
@@ -1087,6 +1095,28 @@ function Mapa() {
     cargarLugarEspecial();
     cargarFotoPerfil();
   }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = (event) => {
+        // Mostrar mensaje al usuario
+        mostrarMensajeGuia(
+            event.detail?.message || 'Tu sesión ha expirado. Serás redirigido al login.',
+            'error',
+            3000
+        );
+        
+        // Redirigir después de mostrar el mensaje
+        setTimeout(() => {
+            navigate('/login');
+        }, 2500);
+    };
+    
+    window.addEventListener('sessionExpired', handleSessionExpired);
+    
+    return () => {
+        window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
+  }, [navigate]);
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {

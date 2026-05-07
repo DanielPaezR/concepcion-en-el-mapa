@@ -58,36 +58,48 @@ export const initAnonymousUser = async () => {
 // Método antiguo (para compatibilidad)
 export const autenticarTurista = async () => {
     try {
-        const turistaId = getTuristaId();
-        const nivelGuardado = localStorage.getItem('turista_nivel') || 1;
-        
-        let token = localStorage.getItem(TOKEN_KEY);
+        // Verificar si ya hay un token válido
+        const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
         
         if (token) {
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            return token;
+            // Intentar verificar si el token sigue siendo válido
+            try {
+                const response = await api.get('/auth/verificar');
+                if (response.data.valido) {
+                    return true;
+                }
+            } catch (error) {
+                console.log('Token inválido, intentando renovar...');
+            }
         }
         
-        console.log('📝 Registrando nuevo turista (método antiguo)...');
-        const response = await api.post('/auth/turista/registro', {
-            turista_id: turistaId,
-            nombre: `Explorador_${turistaId.slice(-6)}`,
-            nivel: parseInt(nivelGuardado)
-        });
+        // Si no hay token o es inválido, intentar obtener uno nuevo
+        // Esto dependerá de tu lógica de autenticación
+        const refreshToken = localStorage.getItem('refreshToken');
         
-        token = response.data.token;
-        const usuario = response.data.usuario;
-        usuario.anonimo = true;
-        localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
+        if (refreshToken) {
+            const response = await axios.post(`${API_URL}/auth/refresh`, {
+                refreshToken
+            });
+            
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+                localStorage.setItem('turista_token', response.data.token);
+                if (response.data.refreshToken) {
+                    localStorage.setItem('refreshToken', response.data.refreshToken);
+                }
+                return true;
+            }
+        }
         
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Si no hay refresh token, redirigir a login
+        console.log('No hay sesión válida, redirigiendo a login');
+        window.location.href = '/login';
+        return false;
         
-        console.log('✅ Turista autenticado');
-        return token;
     } catch (error) {
-        console.error('❌ Error al autenticar turista:', error.response?.data || error.message);
-        return null;
+        console.error('Error en autenticarTurista:', error);
+        return false;
     }
 };
 
