@@ -30,7 +30,7 @@ export default defineConfig({
             purpose: 'any'
           },
           {
-            src: '/icons/icon-maskable.png',
+            src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'maskable'
