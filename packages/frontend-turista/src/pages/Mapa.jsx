@@ -1126,7 +1126,7 @@ function Mapa() {
             >
               <span style={{ fontSize: isMobile ? 28 : 34 }}>📸</span>
               {playerLevel < 5 && (
-                <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 18 }}>🔒</span>
+                <span style={{ position: 'relative', top: -5, right: -5, fontSize: 18 }}>🔒</span>
               )}
             </motion.div>
           </Marker>
