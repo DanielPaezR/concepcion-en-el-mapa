@@ -12,6 +12,7 @@ import MisReservas from './pages/MisReservas';
 import PerfilGuardian from './pages/PerfilGuardian';
 import MisFavoritos from './pages/MisFavoritos';
 import NotificacionInsignia from './components/NotificacionInsignia';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   useEffect(() => {
@@ -23,7 +24,7 @@ function App() {
     <>
       <NotificacionInsignia />
       <Routes>
-        <Route path="/" element={<Mapa />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/mapa" element={<Mapa />} />
         <Route path="/lugar/:id" element={<LugarDetalle />} />
         <Route path="/solicitar-guia/:lugarId" element={<SolicitarGuia />} />
