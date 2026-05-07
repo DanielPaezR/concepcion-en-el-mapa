@@ -1061,7 +1061,15 @@ function Mapa() {
 
       <QuestLogPanel show={showQuestLog} lugares={lugares} discoveredPlaces={discoveredPlaces} getTipoIcon={getTipoIcon} onClose={() => setShowQuestLog(false)} onSelectLugar={handleMarkerClick} isMobile={isMobile} />
 
-      <MenuExplorador nivel={playerLevel} xp={xp} lugaresDescubiertos={discoveredPlaces.length} totalLugares={lugares.length} fotoPerfil={userAvatar} isOpen={mostrarMenuExplorador} onClose={() => setMostrarMenuExplorador(false)} />
+      <MenuExplorador
+        nivel={playerLevel}
+        xp={xp}
+        lugaresDescubiertos={discoveredPlaces.length}
+        totalLugares={lugares.length}
+        fotoPerfil={userAvatar}
+        isOpen={mostrarMenuExplorador}
+        onClose={() => setMostrarMenuExplorador(false)}
+      />
 
       <Map
         ref={mapRef}
