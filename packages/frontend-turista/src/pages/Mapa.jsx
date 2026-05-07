@@ -1537,6 +1537,7 @@ function Mapa() {
             onClose={() => setSelectedLugar(null)}
             closeButton={true}
             closeOnClick={false}
+            closeOnMove={false}
             anchor="bottom"
             offset={16}
           >
