@@ -7,6 +7,8 @@ import {
   Compass, Navigation, Award, LocateFixed,
   Star, Zap, Crown, Sparkles, Menu, X,
   MapPin, Users, Landmark, TreePine, Utensils,
+  UserCircle, Camera, Heart, MessageCircle, Share2,
+  ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
 import CompaneroVirtual from '../components/CompaneroVirtual';
@@ -68,6 +70,15 @@ const GLOBAL_STYLES = `
   }
   .pin-undiscovered { animation: pin-pulse 2.2s ease-in-out infinite; }
   .pin-discovered   { animation: pin-glow 2s ease-in-out infinite; }
+
+  /* Animación del compañero */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+  .companero-float {
+    animation: float 3s ease-in-out infinite;
+  }
 `;
 
 // ─── Inyector de estilos ────────────────────────────────────
@@ -130,6 +141,7 @@ const HUDHeader = ({
   playerLevel, discoveredPlaces, totalLugares, xp,
   lugarEspecial, onOpenGaleria, onOpenAnclar,
   onToggleQuestLog, showQuestLog, isMobile, sistemaExp,
+  perfilFoto,
 }) => {
   const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
   const xpAnterior = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
@@ -249,6 +261,7 @@ const HUDHeader = ({
         </div>
       </div>
 
+      {/* Botón menú derecho - con foto de perfil */}
       <motion.button
         onClick={onToggleQuestLog}
         whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }}
@@ -257,19 +270,31 @@ const HUDHeader = ({
           backdropFilter: 'blur(10px)',
           border: showQuestLog ? '1.5px solid #ef4444' : '1.5px solid rgba(251,191,36,0.6)',
           borderRadius: 10,
-          padding: '8px 10px',
+          padding: '6px 8px',
           cursor: 'pointer',
           pointerEvents: 'auto',
           boxShadow: showQuestLog
             ? '0 0 12px rgba(239,68,68,0.3)'
             : '0 0 10px rgba(251,191,36,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
           transition: 'border-color .2s, box-shadow .2s',
         }}
       >
+        {perfilFoto ? (
+          <img 
+            src={perfilFoto} 
+            alt="Perfil" 
+            style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+          />
+        ) : (
+          <UserCircle size={20} color="#fbbf24" />
+        )}
         {showQuestLog
-          ? <X size={20} color="#ef4444" />
-          : <Menu size={20} color="#fbbf24" />}
+          ? <X size={16} color="#ef4444" />
+          : <Menu size={16} color="#fbbf24" />}
       </motion.button>
     </motion.div>
   );
@@ -305,7 +330,7 @@ const BotonUbicacion = ({ userPosition, onCenter }) => {
 };
 
 // 📜 Quest Log Panel
-const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, onSelectLugar, isMobile }) => (
+const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, onSelectLugar, isMobile, perfilData }) => (
   <AnimatePresence>
     {show && (
       <motion.div
@@ -331,6 +356,44 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, getTipoIcon, onClose, 
           boxShadow: '0 0 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
         }}
       >
+        {/* Perfil del usuario en el menú */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '8px 12px',
+          marginBottom: 16,
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: 12,
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          {perfilData?.foto_perfil_url ? (
+            <img 
+              src={perfilData.foto_perfil_url} 
+              alt="Perfil" 
+              style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <div style={{
+              width: 48, height: 48,
+              background: 'linear-gradient(135deg, #3b0764, #1e1b4b)',
+              borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 24
+            }}>
+              👤
+            </div>
+          )}
+          <div>
+            <div style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>
+              {perfilData?.nombre_publico || 'Aventurero'}
+            </div>
+            <div style={{ color: '#fbbf24', fontSize: 11 }}>
+              Nivel {perfilData?.nivel || 1}
+            </div>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10 }}>
           <span style={{ fontSize: 16 }}>📜</span>
           <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 15, letterSpacing: '.04em' }}>
@@ -636,157 +699,151 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// 🏆 Popup del lugar seleccionado
+// 🏆 Popup del lugar seleccionado - VERSIÓN MEJORADA CON FOTO Y DESCRIPCIÓN CORTA
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
-    userPosition.lat,
-    userPosition.lng,
-    parseFloat(lugar.latitud),
-    parseFloat(lugar.longitud)
+    userPosition.lat, userPosition.lng,
+    parseFloat(lugar.latitud), parseFloat(lugar.longitud)
   ) : null;
 
   const canExplore = distance !== null && distance <= 20;
   const metersToGo = distance ? Math.round(distance) : null;
 
   const getTipoEmoji = (tipo) => {
-    const emojis = {
-      historico: '🏛️',
-      natural: '🌲',
-      cultural: '🎭',
-      gastronomico: '🍽️'
-    };
+    const emojis = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
     return emojis[tipo] || '📍';
   };
 
-  const descripcionCorta =
-    lugar.descripcion?.length > 90
-      ? lugar.descripcion.substring(0, 90) + '...'
-      : lugar.descripcion;
+  // Imagen por defecto según el tipo de lugar
+  const getDefaultImage = (tipo, nombre) => {
+    const images = {
+      historico: 'https://res.cloudinary.com/dq4mh0zqz/image/upload/v1700000000/concepcion/historico-default.jpg',
+      natural: 'https://res.cloudinary.com/dq4mh0zqz/image/upload/v1700000000/concepcion/natural-default.jpg',
+      cultural: 'https://res.cloudinary.com/dq4mh0zqz/image/upload/v1700000000/concepcion/cultural-default.jpg',
+      gastronomico: 'https://res.cloudinary.com/dq4mh0zqz/image/upload/v1700000000/concepcion/gastronomico-default.jpg',
+    };
+    if (lugar.imagen_url) return lugar.imagen_url;
+    return images[tipo] || 'https://via.placeholder.com/400x200?text=Concepción';
+  };
+
+  // Descripción corta (primeros 100 caracteres)
+  const shortDescription = lugar.descripcion 
+    ? lugar.descripcion.length > 100 
+      ? lugar.descripcion.substring(0, 100) + '...' 
+      : lugar.descripcion
+    : 'Descubre este maravilloso lugar en Concepción, Antioquia.';
 
   return (
-    <div
-      style={{
-        width: 250,
+    <div style={{ padding: '0', minWidth: 220, maxWidth: 260 }}>
+      {/* Imagen del lugar */}
+      <div style={{
+        position: 'relative',
+        height: 130,
         overflow: 'hidden',
-        borderRadius: 14,
-      }}
-    >
-      {/* Imagen */}
-      <div
-        style={{
-          width: '100%',
-          height: 130,
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <img
-          src={
-            lugar.imagen ||
-            'https://images.unsplash.com/photo-1506744038136-46273834b3fb'
-          }
+        borderRadius: '14px 14px 0 0',
+      }}>
+        <img 
+          src={getDefaultImage(lugar.tipo, lugar.nombre)}
           alt={lugar.nombre}
           style={{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
           }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+          onError={(e) => {
+            e.target.src = 'https://via.placeholder.com/400x200?text=Concepción';
           }}
         />
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            left: 12,
-            color: 'white',
-            fontWeight: 700,
-            fontSize: 15,
-            textShadow: '0 2px 10px rgba(0,0,0,0.7)',
-          }}
-        >
-          {lugar.nombre}
+        {/* Badge de tipo sobre la imagen */}
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(4px)',
+          borderRadius: 20,
+          padding: '4px 10px',
+          fontSize: 11,
+          color: '#fbbf24',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        }}>
+          <span>{getTipoEmoji(lugar.tipo)}</span>
+          <span>{lugar.tipo}</span>
         </div>
-      </div>
-
-      {/* Contenido */}
-      <div style={{ padding: 14 }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.08)',
+        {/* Indicador de descubierto */}
+        {discovered && (
+          <div style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            background: 'rgba(34,197,94,0.9)',
             borderRadius: 20,
-            padding: '3px 9px',
-            marginBottom: 10,
-            fontSize: 11,
-            color: 'rgba(255,255,255,0.6)',
-          }}
-        >
-          {getTipoEmoji(lugar.tipo)}
-          {lugar.tipo}
-        </div>
-
-        {/* Descripción corta */}
-        <p
-          style={{
-            color: 'rgba(255,255,255,0.7)',
-            fontSize: 12,
-            lineHeight: 1.5,
-            marginBottom: 14,
-          }}
-        >
-          {descripcionCorta}
-        </p>
-
-        {/* Mensaje turístico */}
-        {!discovered && (
-          <div
-            style={{
-              background: 'rgba(251,191,36,0.08)',
-              border: '1px solid rgba(251,191,36,0.2)',
-              borderRadius: 10,
-              padding: 10,
-              marginBottom: 12,
-              fontSize: 11,
-              color: '#fcd34d',
-              lineHeight: 1.4,
-            }}
-          >
-            📍 Visita este lugar para desbloquear toda la historia,
-            fotografías y contenido exclusivo.
+            padding: '4px 8px',
+            fontSize: 10,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <Star size={12} /> DESCUBIERTO
           </div>
         )}
+      </div>
+
+      {/* Contenido del popup */}
+      <div style={{ padding: '12px 14px' }}>
+        <h3 style={{ color: 'white', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>
+          {lugar.nombre}
+        </h3>
+        
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>
+          {shortDescription}
+        </p>
 
         {/* Distancia */}
         {!canExplore && distance !== null && (
-          <div
-            style={{
-              background: 'rgba(239,68,68,0.12)',
-              border: '1px solid rgba(239,68,68,0.25)',
-              borderRadius: 8,
-              padding: '7px',
-              marginBottom: 12,
-              textAlign: 'center',
-            }}
-          >
+          <div style={{
+            background: 'rgba(239,68,68,0.15)', 
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: 8, 
+            padding: '6px 10px', 
+            marginBottom: 12, 
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}>
+            <Navigation size={12} color="#fca5a5" />
             <span style={{ color: '#fca5a5', fontSize: 11 }}>
-              📍 A {metersToGo} metros del lugar
+              A {metersToGo} metros
             </span>
           </div>
         )}
 
-        {/* Botón */}
+        {canExplore && (
+          <div style={{
+            background: 'rgba(34,197,94,0.15)', 
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: 8, 
+            padding: '6px 10px', 
+            marginBottom: 12, 
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}>
+            <Star size={12} color="#4ade80" />
+            <span style={{ color: '#4ade80', fontSize: 11 }}>
+              ¡Estás a menos de 20 metros!
+            </span>
+          </div>
+        )}
+
+        {/* Botón de explorar */}
         <motion.button
           whileHover={canExplore ? { scale: 1.03 } : {}}
           whileTap={canExplore ? { scale: 0.97 } : {}}
@@ -794,26 +851,38 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
           disabled={!canExplore}
           style={{
             width: '100%',
-            background: canExplore
+            background: canExplore 
               ? 'linear-gradient(135deg, #15803d, #14532d)'
               : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
-            color: canExplore
-              ? 'white'
-              : 'rgba(255,255,255,0.4)',
+            color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
             padding: '10px 0',
             borderRadius: 10,
             fontWeight: 700,
             fontSize: 13,
-            border: canExplore
-              ? '1px solid rgba(34,197,94,0.4)'
-              : '1px solid rgba(255,255,255,0.1)',
+            border: canExplore ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(255,255,255,0.1)',
             cursor: canExplore ? 'pointer' : 'not-allowed',
+            opacity: canExplore ? 1 : 0.6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
           }}
         >
-          {canExplore
-            ? '✨ EXPLORAR AHORA'
-            : '🔒 ACÉRCATE MÁS'}
+          {canExplore ? (
+            <>
+              <ChevronRight size={16} />
+              EXPLORAR AHORA
+            </>
+          ) : (
+            '🔒 ACERCATE MÁS'
+          )}
         </motion.button>
+        
+        {!canExplore && distance && (
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
+            Necesitas estar a menos de 20 metros
+          </p>
+        )}
       </div>
     </div>
   );
@@ -921,6 +990,7 @@ function Mapa() {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento] = useState('');
+  const [perfilData, setPerfilData] = useState(null);
   const [viewState, setViewState] = useState({
     longitude: -75.2592802,
     latitude: 6.3953494,
@@ -976,6 +1046,24 @@ function Mapa() {
       if (xpActual < expAcumulada[i]) return i + 1;
     }
     return expAcumulada.length + 1;
+  };
+
+  // Cargar datos del perfil
+  const cargarPerfil = async () => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
+      if (!token) return;
+      
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const userId = payload.id;
+      
+      const response = await api.get(`/guardianes/perfil/${userId}`);
+      if (response.data.success) {
+        setPerfilData(response.data.perfil);
+      }
+    } catch (error) {
+      console.error('Error cargando perfil:', error);
+    }
   };
 
   // ── Función para registrar descubrimiento ───────────────────
@@ -1082,7 +1170,8 @@ function Mapa() {
   useEffect(() => {
     console.log('🎮 Cargando lugar especial...');
     cargarLugarEspecial();
-  }, []); // Solo se ejecuta una vez al montar
+    cargarPerfil();
+  }, []);
 
   useEffect(() => {
     if (!loading && lugares.length > 0) {
@@ -1112,12 +1201,12 @@ function Mapa() {
       '¡Los eventos diarios te dan XP extra!',
     ];
     const id = setInterval(() => {
-      if (!lastVisitedPlace && !showQuestLog) {
+      if (!lastVisitedPlace && !showQuestLog && !mensajeGuia) {
         mostrarMensajeGuia(consejos[Math.floor(Math.random() * consejos.length)], 'consejo', 4000);
       }
     }, 30000);
     return () => clearInterval(id);
-  }, [lastVisitedPlace, showQuestLog]);
+  }, [lastVisitedPlace, showQuestLog, mensajeGuia]);
 
   useEffect(() => {
     try {
@@ -1267,6 +1356,7 @@ function Mapa() {
         onToggleQuestLog={() => setShowQuestLog(!showQuestLog)}
         showQuestLog={showQuestLog}
         isMobile={isMobile}
+        perfilFoto={perfilData?.foto_perfil_url}
       />
 
       <BrujulaFuncional
@@ -1274,12 +1364,14 @@ function Mapa() {
         onRotate={(b) => setViewState(prev => ({ ...prev, bearing: b }))}
       />
 
-      <CompaneroVirtual
-        mensaje={mensajeGuia}
-        nivel={playerLevel}
-        tipo={tipoGuia}
-        emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
-      />
+      <div style={{ pointerEvents: 'none' }}>
+        <CompaneroVirtual
+          mensaje={mensajeGuia}
+          nivel={playerLevel}
+          tipo={tipoGuia}
+          emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
+        />
+      </div>
 
       {mostrarGaleria && (
         <GaleriaFotos 
@@ -1312,6 +1404,7 @@ function Mapa() {
         onClose={() => setShowQuestLog(false)}
         onSelectLugar={setSelectedLugar}
         isMobile={isMobile}
+        perfilData={perfilData}
       />
 
       <Map
@@ -1322,6 +1415,7 @@ function Mapa() {
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
         onError={(e) => console.log('Mapbox Error:', e)}
+        onClick={() => setSelectedLugar(null)} // Cerrar popup al hacer clic fuera
       >
         <Map3DEffect />
         <NavigationControl position="top-right" />
@@ -1442,8 +1536,7 @@ function Mapa() {
             latitude={parseFloat(selectedLugar.latitud)}
             onClose={() => setSelectedLugar(null)}
             closeButton={true}
-            closeOnClick={true}
-            closeOnMove={true}
+            closeOnClick={false}
             anchor="bottom"
             offset={16}
           >
