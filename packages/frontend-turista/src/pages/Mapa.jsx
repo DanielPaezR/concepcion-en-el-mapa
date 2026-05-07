@@ -639,76 +639,182 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
 // 🏆 Popup del lugar seleccionado
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance = userPosition ? calcularDistancia(
-    userPosition.lat, userPosition.lng,
-    parseFloat(lugar.latitud), parseFloat(lugar.longitud)
+    userPosition.lat,
+    userPosition.lng,
+    parseFloat(lugar.latitud),
+    parseFloat(lugar.longitud)
   ) : null;
 
   const canExplore = distance !== null && distance <= 20;
   const metersToGo = distance ? Math.round(distance) : null;
 
   const getTipoEmoji = (tipo) => {
-    const emojis = { historico: '🏛️', natural: '🌲', cultural: '🎭', gastronomico: '🍽️' };
+    const emojis = {
+      historico: '🏛️',
+      natural: '🌲',
+      cultural: '🎭',
+      gastronomico: '🍽️'
+    };
     return emojis[tipo] || '📍';
   };
 
+  const descripcionCorta =
+    lugar.descripcion?.length > 90
+      ? lugar.descripcion.substring(0, 90) + '...'
+      : lugar.descripcion;
+
   return (
-    <div style={{ padding: '14px 16px', minWidth: 180, maxWidth: 210 }}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 20, padding: '2px 8px', marginBottom: 8,
-        fontSize: 10, color: 'rgba(255,255,255,0.5)',
-      }}>
-        {getTipoEmoji(lugar.tipo)} {lugar.tipo}
-      </div>
-
-      <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
-        {lugar.nombre}
-      </h3>
-
-      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
-        {lugar.descripcion}
-      </p>
-
-      {!canExplore && distance !== null && (
-        <div style={{
-          background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: 8, padding: '6px', marginBottom: 12, textAlign: 'center'
-        }}>
-          <span style={{ color: '#fca5a5', fontSize: 11 }}>
-            📍 A {metersToGo} metros del lugar
-          </span>
-        </div>
-      )}
-
-      <motion.button
-        whileHover={canExplore ? { scale: 1.03 } : {}}
-        whileTap={canExplore ? { scale: 0.97 } : {}}
-        onClick={canExplore ? onExplorar : null}
-        disabled={!canExplore}
+    <div
+      style={{
+        width: 250,
+        overflow: 'hidden',
+        borderRadius: 14,
+      }}
+    >
+      {/* Imagen */}
+      <div
         style={{
           width: '100%',
-          background: canExplore
-            ? 'linear-gradient(135deg, #15803d, #14532d)'
-            : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
-          color: canExplore ? 'white' : 'rgba(255,255,255,0.4)',
-          padding: '9px 0',
-          borderRadius: 10,
-          fontWeight: 700,
-          fontSize: 13,
-          border: canExplore ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(255,255,255,0.1)',
-          cursor: canExplore ? 'pointer' : 'not-allowed',
-          opacity: canExplore ? 1 : 0.6,
+          height: 130,
+          overflow: 'hidden',
+          position: 'relative',
         }}
       >
-        {canExplore ? '✨ EXPLORAR AHORA' : '🔒 ACERCATE MÁS'}
-      </motion.button>
+        <img
+          src={
+            lugar.imagen ||
+            'https://images.unsplash.com/photo-1506744038136-46273834b3fb'
+          }
+          alt={lugar.nombre}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
 
-      {!canExplore && distance && (
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
-          Necesitas estar a menos de 20 metros
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 10,
+            left: 12,
+            color: 'white',
+            fontWeight: 700,
+            fontSize: 15,
+            textShadow: '0 2px 10px rgba(0,0,0,0.7)',
+          }}
+        >
+          {lugar.nombre}
+        </div>
+      </div>
+
+      {/* Contenido */}
+      <div style={{ padding: 14 }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 20,
+            padding: '3px 9px',
+            marginBottom: 10,
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.6)',
+          }}
+        >
+          {getTipoEmoji(lugar.tipo)}
+          {lugar.tipo}
+        </div>
+
+        {/* Descripción corta */}
+        <p
+          style={{
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: 12,
+            lineHeight: 1.5,
+            marginBottom: 14,
+          }}
+        >
+          {descripcionCorta}
         </p>
-      )}
+
+        {/* Mensaje turístico */}
+        {!discovered && (
+          <div
+            style={{
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.2)',
+              borderRadius: 10,
+              padding: 10,
+              marginBottom: 12,
+              fontSize: 11,
+              color: '#fcd34d',
+              lineHeight: 1.4,
+            }}
+          >
+            📍 Visita este lugar para desbloquear toda la historia,
+            fotografías y contenido exclusivo.
+          </div>
+        )}
+
+        {/* Distancia */}
+        {!canExplore && distance !== null && (
+          <div
+            style={{
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: 8,
+              padding: '7px',
+              marginBottom: 12,
+              textAlign: 'center',
+            }}
+          >
+            <span style={{ color: '#fca5a5', fontSize: 11 }}>
+              📍 A {metersToGo} metros del lugar
+            </span>
+          </div>
+        )}
+
+        {/* Botón */}
+        <motion.button
+          whileHover={canExplore ? { scale: 1.03 } : {}}
+          whileTap={canExplore ? { scale: 0.97 } : {}}
+          onClick={canExplore ? onExplorar : null}
+          disabled={!canExplore}
+          style={{
+            width: '100%',
+            background: canExplore
+              ? 'linear-gradient(135deg, #15803d, #14532d)'
+              : 'linear-gradient(135deg, #4a4a4a, #3a3a3a)',
+            color: canExplore
+              ? 'white'
+              : 'rgba(255,255,255,0.4)',
+            padding: '10px 0',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: 13,
+            border: canExplore
+              ? '1px solid rgba(34,197,94,0.4)'
+              : '1px solid rgba(255,255,255,0.1)',
+            cursor: canExplore ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {canExplore
+            ? '✨ EXPLORAR AHORA'
+            : '🔒 ACÉRCATE MÁS'}
+        </motion.button>
+      </div>
     </div>
   );
 };
@@ -1336,7 +1442,8 @@ function Mapa() {
             latitude={parseFloat(selectedLugar.latitud)}
             onClose={() => setSelectedLugar(null)}
             closeButton={true}
-            closeOnClick={false}
+            closeOnClick={true}
+            closeOnMove={true}
             anchor="bottom"
             offset={16}
           >
