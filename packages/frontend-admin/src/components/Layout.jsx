@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Menu, Transition } from '@headlessui/react'
 import {
   HomeIcon,
@@ -10,16 +10,29 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  TrophyIcon,
+  PhotoIcon,
+  BuildingLibraryIcon,
+  QrCodeIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
+
+// Logo de Concepción - puedes usar la URL de tu logo o importarlo
+const LOGO_URL = '/logo512.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
   { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
+  { name: 'Eventos', href: '/admin/eventos', icon: CalendarIcon },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
+  { name: 'Insignias', href: '/admin/insignias', icon: TrophyIcon },
+  { name: 'Galería', href: '/admin/galeria', icon: PhotoIcon },
+  { name: 'Ubicaciones', href: '/admin/ubicaciones', icon: BuildingLibraryIcon },
+  { name: 'Escaneos QR', href: '/admin/escaneos', icon: QrCodeIcon },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },
-  { name: 'Banco Eventos', href: '/admin/eventos', icon: ClipboardDocumentListIcon },
+  { name: 'Configuración', href: '/admin/configuracion', icon: Cog6ToothIcon },
 ];
 
 function classNames(...classes) {
@@ -31,8 +44,23 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const location = useLocation()
 
+  // Cerrar sidebar automáticamente cuando cambie la ruta (en móvil)
+  useEffect(() => {
+    if (sidebarOpen) {
+      setSidebarOpen(false)
+    }
+  }, [location.pathname])
+
+  const handleNavigation = () => {
+    // En móvil, cerrar sidebar después de navegar
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false)
+    }
+  }
+
   return (
     <div>
+      {/* Mobile sidebar */}
       <Transition.Root show={sidebarOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
           <Transition.Child
@@ -61,9 +89,14 @@ export default function Layout() {
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
                     <img
-                      className="h-8 w-auto"
-                      src="../../public/logo-concepcion.svg"
+                      className="h-10 w-auto"
+                      src={LOGO_URL}
                       alt="Concepción en el Mapa"
+                      onError={(e) => {
+                        // Si la imagen falla, mostrar un texto alternativo
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<span class="text-2xl">🏞️</span><span class="ml-2 text-xl font-semibold text-gray-900">Concepción</span>';
+                      }}
                     />
                     <span className="ml-2 text-xl font-semibold text-gray-900">Admin</span>
                   </div>
@@ -75,19 +108,20 @@ export default function Layout() {
                             <li key={item.name}>
                               <Link
                                 to={item.href}
+                                onClick={handleNavigation}
                                 className={classNames(
                                   location.pathname === item.href
-                                    ? 'bg-gray-50 text-primary-600'
-                                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
+                                    ? 'bg-green-50 text-green-600'
+                                    : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
                                   'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                                 )}
                               >
                                 <item.icon
                                   className={classNames(
                                     location.pathname === item.href
-                                      ? 'text-primary-600'
-                                      : 'text-gray-400 group-hover:text-primary-600',
-                                    'h-6 w-6 shrink-0'
+                                      ? 'text-green-600'
+                                      : 'text-gray-400 group-hover:text-green-600',
+                                    'h-5 w-5 shrink-0'
                                   )}
                                   aria-hidden="true"
                                 />
@@ -111,11 +145,15 @@ export default function Layout() {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
             <img
-              className="h-8 w-auto"
-              src="/logo-concepcion.png"
+              className="h-10 w-auto"
+              src={LOGO_URL}
               alt="Concepción en el Mapa"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span class="text-2xl">🏞️</span><span class="ml-2 text-xl font-semibold text-gray-900">Concepción Admin</span>';
+              }}
             />
-            <span className="ml-2 text-xl font-semibold text-gray-900">Panel Admin</span>
+            <span className="ml-2 text-xl font-semibold text-gray-900">Admin</span>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -127,17 +165,17 @@ export default function Layout() {
                         to={item.href}
                         className={classNames(
                           location.pathname === item.href
-                            ? 'bg-gray-50 text-primary-600'
-                            : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
+                            ? 'bg-green-50 text-green-600'
+                            : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
                           'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                         )}
                       >
                         <item.icon
                           className={classNames(
                             location.pathname === item.href
-                              ? 'text-primary-600'
-                              : 'text-gray-400 group-hover:text-primary-600',
-                            'h-6 w-6 shrink-0'
+                              ? 'text-green-600'
+                              : 'text-gray-400 group-hover:text-green-600',
+                            'h-5 w-5 shrink-0'
                           )}
                           aria-hidden="true"
                         />
@@ -153,10 +191,10 @@ export default function Layout() {
                     logout();
                     window.location.href = '/login';
                   }}
-                  className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-700 hover:text-primary-600 hover:bg-gray-50 w-full"
+                  className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-700 hover:text-red-600 hover:bg-red-50 w-full"
                 >
                   <ArrowRightOnRectangleIcon
-                    className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-primary-600"
+                    className="h-5 w-5 shrink-0 text-gray-400 group-hover:text-red-600"
                     aria-hidden="true"
                   />
                   Cerrar sesión
@@ -181,13 +219,15 @@ export default function Layout() {
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
             <div className="flex items-center gap-x-4 lg:gap-x-6">
+              <div className="text-right">
+                <div className="text-sm font-semibold text-gray-900">{user?.nombre || 'Administrador'}</div>
+                <div className="text-xs text-gray-500">{user?.rol === 'admin' ? 'Administrador' : 'Guía'}</div>
+              </div>
               <Menu as="div" className="relative">
                 <Menu.Button className="-m-1.5 flex items-center p-1.5">
-                  <span className="hidden lg:flex lg:items-center">
-                    <span className="ml-4 text-sm font-semibold leading-6 text-gray-900" aria-hidden="true">
-                      {user?.nombre}
-                    </span>
-                  </span>
+                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
+                    {user?.nombre?.charAt(0)?.toUpperCase() || 'A'}
+                  </div>
                 </Menu.Button>
               </Menu>
             </div>

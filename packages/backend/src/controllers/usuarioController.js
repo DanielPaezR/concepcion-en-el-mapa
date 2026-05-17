@@ -120,7 +120,7 @@ const usuarioController = {
             const result = await pool.query(
                 `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, disponible) 
                  VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [nombre, email, telefono, hashedPassword, 'guia', true]
+                [nombre, email, telefono, hashedPassword, 'guia', false]
             );
             
             // Crear perfil de guardián automáticamente

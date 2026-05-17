@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+// pages/guia/PanelGuia.jsx
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import { 
   CalendarIcon, CheckCircleIcon, ClockIcon, XCircleIcon,
   PowerIcon, ArrowPathIcon, UserGroupIcon, StarIcon,
-  FunnelIcon
+  FunnelIcon, WifiIcon, WifiOffIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
@@ -16,11 +17,15 @@ export default function PanelGuia() {
   const [reservasFiltradas, setReservasFiltradas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [disponible, setDisponible] = useState(user?.disponible ?? true);
+  const [disponible, setDisponible] = useState(false); // ← Inicia como false
   const [stats, setStats] = useState({ hoy: 0, pendientes: 0, completadas: 0, canceladas: 0, calificacion: 0 });
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [socket, setSocket] = useState(null);
   const [solicitudPendiente, setSolicitudPendiente] = useState(null);
+  const [conectado, setConectado] = useState(false);
+  const [intentandoConexion, setIntentandoConexion] = useState(false);
+  const socketRef = useRef(null);
+  const heartbeatInterval = useRef(null);
 
   const cargarReservas = useCallback(async () => {
     try {
@@ -37,7 +42,6 @@ export default function PanelGuia() {
         calificacion: user?.calificacion_promedio || 0
       });
       
-      // Filtrar reservas (excluir canceladas por defecto)
       const activas = data.filter(r => r.estado !== 'cancelada');
       setReservasFiltradas(activas);
     } catch (error) {
@@ -49,6 +53,149 @@ export default function PanelGuia() {
     }
   }, [user?.calificacion_promedio]);
 
+  // Cargar estado de disponibilidad desde el backend al iniciar
+  const cargarDisponibilidad = useCallback(async () => {
+    try {
+      const response = await api.get(`/usuarios/${user?.id}`);
+      setDisponible(response.data.disponible || false);
+    } catch (error) {
+      console.error('Error al cargar disponibilidad:', error);
+    }
+  }, [user?.id]);
+
+  // Conectar WebSocket SOLO cuando el guía está disponible
+  const conectarWebSocket = useCallback(() => {
+    if (!user?.id || !disponible) return;
+    
+    if (socketRef.current?.connected) {
+      console.log('🔌 WebSocket ya conectado');
+      return;
+    }
+    
+    setIntentandoConexion(true);
+    
+    const socketIo = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      timeout: 10000
+    });
+    
+    socketRef.current = socketIo;
+    
+    socketIo.on('connect', () => {
+      console.log('✅ WebSocket conectado');
+      setConectado(true);
+      setIntentandoConexion(false);
+      
+      socketIo.emit('guia-conectar', { 
+        guiaId: user.id, 
+        disponible: true 
+      });
+      
+      // Heartbeat para mantener conexión activa
+      if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = setInterval(() => {
+        if (socketIo.connected) {
+          socketIo.emit('heartbeat', { guiaId: user.id });
+        }
+      }, 30000);
+    });
+    
+    socketIo.on('connect_error', (error) => {
+      console.error('❌ Error de conexión WebSocket:', error);
+      setConectado(false);
+      setIntentandoConexion(false);
+    });
+    
+    socketIo.on('disconnect', (reason) => {
+      console.log('🔌 WebSocket desconectado:', reason);
+      setConectado(false);
+      if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
+    });
+    
+    socketIo.on('nueva-solicitud', (data) => {
+      console.log('📢 Nueva solicitud:', data);
+      setSolicitudPendiente(data);
+      toast.success(`📢 Nueva solicitud para ${data.lugar}`, {
+        duration: 10000,
+        icon: '👋'
+      });
+    });
+    
+    socketIo.on('reserva-confirmada', (data) => {
+      toast.success('✅ Reserva confirmada', { icon: '🎉' });
+      cargarReservas();
+      setSolicitudPendiente(null);
+    });
+    
+    socketIo.on('reserva-ya-asignada', (data) => {
+      toast.error('❌ Esta reserva ya fue asignada a otro guía');
+      setSolicitudPendiente(null);
+    });
+    
+    socketIo.on('heartbeat-ack', () => {
+      console.log('💓 Heartbeat recibido');
+    });
+  }, [user?.id, disponible, cargarReservas]);
+
+  // Desconectar WebSocket
+  const desconectarWebSocket = useCallback(() => {
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
+    }
+    
+    if (socketRef.current) {
+      if (socketRef.current.connected) {
+        socketRef.current.emit('guia-desconectar', { guiaId: user?.id });
+        socketRef.current.disconnect();
+      }
+      socketRef.current = null;
+    }
+    setConectado(false);
+  }, [user?.id]);
+
+  // Efecto para cargar disponibilidad inicial
+  useEffect(() => {
+    if (user?.id) {
+      cargarDisponibilidad();
+    }
+  }, [user?.id, cargarDisponibilidad]);
+
+  // Efecto para manejar conexión/desconexión según disponibilidad
+  useEffect(() => {
+    if (disponible && user?.id) {
+      conectarWebSocket();
+    } else {
+      desconectarWebSocket();
+    }
+    
+    return () => {
+      desconectarWebSocket();
+    };
+  }, [disponible, user?.id, conectarWebSocket, desconectarWebSocket]);
+
+  // Efecto para detectar cierre de página/pestaña
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('guia-desconectar', { guiaId: user?.id });
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [user?.id]);
+
+  // Efecto para cargar reservas
+  useEffect(() => {
+    if (user?.id) {
+      cargarReservas();
+    }
+  }, [user?.id, cargarReservas]);
+
   // Aplicar filtro cuando cambie
   useEffect(() => {
     if (filtroEstado === 'todas') {
@@ -58,48 +205,11 @@ export default function PanelGuia() {
     }
   }, [filtroEstado, reservas]);
 
-  useEffect(() => {
-    if (user?.id) {
-        cargarReservas();
-        
-        const socketIo = io(SOCKET_URL, {
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 2000,
-            timeout: 20000
-        });
-        setSocket(socketIo);
-        
-        socketIo.emit('guia-conectar', { guiaId: user.id, disponible });
-        
-        socketIo.on('nueva-solicitud', (data) => {
-            console.log('📢 Nueva solicitud:', data);
-            setSolicitudPendiente(data);
-            toast.success(`📢 Nueva solicitud para ${data.lugar}`);
-        });
-        
-        socketIo.on('reserva-confirmada', (data) => {
-            toast.success('✅ Reserva confirmada');
-            cargarReservas();
-            setSolicitudPendiente(null);
-        });
-        
-        socketIo.on('reserva-ya-asignada', (data) => {
-            toast.error('❌ Esta reserva ya fue asignada a otro guía');
-            setSolicitudPendiente(null);
-        });
-        
-        return () => {
-            socketIo.disconnect();
-        };
-    }
-  }, [user?.id, disponible]);
-
   const cambiarEstado = async (id, estado) => {
     try {
       await api.patch(`/reservas/${id}/estado`, { estado });
-      toast.success(`Reserva ${estado === 'confirmada' ? 'confirmada' : estado === 'completada' ? 'completada' : 'cancelada'}`);
+      const mensaje = estado === 'confirmada' ? 'confirmada' : estado === 'completada' ? 'completada' : 'cancelada';
+      toast.success(`Reserva ${mensaje}`);
       cargarReservas();
     } catch (error) {
       console.error('Error:', error);
@@ -108,13 +218,27 @@ export default function PanelGuia() {
   };
 
   const toggleDisponibilidad = async () => {
+    const nuevoEstado = !disponible;
+    
+    // Mostrar toast de transición
+    const loadingToast = toast.loading(nuevoEstado ? 'Activando conexión...' : 'Desconectando...');
+    
     try {
-      const nuevoEstado = !disponible;
+      // Primero actualizar el estado en el backend
       await api.patch(`/usuarios/${user?.id}/disponibilidad`, { disponible: nuevoEstado });
+      
+      // Actualizar estado local
       setDisponible(nuevoEstado);
-      toast.success(nuevoEstado ? '✅ Estás disponible para nuevas reservas' : '⛔ No recibirás más reservas por ahora');
+      
+      toast.dismiss(loadingToast);
+      toast.success(nuevoEstado ? '✅ Estás disponible para nuevas reservas' : '⛔ No recibirás más reservas por ahora', {
+        duration: 3000,
+        icon: nuevoEstado ? '🟢' : '🔴'
+      });
+      
     } catch (error) {
       console.error('Error:', error);
+      toast.dismiss(loadingToast);
       toast.error('Error al cambiar disponibilidad');
     }
   };
@@ -122,6 +246,13 @@ export default function PanelGuia() {
   const handleRefresh = () => {
     setRefreshing(true);
     cargarReservas();
+  };
+
+  const handleLogout = () => {
+    // Desconectar WebSocket antes de salir
+    desconectarWebSocket();
+    logout();
+    window.location.href = '/login';
   };
 
   const getEstadoColor = (estado) => {
@@ -142,11 +273,6 @@ export default function PanelGuia() {
       case 'cancelada': return <XCircleIcon className="w-3.5 h-3.5" />;
       default: return null;
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
   };
 
   if (loading) {
@@ -174,24 +300,41 @@ export default function PanelGuia() {
           </button>
         </div>
 
-        {/* Switch de disponibilidad */}
+        {/* Switch de disponibilidad mejorado */}
         <div className="flex items-center justify-between bg-white/15 backdrop-blur-sm rounded-2xl p-3 mt-6">
           <div className="flex items-center gap-3">
             <div className={`p-1.5 rounded-full ${disponible ? 'bg-emerald-400/30' : 'bg-gray-400/30'}`}>
               <PowerIcon className={`w-5 h-5 ${disponible ? 'text-emerald-200' : 'text-gray-300'}`} />
             </div>
             <div>
-              <span className="text-sm font-medium">{disponible ? 'Disponible' : 'No disponible'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{disponible ? 'Disponible' : 'No disponible'}</span>
+                {conectado && disponible && (
+                  <span className="flex items-center gap-1 text-xs bg-emerald-400/30 px-1.5 py-0.5 rounded-full">
+                    <WifiIcon className="w-3 h-3" />
+                    Conectado
+                  </span>
+                )}
+                {intentandoConexion && disponible && (
+                  <span className="flex items-center gap-1 text-xs bg-yellow-400/30 px-1.5 py-0.5 rounded-full">
+                    <ArrowPathIcon className="w-3 h-3 animate-spin" />
+                    Conectando...
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-emerald-100/70 mt-0.5">
-                {disponible ? 'Recibirás nuevas reservas' : 'No recibirás reservas'}
+                {disponible 
+                  ? (conectado ? 'Recibiendo reservas en tiempo real' : 'Conectando al servidor...') 
+                  : 'Activa tu disponibilidad para recibir reservas'}
               </p>
             </div>
           </div>
           <button
             onClick={toggleDisponibilidad}
+            disabled={intentandoConexion}
             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
               disponible ? 'bg-emerald-400' : 'bg-gray-400'
-            }`}
+            } ${intentandoConexion ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
               disponible ? 'translate-x-6' : 'translate-x-1'
@@ -200,6 +343,7 @@ export default function PanelGuia() {
         </div>
       </div>
 
+      {/* Resto del componente igual... */}
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-5 gap-2 px-5 -mt-6">
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center">
@@ -241,12 +385,12 @@ export default function PanelGuia() {
 
       {/* Botones de acción */}
       <div className="flex justify-between items-center px-5 mt-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
           {['todas', 'pendiente', 'confirmada', 'completada', 'cancelada'].map((estado) => (
             <button
               key={estado}
               onClick={() => setFiltroEstado(estado)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap ${
                 filtroEstado === estado
                   ? 'bg-emerald-600 text-white'
                   : 'bg-white/70 text-gray-600 hover:bg-gray-100'
@@ -317,8 +461,7 @@ export default function PanelGuia() {
                 {/* Botones solo para reservas NO canceladas y que pertenecen al guía */}
                 {reserva.estado !== 'cancelada' && reserva.guia_id === user?.id && (
                   <div className="flex gap-2 mt-4">
-                    {/* Solo mostrar botón CONFIRMAR si está pendiente Y es su reserva */}
-                    {reserva.estado === 'pendiente' && reserva.guia_id === user?.id && (
+                    {reserva.estado === 'pendiente' && (
                       <button
                         onClick={() => cambiarEstado(reserva.id, 'confirmada')}
                         className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-600 active:scale-95 transition shadow-sm"
@@ -327,8 +470,7 @@ export default function PanelGuia() {
                       </button>
                     )}
                     
-                    {/* Mostrar botones COMPLETAR y CANCELAR solo si está confirmada Y es su reserva */}
-                    {reserva.estado === 'confirmada' && reserva.guia_id === user?.id && (
+                    {reserva.estado === 'confirmada' && (
                       <>
                         <button
                           onClick={() => cambiarEstado(reserva.id, 'completada')}
