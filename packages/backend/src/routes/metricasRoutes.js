@@ -13,5 +13,6 @@ router.get('/lugares-top', metricasController.getLugaresTop);
 router.get('/origen-turistas', metricasController.getOrigenTuristas);
 router.get('/calificaciones-por-mes', metricasController.getCalificacionesPorMes);
 router.get('/actividad-reciente', metricasController.getActividadReciente);
+router.get('/visitas-por-dia', metricasController.getVisitasPorDia);
 
 module.exports = router;
