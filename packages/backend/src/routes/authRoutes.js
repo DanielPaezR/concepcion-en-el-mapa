@@ -31,6 +31,7 @@ router.put('/usuarios/:id', authMiddleware, authController.actualizarUsuario);
 router.patch('/disponibilidad', authMiddleware, authController.cambiarDisponibilidad);
 
 
+
 router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
