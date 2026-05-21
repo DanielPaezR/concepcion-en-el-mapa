@@ -5,7 +5,7 @@ import {
   StarIcon, ChartBarIcon, ArrowTrendingUpIcon, QrCodeIcon,
   HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
-  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, WifiOffIcon
+  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
