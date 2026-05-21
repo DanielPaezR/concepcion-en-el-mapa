@@ -145,8 +145,8 @@ export default function Dashboard() {
   };
 
   const formatHoras = (minutos) => {
-    const horas = Math.floor(minutos / 60);
-    const mins = minutos % 60;
+    const horas = Math.floor(Math.abs(minutos) / 60);
+    const mins = Math.abs(minutos) % 60;
     return `${horas}h ${mins}min`;
   };
 
@@ -391,6 +391,48 @@ export default function Dashboard() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 invisible">.</label>
+                  <button
+                    onClick={() => {
+                      setRangoFechas({
+                        inicio: new Date(new Date().setDate(1)).toISOString().split('T')[0],
+                        fin: new Date().toISOString().split('T')[0]
+                      });
+                    }}
+                    className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Resumen general del período */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-3 text-white">
+                <div className="text-2xl font-bold">
+                  {(estadisticasHoras.reduce((acc, g) => acc + (g.total_minutos || 0), 0) / 60).toFixed(1)}h
+                </div>
+                <div className="text-xs opacity-90">Total horas acumuladas</div>
+              </div>
+              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-3 text-white">
+                <div className="text-2xl font-bold">
+                  {estadisticasHoras.length}
+                </div>
+                <div className="text-xs opacity-90">Guías activos</div>
+              </div>
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-3 text-white">
+                <div className="text-2xl font-bold">
+                  {estadisticasHoras.reduce((acc, g) => acc + (g.dias_trabajados || 0), 0)}
+                </div>
+                <div className="text-xs opacity-90">Días trabajados</div>
+              </div>
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-3 text-white">
+                <div className="text-2xl font-bold">
+                  {(estadisticasHoras.reduce((acc, g) => acc + (g.total_minutos || 0), 0) / (estadisticasHoras.length || 1) / 60).toFixed(1)}h
+                </div>
+                <div className="text-xs opacity-90">Promedio por guía</div>
               </div>
             </div>
 
@@ -399,7 +441,7 @@ export default function Dashboard() {
               <div className="px-4 py-3 border-b border-gray-200">
                 <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
                   <UsersIcon className="w-5 h-5 text-indigo-500" />
-                  Resumen de horas por guía
+                  Detalle por guía
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -417,15 +459,15 @@ export default function Dashboard() {
                     {estadisticasHoras.map((guia) => (
                       <tr key={guia.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{guia.nombre}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{guia.dias_trabajados}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatHoras(guia.total_minutos)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatHoras(guia.promedio_minutos)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{guia.dias_trabajados || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatHoras(guia.total_minutos || 0)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{formatHoras(guia.promedio_minutos || 0)}</td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleVerDetalle(guia.id)}
-                            className="text-blue-500 hover:text-blue-700 text-sm"
+                            className="text-blue-500 hover:text-blue-700 text-sm flex items-center gap-1"
                           >
-                            Ver detalle
+                            Ver detalle →
                           </button>
                         </td>
                       </tr>
@@ -438,37 +480,47 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Detalle de sesiones */}
+            {/* Detalle de sesiones de un guía específico */}
             {guiaSeleccionado && sesionesDetalle.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                   <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
                     <ClockIcon className="w-5 h-5 text-purple-500" />
-                    Detalle de sesiones
+                    Historial de sesiones - {estadisticasHoras.find(g => g.id === guiaSeleccionado)?.nombre}
                   </h3>
                   <button onClick={() => setGuiaSeleccionado(null)} className="text-gray-400 hover:text-gray-600">
                     <XMarkIcon className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
                   {sesionesDetalle.map((sesion) => (
-                    <div key={sesion.id} className="px-4 py-3">
+                    <div key={sesion.id} className="px-4 py-3 hover:bg-gray-50">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                         <div>
-                          <span className="font-medium text-gray-800">{new Date(sesion.fecha).toLocaleDateString()}</span>
-                          <span className="text-gray-500 text-sm ml-2">
-                            {sesion.hora_inicio?.substring(0, 5)} - {sesion.hora_fin?.substring(0, 5) || 'En curso'}
+                          <span className="font-medium text-gray-800">
+                            {new Date(sesion.fecha).toLocaleDateString('es', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                           </span>
-                        </div>
-                        <div>
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
-                            {formatHoras(sesion.duracion_minutos)}
-                          </span>
-                          {sesion.activa && (
-                            <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-medium ml-2">
-                              Activa
-                            </span>
+                          <div className="text-sm text-gray-500 mt-1">
+                            <span>🕐 Inicio: {sesion.hora_inicio ? new Date(sesion.hora_inicio).toLocaleTimeString() : '-'}</span>
+                            <span className="mx-2">→</span>
+                            <span>Fin: {sesion.hora_fin ? new Date(sesion.hora_fin).toLocaleTimeString() : 'En curso'}</span>
+                          </div>
+                          {sesion.ubicacion_inicio_lat && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              📍 Ubicación: {sesion.ubicacion_inicio_lat.toFixed(6)}, {sesion.ubicacion_inicio_lng?.toFixed(6)}
+                            </div>
                           )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            sesion.estado === 'activa' ? 'bg-green-100 text-green-700' :
+                            sesion.estado === 'finalizada' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {sesion.estado === 'activa' ? '🟢 Activa' : sesion.estado === 'finalizada' ? '✅ Finalizada' : '⚠️ Interrumpida'}
+                          </span>
+                          <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
+                            ⏱️ {formatHoras(sesion.duracion_minutos)}
+                          </span>
                         </div>
                       </div>
                     </div>
