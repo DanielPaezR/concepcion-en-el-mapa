@@ -165,6 +165,39 @@ const usuarioController = {
         }
     },
 
+    async getGuiasUbicaciones(req, res) {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    u.id,
+                    u.nombre,
+                    u.email,
+                    gc.latitud,
+                    gc.longitud,
+                    gc.conectado,
+                    gc.ultima_actividad,
+                    gc.disponible,
+                    gc.socket_id,
+                    CASE 
+                        WHEN gc.conectado = true AND gc.ultima_actividad > NOW() - INTERVAL '2 minutes' THEN true
+                        ELSE false
+                    END as en_linea
+                FROM usuarios u
+                LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
+                WHERE u.rol = 'guia'
+                ORDER BY gc.conectado DESC, u.nombre ASC
+            `);
+            
+            res.json({ 
+                success: true, 
+                guias: result.rows 
+            });
+        } catch (error) {
+            console.error('Error al obtener ubicaciones de guías:', error);
+            res.status(500).json({ error: 'Error al obtener ubicaciones de guías' });
+        }
+    },
+
     // Eliminar guía
     async eliminarGuia(req, res) {
         try {

@@ -1,21 +1,26 @@
 // pages/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MapPinIcon, CalendarIcon, UsersIcon, ClipboardDocumentListIcon,
   StarIcon, ChartBarIcon, ArrowTrendingUpIcon, QrCodeIcon,
   HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
-  Bars3Icon, ClockIcon, UserGroupIcon
+  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, WifiOffIcon
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
+import Map, { Marker, Popup, NavigationControl } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
+import { SOCKET_URL } from '../config/runtime';
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B', '#4ECDC4', '#45B7D1'];
 
 export default function Dashboard() {
@@ -41,11 +46,24 @@ export default function Dashboard() {
   const [estadisticasHoras, setEstadisticasHoras] = useState([]);
   const [sesionesDetalle, setSesionesDetalle] = useState([]);
   const [guiaSeleccionado, setGuiaSeleccionado] = useState(null);
+  const [guiasEnVivo, setGuiasEnVivo] = useState([]);
+  const [guiasCargando, setGuiasCargando] = useState(true);
+  const [viewState, setViewState] = useState({
+    longitude: -75.2592802,
+    latitude: 6.3953494,
+    zoom: 13,
+    pitch: 0,
+    bearing: 0
+  });
+  const [guiaPopup, setGuiaPopup] = useState(null);
+  const [socket, setSocket] = useState(null);
   const [rangoFechas, setRangoFechas] = useState({
     inicio: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     fin: new Date().toISOString().split('T')[0]
   });
   const navigate = useNavigate();
+
+  const mapRef = useRef(null);
 
   const menuItems = [
     { id: 'dashboard', nombre: 'Dashboard', icon: HomeIcon, ruta: '/admin', color: 'text-blue-500' },
@@ -58,12 +76,67 @@ export default function Dashboard() {
     { id: 'ubicaciones', nombre: 'Ubicaciones', icon: BuildingLibraryIcon, ruta: '/admin/ubicaciones', color: 'text-teal-500' },
   ];
 
+  // Cargar guías en vivo desde el backend
+  const cargarGuiasEnVivo = async () => {
+    try {
+      const response = await api.get('/guias/ubicaciones');
+      setGuiasEnVivo(response.data.guias || []);
+    } catch (error) {
+      console.error('Error al cargar guías en vivo:', error);
+    } finally {
+      setGuiasCargando(false);
+    }
+  };
+
+  // Conectar WebSocket para actualizaciones en tiempo real
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
+
+    cargarGuiasEnVivo();
+
+    const socketIo = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000
+    });
+
+    setSocket(socketIo);
+
+    socketIo.on('connect', () => {
+      console.log('🔌 Admin conectado a WebSocket');
+      socketIo.emit('admin-conectar', { adminId: 'admin' });
+    });
+
+    socketIo.on('guia-ubicacion-actualizada', (data) => {
+      console.log('📍 Actualización de ubicación:', data);
+      setGuiasEnVivo(prev => {
+        const index = prev.findIndex(g => g.id === data.guiaId);
+        if (index >= 0) {
+          const nuevaLista = [...prev];
+          nuevaLista[index] = { ...nuevaLista[index], ...data };
+          return nuevaLista;
+        } else {
+          return [...prev, data];
+        }
+      });
+    });
+
+    socketIo.on('guia-desconectado', (data) => {
+      console.log('🔴 Guía desconectado:', data);
+      setGuiasEnVivo(prev => prev.filter(g => g.id !== data.guiaId));
+    });
+
+    return () => {
+      socketIo.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     cargarDatos();
     cargarEscaneos();
     cargarVisitasPorDia();
@@ -150,6 +223,15 @@ export default function Dashboard() {
     return `${horas}h ${mins}min`;
   };
 
+  const getEstadoColor = (estado) => {
+    switch(estado) {
+      case 'activa': return 'bg-green-100 text-green-700';
+      case 'finalizada': return 'bg-blue-100 text-blue-700';
+      case 'interrumpida': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   const metricCards = [
     { nombre: 'Lugares', valor: estadisticas.totalLugares, icon: MapPinIcon, color: 'bg-blue-500' },
     { nombre: 'Reservas', valor: estadisticas.totalReservas, icon: CalendarIcon, color: 'bg-green-500' },
@@ -165,6 +247,17 @@ export default function Dashboard() {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-red-600">Error de Configuración</h2>
+          <p className="text-gray-500">No se detectó VITE_MAPBOX_TOKEN</p>
+        </div>
       </div>
     );
   }
@@ -240,6 +333,16 @@ export default function Dashboard() {
             📊 Dashboard
           </button>
           <button
+            onClick={() => setActiveTab('mapa')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${
+              activeTab === 'mapa' 
+                ? 'text-green-600 border-b-2 border-green-600' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🗺️ Guías en Vivo
+          </button>
+          <button
             onClick={() => setActiveTab('horas')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${
               activeTab === 'horas' 
@@ -251,7 +354,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'dashboard' && (
           <>
             {/* Tarjetas de métricas */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -272,7 +375,6 @@ export default function Dashboard() {
 
             {/* Gráficos */}
             <div className="space-y-6">
-              {/* Reservas por mes */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-blue-500" />
@@ -289,7 +391,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Visitas por día */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <ArrowTrendingUpIcon className="w-5 h-5 text-green-500" />
@@ -306,7 +407,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Lugares más visitados */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <MapPinIcon className="w-5 h-5 text-green-500" />
@@ -323,7 +423,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Calificaciones por mes */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <StarIcon className="w-5 h-5 text-yellow-500" />
@@ -342,7 +441,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Origen de turistas */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <UsersIcon className="w-5 h-5 text-indigo-500" />
@@ -363,8 +461,160 @@ export default function Dashboard() {
               </div>
             </div>
           </>
-        ) : (
-          /* Sección de Seguimiento de Horas */
+        )}
+
+        {activeTab === 'mapa' && (
+          <div className="space-y-4">
+            {/* Lista de guías conectados */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                  <WifiIcon className="w-5 h-5 text-green-500" />
+                  Guías conectados ({guiasEnVivo.filter(g => g.conectado).length})
+                </h3>
+                <button
+                  onClick={cargarGuiasEnVivo}
+                  className="text-sm text-blue-500 hover:text-blue-600"
+                >
+                  Actualizar
+                </button>
+              </div>
+              {guiasCargando ? (
+                <div className="text-center py-4 text-gray-400">Cargando guías...</div>
+              ) : guiasEnVivo.filter(g => g.conectado).length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <WifiOffIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  No hay guías conectados en este momento
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {guiasEnVivo.filter(g => g.conectado).map((guia) => (
+                    <div
+                      key={guia.id}
+                      onClick={() => {
+                        if (guia.latitud && guia.longitud) {
+                          setViewState(prev => ({
+                            ...prev,
+                            latitude: parseFloat(guia.latitud),
+                            longitude: parseFloat(guia.longitud),
+                            zoom: 15
+                          }));
+                          setGuiaPopup(guia);
+                        }
+                      }}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold">
+                        {guia.nombre?.charAt(0)?.toUpperCase() || 'G'}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-800 text-sm">{guia.nombre}</div>
+                        <div className="text-xs text-gray-400">
+                          {guia.latitud && guia.longitud ? '📍 Ubicación disponible' : '📍 Ubicación desconocida'}
+                        </div>
+                      </div>
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mapa */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 500 }}>
+              <Map
+                ref={mapRef}
+                {...viewState}
+                onMove={evt => setViewState(evt.viewState)}
+                mapStyle="mapbox://styles/mapbox/outdoors-v12"
+                mapboxAccessToken={MAPBOX_TOKEN}
+                attributionControl={false}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <NavigationControl position="top-right" />
+                
+                {/* Marcadores de guías */}
+                {guiasEnVivo.filter(g => g.conectado && g.latitud && g.longitud).map((guia) => (
+                  <Marker
+                    key={guia.id}
+                    longitude={parseFloat(guia.longitud)}
+                    latitude={parseFloat(guia.latitud)}
+                    onClick={() => setGuiaPopup(guia)}
+                  >
+                    <div className="relative cursor-pointer group">
+                      <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75"></div>
+                      <div className="relative w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold shadow-lg border-2 border-white">
+                        {guia.nombre?.charAt(0)?.toUpperCase() || 'G'}
+                      </div>
+                    </div>
+                  </Marker>
+                ))}
+
+                {/* Popup de guía */}
+                {guiaPopup && (
+                  <Popup
+                    longitude={parseFloat(guiaPopup.longitud)}
+                    latitude={parseFloat(guiaPopup.latitud)}
+                    onClose={() => setGuiaPopup(null)}
+                    closeButton={true}
+                    closeOnClick={false}
+                    anchor="bottom"
+                    offset={16}
+                  >
+                    <div className="p-2 min-w-[150px]">
+                      <div className="font-bold text-gray-800">{guiaPopup.nombre}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <span className={`w-2 h-2 rounded-full ${guiaPopup.conectado ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        {guiaPopup.conectado ? 'Conectado' : 'Desconectado'}
+                      </div>
+                      {guiaPopup.ultima_actividad && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Última actividad: {new Date(guiaPopup.ultima_actividad).toLocaleTimeString()}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleVerDetalle(guiaPopup.id)}
+                        className="mt-2 w-full text-xs text-blue-500 hover:text-blue-600"
+                      >
+                        Ver estadísticas →
+                      </button>
+                    </div>
+                  </Popup>
+                )}
+              </Map>
+            </div>
+
+            {/* Estadísticas de ubicación */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <UserGroupIcon className="w-5 h-5 text-purple-500" />
+                Actividad de guías
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{guiasEnVivo.filter(g => g.conectado).length}</div>
+                  <div className="text-xs text-gray-500">Conectados ahora</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{guiasEnVivo.filter(g => g.latitud && g.longitud).length}</div>
+                  <div className="text-xs text-gray-500">Con ubicación</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">{estadisticasHoras.length}</div>
+                  <div className="text-xs text-gray-500">Guías registrados</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {(estadisticasHoras.reduce((acc, g) => acc + (g.total_minutos || 0), 0) / 60).toFixed(1)}h
+                  </div>
+                  <div className="text-xs text-gray-500">Horas totales</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'horas' && (
           <div className="space-y-6">
             {/* Selector de fechas */}
             <div className="bg-white rounded-xl shadow-sm p-4">
@@ -408,7 +658,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Resumen general del período */}
+            {/* Resumen general */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-3 text-white">
                 <div className="text-2xl font-bold">
@@ -417,15 +667,11 @@ export default function Dashboard() {
                 <div className="text-xs opacity-90">Total horas acumuladas</div>
               </div>
               <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-3 text-white">
-                <div className="text-2xl font-bold">
-                  {estadisticasHoras.length}
-                </div>
+                <div className="text-2xl font-bold">{estadisticasHoras.length}</div>
                 <div className="text-xs opacity-90">Guías activos</div>
               </div>
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-3 text-white">
-                <div className="text-2xl font-bold">
-                  {estadisticasHoras.reduce((acc, g) => acc + (g.dias_trabajados || 0), 0)}
-                </div>
+                <div className="text-2xl font-bold">{estadisticasHoras.reduce((acc, g) => acc + (g.dias_trabajados || 0), 0)}</div>
                 <div className="text-xs opacity-90">Días trabajados</div>
               </div>
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-3 text-white">
@@ -436,7 +682,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Tabla de resumen de horas por guía */}
+            {/* Tabla de horas */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200">
                 <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
@@ -480,7 +726,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Detalle de sesiones de un guía específico */}
+            {/* Detalle de sesiones */}
             {guiaSeleccionado && sesionesDetalle.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -505,17 +751,9 @@ export default function Dashboard() {
                             <span className="mx-2">→</span>
                             <span>Fin: {sesion.hora_fin ? new Date(sesion.hora_fin).toLocaleTimeString() : 'En curso'}</span>
                           </div>
-                          {sesion.ubicacion_inicio_lat && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              📍 Ubicación: {sesion.ubicacion_inicio_lat.toFixed(6)}, {sesion.ubicacion_inicio_lng?.toFixed(6)}
-                            </div>
-                          )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            sesion.estado === 'activa' ? 'bg-green-100 text-green-700' :
-                            sesion.estado === 'finalizada' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(sesion.estado)}`}>
                             {sesion.estado === 'activa' ? '🟢 Activa' : sesion.estado === 'finalizada' ? '✅ Finalizada' : '⚠️ Interrumpida'}
                           </span>
                           <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
