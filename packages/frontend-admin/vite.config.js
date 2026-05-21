@@ -8,7 +8,6 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      // 🔥 Cambiar de injectManifest a generateSW
       strategies: 'generateSW',
       manifest: {
         name: 'Concepción en el Mapa - Admin',
@@ -66,6 +65,24 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    alias: {
+      'react-map-gl': 'react-map-gl/dist/esm/index.js'
+    }
+  },
+  optimizeDeps: {
+    include: ['react-map-gl', 'mapbox-gl']
+  },
   server: { port: 5174, open: true },
-  build: { outDir: 'dist' }
+  build: { 
+    outDir: 'dist',
+    rollupOptions: {
+      external: [],
+      output: {
+        manualChunks: {
+          'mapbox': ['react-map-gl', 'mapbox-gl']
+        }
+      }
+    }
+  }
 })
