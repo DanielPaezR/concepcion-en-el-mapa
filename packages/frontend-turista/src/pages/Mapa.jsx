@@ -586,7 +586,7 @@ const LocationPrompt = ({ show, onAccept, onDeny }) => (
           textAlign: 'center',
         }}
       >
-        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ marginBottom: 14 }}>
+        <motion.div animate={{ transform: "scale(1.1)" }} transition={{ duration: 2, repeat: Infinity }} style={{ marginBottom: 14 }}>
           <LocateFixed size={44} color="#4ade80" style={{ margin: '0 auto' }} />
         </motion.div>
         <h3 style={{ color: 'white', fontWeight: 700, fontSize: 16, marginBottom: 8, letterSpacing: '.04em' }}>
@@ -1105,7 +1105,7 @@ function Mapa() {
         {lugarEspecial && (
           <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 3000 }}>
             <motion.div
-              animate={{ scale: [1, 1.14, 1], y: [0, -7, 0] }}
+              animate={{ y: [0, -6, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
               onClick={() => {
                 setMostrarGaleria(true);
