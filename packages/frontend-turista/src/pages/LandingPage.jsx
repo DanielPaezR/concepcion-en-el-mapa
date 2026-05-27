@@ -421,11 +421,11 @@ export default function LandingPage() {
 
         {/* ── NAV ── */}
         <nav className="nav">
-          <Link to="/" className="nav-logo">
+          <Link to="/landing" className="nav-logo">
             <div className="nav-logo-dot" />
             Concepción en el Mapa
           </Link>
-          <Link to="/mapa" className="nav-cta">Comenzar aventura →</Link>
+          <Link to="/" className="nav-cta">Comenzar aventura →</Link>
         </nav>
 
         {/* ── HERO ── */}
@@ -458,7 +458,7 @@ export default function LandingPage() {
             </motion.p>
 
             <motion.div variants={fadeUp} className="hero-actions">
-              <Link to="/mapa" className="btn-primary">
+              <Link to="/" className="btn-primary">
                 Comenzar aventura <ChevronRight size={18} />
               </Link>
               <a href="#como-funciona" className="btn-ghost">
@@ -618,7 +618,7 @@ export default function LandingPage() {
                   Explora el municipio como nunca antes. Descubre lugares, gana experiencia 
                   y conviértete en una leyenda de Concepción, Antioquia.
                 </p>
-                <Link to="/mapa" className="btn-primary" style={{ position: 'relative', zIndex: 1 }}>
+                <Link to="/" className="btn-primary" style={{ position: 'relative', zIndex: 1 }}>
                   Comenzar ahora <Sparkles size={17} />
                 </Link>
               </div>

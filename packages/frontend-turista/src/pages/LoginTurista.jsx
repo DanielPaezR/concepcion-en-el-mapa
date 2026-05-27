@@ -31,7 +31,7 @@ export default function LoginTurista() {
         if (result.success) {
             toast.success('¡Bienvenido de vuelta!');
             setTimeout(() => {
-                navigate('/mapa');
+                navigate('/');
             }, 1500);
         } else {
             setError(result.error || 'Error al iniciar sesión');

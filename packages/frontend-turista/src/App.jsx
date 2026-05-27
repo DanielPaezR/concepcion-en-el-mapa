@@ -24,8 +24,8 @@ function App() {
     <>
       <NotificacionInsignia />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/mapa" element={<Mapa />} />
+        <Route path="/" element={<Mapa />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/lugar/:id" element={<LugarDetalle />} />
         <Route path="/solicitar-guia/:lugarId" element={<SolicitarGuia />} />
         <Route path="/encuesta/:reservaId" element={<Encuesta />} />

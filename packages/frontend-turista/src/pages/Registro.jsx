@@ -69,7 +69,7 @@ export default function Registro() {
         if (result.success) {
             toast.success('¡Registro exitoso! Ahora puedes solicitar guías.');
             setTimeout(() => {
-                navigate('/mapa');
+                navigate('/');
             }, 2000);
         } else {
             toast.error(result.error || 'Error al registrarse');
