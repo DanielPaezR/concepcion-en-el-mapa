@@ -1172,7 +1172,7 @@ function Mapa() {
 
         {/* Galería especial */}
         {lugarEspecial && (
-          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 3000 }}>
+          <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 1500 }}>
             <motion.div
               animate={{ y: [0, -7, 0] }} transition={{ duration: 2.2, repeat: Infinity }}
               onClick={() => {
