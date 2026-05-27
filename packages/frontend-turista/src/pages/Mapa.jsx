@@ -594,32 +594,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
 };
 
 // 📡 Marcador del jugador con sonar
-const PlayerMarker = ({ isMobile }) => {
-  const SIZE = isMobile ? 28 : 34;
-  return (
-    <div style={{ position: 'relative', width: SIZE + 20, height: SIZE + 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {/* Ondas sonar */}
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{
-          position: 'absolute', inset: 0, borderRadius: '50%',
-          border: '1.5px solid rgba(59,130,246,0.6)',
-          animation: `sonar 2.5s ease-out ${i * 0.75}s infinite`,
-        }} />
-      ))}
-      {/* Cuerpo */}
-      <div style={{
-        width: SIZE, height: SIZE, borderRadius: '50%',
-        background: 'radial-gradient(circle at 35% 35%, #60a5fa, #1d4ed8)',
-        border: '3px solid white',
-        boxShadow: '0 0 18px rgba(59,130,246,0.7), 0 4px 14px rgba(0,0,0,0.5)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1, position: 'relative',
-        fontSize: isMobile ? 12 : 15,
-      }}>🧭</div>
-    </div>
-  );
-};
-
 // 📜 Quest Log holográfico
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar, isMobile }) => (
   <AnimatePresence>
@@ -633,7 +607,7 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
         style={{
           position: 'absolute',
           top: isMobile ? 60 : 70, right: 10,
-          zIndex: 1000,
+          zIndex: 1800,
           background: 'rgba(4,10,30,0.97)',
           backdropFilter: 'blur(20px) saturate(1.5)',
           border: '1px solid rgba(34,197,94,0.18)',
@@ -1155,7 +1129,7 @@ function Mapa() {
         {/* Avatar jugador */}
         {userPosition && (
           <Marker longitude={userPosition.lng} latitude={userPosition.lat} anchor="center">
-            <PlayerMarker isMobile={isMobile} />
+            <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
 
