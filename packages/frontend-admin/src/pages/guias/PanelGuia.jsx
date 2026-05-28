@@ -55,6 +55,37 @@ export default function PanelGuia() {
   });
   const [cargandoEventos, setCargandoEventos] = useState(false);
 
+  // ========== Funciones auxiliares de estilos ==========
+  const getEstadoColor = (estado) => {
+    const colores = {
+      pendiente: 'bg-amber-50 text-amber-600 border-amber-200',
+      confirmada: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+      completada: 'bg-sky-50 text-sky-600 border-sky-200',
+      cancelada: 'bg-rose-50 text-rose-600 border-rose-200'
+    };
+    return colores[estado] || 'bg-gray-50 text-gray-600 border-gray-200';
+  };
+
+  const getEstadoIcono = (estado) => {
+    switch(estado) {
+      case 'pendiente': return <ClockIcon className="w-3.5 h-3.5" />;
+      case 'confirmada': return <CheckCircleIcon className="w-3.5 h-3.5" />;
+      case 'completada': return <CalendarIcon className="w-3.5 h-3.5" />;
+      case 'cancelada': return <XCircleIcon className="w-3.5 h-3.5" />;
+      default: return null;
+    }
+  };
+
+  const getTipoColor = (tipo) => {
+    if (tipo === 'pregunta') return 'bg-blue-100 text-blue-700';
+    if (tipo === 'pistas') return 'bg-purple-100 text-purple-700';
+    if (tipo === 'reto') return 'bg-orange-100 text-orange-700';
+    if (tipo === 'reunion') return 'bg-green-100 text-green-700';
+    if (tipo === 'temporal') return 'bg-pink-100 text-pink-700';
+    return 'bg-gray-100 text-gray-700';
+  };
+
+  // ========== Reservas ==========
   const cargarReservas = useCallback(async () => {
     try {
       const response = await api.get('/reservas');
@@ -81,7 +112,7 @@ export default function PanelGuia() {
     }
   }, [user?.calificacion_promedio]);
 
-  // Cargar disponibilidad y permisos
+  // Cargar perfil (disponibilidad y permisos)
   const cargarPerfil = useCallback(async () => {
     try {
       const response = await api.get(`/usuarios/${user?.id}`);
@@ -92,7 +123,7 @@ export default function PanelGuia() {
     }
   }, [user?.id]);
 
-  // Cargar eventos y ubicaciones (si tiene permisos)
+  // ========== Eventos ==========
   const cargarEventos = useCallback(async () => {
     if (!puedeGestionarEventos) return;
     setCargandoEventos(true);
@@ -111,7 +142,7 @@ export default function PanelGuia() {
     }
   }, [puedeGestionarEventos]);
 
-  // Conexión WebSocket (igual que antes)
+  // ========== WebSocket ==========
   const conectarWebSocket = useCallback(() => {
     if (!user?.id || !disponible) return;
     if (socketRef.current?.connected) return;
@@ -154,7 +185,7 @@ export default function PanelGuia() {
     setConectado(false);
   }, [user?.id]);
 
-  // Envío periódico de ubicación (para que aparezca en el mapa turista)
+  // Envío periódico de ubicación (para el mapa turista)
   useEffect(() => {
     if (!socketRef.current?.connected || !disponible) return;
     let intervalId;
@@ -229,7 +260,7 @@ export default function PanelGuia() {
   const handleRefresh = () => { setRefreshing(true); cargarReservas(); };
   const handleLogout = () => { desconectarWebSocket(); logout(); window.location.href = '/login'; };
 
-  // Gestión de eventos
+  // ========== CRUD Eventos ==========
   const resetFormEvento = () => {
     setFormEvento({
       pregunta: '',
@@ -296,20 +327,11 @@ export default function PanelGuia() {
   const actualizarPista = (index, campo, valor) => setFormEvento(prev => ({ ...prev, pistas: prev.pistas.map((p, i) => i === index ? { ...p, [campo]: valor } : p) }));
   const toggleLugarRequerido = (lugarId) => setFormEvento(prev => ({ ...prev, lugares_requeridos: prev.lugares_requeridos.includes(lugarId) ? prev.lugares_requeridos.filter(id => id !== lugarId) : [...prev.lugares_requeridos, lugarId] }));
 
-  const getTipoColor = (tipo) => {
-    if (tipo === 'pregunta') return 'bg-blue-100 text-blue-700';
-    if (tipo === 'pistas') return 'bg-purple-100 text-purple-700';
-    if (tipo === 'reto') return 'bg-orange-100 text-orange-700';
-    if (tipo === 'reunion') return 'bg-green-100 text-green-700';
-    if (tipo === 'temporal') return 'bg-pink-100 text-pink-700';
-    return 'bg-gray-100 text-gray-700';
-  };
-
   if (loading) return <div className="min-h-screen flex justify-center items-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-50 pb-24">
-      {/* Header (igual que antes) */}
+      {/* Header */}
       <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white px-5 pt-10 pb-7 rounded-b-3xl shadow-lg">
         <div className="flex justify-between items-start">
           <div>
@@ -352,7 +374,7 @@ export default function PanelGuia() {
 
       {activeTab === 'reservas' && (
         <>
-          {/* Estadísticas (igual) */}
+          {/* Estadísticas */}
           <div className="grid grid-cols-5 gap-2 px-5 -mt-6">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-sky-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><ClockIcon className="w-3.5 h-3.5 text-sky-600" /></div><div className="text-lg font-bold text-gray-800">{stats.pendientes}</div><div className="text-xs text-gray-400">Pendientes</div></div>
@@ -361,7 +383,7 @@ export default function PanelGuia() {
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-yellow-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><StarIcon className="w-3.5 h-3.5 text-yellow-500" /></div><div className="text-lg font-bold text-gray-800">{stats.calificacion?.toFixed(1) || 'Nuevo'}</div><div className="text-xs text-gray-400">Calif.</div></div>
           </div>
 
-          {/* Filtros y lista de reservas (igual que antes) */}
+          {/* Filtros y lista de reservas */}
           <div className="flex justify-between items-center px-5 mt-4">
             <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
               {['todas', 'pendiente', 'confirmada', 'completada', 'cancelada'].map(estado => (
@@ -389,10 +411,7 @@ export default function PanelGuia() {
                         {reserva.intereses && <div className="mt-2"><span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">🎯 {reserva.intereses}</span></div>}
                       </div>
                       <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${getEstadoColor(reserva.estado)}`}>
-                        {reserva.estado === 'pendiente' && <ClockIcon className="w-3.5 h-3.5" />}
-                        {reserva.estado === 'confirmada' && <CheckCircleIcon className="w-3.5 h-3.5" />}
-                        {reserva.estado === 'completada' && <CalendarIcon className="w-3.5 h-3.5" />}
-                        {reserva.estado === 'cancelada' && <XCircleIcon className="w-3.5 h-3.5" />}
+                        {getEstadoIcono(reserva.estado)}
                         {reserva.estado}
                       </div>
                     </div>
@@ -422,7 +441,6 @@ export default function PanelGuia() {
             <button onClick={() => setMostrarFormEvento(true)} className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700"><PlusIcon className="w-4 h-4" /> Nuevo evento</button>
           </div>
 
-          {/* Lista de eventos */}
           {cargandoEventos ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div></div>
           ) : eventos.length === 0 ? (
@@ -455,7 +473,7 @@ export default function PanelGuia() {
             </div>
           )}
 
-          {/* Modal de creación/edición */}
+          {/* Modal de creación/edición de eventos (igual que antes, no lo repito por brevedad, pero debe ir aquí) */}
           {mostrarFormEvento && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
