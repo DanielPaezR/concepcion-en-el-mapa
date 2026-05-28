@@ -14,6 +14,7 @@ import { SOCKET_URL } from '../config/runtime';
 import io from 'socket.io-client';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import AvatarJugador from '../components/AvatarJugador';
+import AvatarGuia from '../components/AvatarGuia';
 import GaleriaFotos from '../components/GaleriaFotos';
 import Map3DEffect from '../components/Map3DEffect';
 import AnclarGuardian from '../components/AnclarGuardian';
@@ -896,6 +897,11 @@ function Mapa() {
 
   const updateGuideInState = useCallback((guia) => {
     if (!guia || !guia.id) return;
+    if (!guia.mostrar_avatar_publico) {
+      setPublicGuides((prev) => prev.filter((item) => item.id !== guia.id));
+      return;
+    }
+
     setPublicGuides((prev) => {
       const existing = prev.find((item) => item.id === guia.id);
       if (existing) {
@@ -1017,6 +1023,11 @@ function Mapa() {
 
     socket.on('guia-desconectado', (data) => {
       if (!data?.guiaId) return;
+      if (data.mostrar_avatar_publico === false) {
+        setPublicGuides((prev) => prev.filter((guia) => guia.id !== data.guiaId));
+        return;
+      }
+
       setPublicGuides((prev) => prev.map((guia) => (
         guia.id === data.guiaId ? { ...guia, conectado: false, latitud: data.latitud ?? guia.latitud, longitud: data.longitud ?? guia.longitud } : guia
       )));
@@ -1237,34 +1248,15 @@ function Mapa() {
         {/* Public guide markers */}
         {publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
           <Marker key={`guia_${guia.id}`} longitude={parseFloat(guia.longitud)} latitude={parseFloat(guia.latitud)} anchor="bottom" style={{ zIndex: 1400 }}>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <div
               onClick={(e) => {
-                e.originalEvent.stopPropagation();
+                e.stopPropagation();
                 setSelectedGuia(guia);
               }}
-              style={{
-                width: isMobile ? 44 : 52,
-                height: isMobile ? 44 : 52,
-                borderRadius: '50%',
-                border: `3px solid ${guia.conectado ? 'rgba(34,197,94,0.95)' : 'rgba(107,114,128,0.85)'}`,
-                background: 'rgba(15,23,42,0.95)',
-                boxShadow: guia.conectado ? '0 0 22px rgba(34,197,94,0.35)' : '0 0 18px rgba(107,114,128,0.25)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', padding: 2
-              }}
+              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              {guia.avatar_url ? (
-                <img
-                  src={guia.avatar_url}
-                  alt={guia.nombre}
-                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                />
-              ) : (
-                <span style={{ color: '#fff', fontSize: isMobile ? 18 : 20, fontWeight: 700 }}>{guia.nombre?.charAt(0) || 'G'}</span>
-              )}
-            </motion.button>
+              <AvatarGuia conectado={guia.conectado} isMobile={isMobile} />
+            </div>
           </Marker>
         ))}
 

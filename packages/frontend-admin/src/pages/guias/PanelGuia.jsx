@@ -155,10 +155,31 @@ export default function PanelGuia() {
       timeout: 10000
     });
     socketRef.current = socketIo;
+    const emitirConexionInicial = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            socketIo.emit('guia-conectar', {
+              guiaId: user.id,
+              disponible: true,
+              latitud: position.coords.latitude,
+              longitud: position.coords.longitude,
+            });
+          },
+          () => {
+            socketIo.emit('guia-conectar', { guiaId: user.id, disponible: true });
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+        );
+      } else {
+        socketIo.emit('guia-conectar', { guiaId: user.id, disponible: true });
+      }
+    };
+
     socketIo.on('connect', () => {
       setConectado(true);
       setIntentandoConexion(false);
-      socketIo.emit('guia-conectar', { guiaId: user.id, disponible: true });
+      emitirConexionInicial();
       if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
         if (socketIo.connected) socketIo.emit('heartbeat', { guiaId: user.id });
@@ -362,13 +383,27 @@ export default function PanelGuia() {
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${disponible ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
+
+        {puedeGestionarEventos && (
+          <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold">Gestión de eventos activada</p>
+                <p className="text-sm text-emerald-800/80">Toca la pestaña “Gestión de eventos” para crear y editar retos diarios.</p>
+              </div>
+              <button onClick={() => setActiveTab('eventos')} className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-white text-sm font-semibold hover:bg-emerald-700 transition">
+                Ir a eventos
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 px-5 mt-4 border-b border-gray-200">
-        <button onClick={() => setActiveTab('reservas')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>📋 Mis recorridos</button>
+      <div className="flex gap-2 px-5 mt-4 border-b border-gray-200 overflow-x-auto pb-1">
+        <button onClick={() => setActiveTab('reservas')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>📋 Mis recorridos</button>
         {puedeGestionarEventos && (
-          <button onClick={() => setActiveTab('eventos')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
+          <button onClick={() => setActiveTab('eventos')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
         )}
       </div>
 

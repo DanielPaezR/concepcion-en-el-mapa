@@ -1,5 +1,6 @@
 // controllers/usuarioController.js
 const pool = require('../config/database');
+const { getIo } = require('../socket');
 
 const usuarioController = {
     // Listar usuarios (con filtro por rol)
@@ -144,7 +145,17 @@ const usuarioController = {
         try {
             const { id } = req.params;
             const { nombre, email, telefono, disponible, mostrar_avatar_publico, puede_gestionar_eventos } = req.body;
-            
+
+            const currentResult = await pool.query(
+                `SELECT nombre, COALESCE(mostrar_avatar_publico, false) AS mostrar_avatar_publico FROM usuarios WHERE id = $1 AND rol = 'guia'`,
+                [id]
+            );
+
+            if (currentResult.rows.length === 0) {
+                return res.status(404).json({ error: 'Guía no encontrado' });
+            }
+
+            const currentGuia = currentResult.rows[0];
             const result = await pool.query(
                 `UPDATE usuarios 
                  SET nombre = COALESCE($1, nombre),
@@ -157,12 +168,49 @@ const usuarioController = {
                  RETURNING *`,
                 [nombre, email, telefono, disponible, mostrar_avatar_publico, puede_gestionar_eventos, id]
             );
-            
+
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Guía no encontrado' });
             }
-            
-            res.json({ success: true, guia: result.rows[0] });
+
+            const updatedGuia = result.rows[0];
+            const io = getIo();
+            const nuevoMostrarPublico = !!updatedGuia.mostrar_avatar_publico;
+            const anteriorMostrarPublico = !!currentGuia.mostrar_avatar_publico;
+
+            if (anteriorMostrarPublico && !nuevoMostrarPublico) {
+                io.emit('guia-desconectado', {
+                    guiaId: parseInt(id, 10),
+                    conectado: false,
+                    nombre: updatedGuia.nombre,
+                    avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedGuia.nombre || 'Guía')}&background=1f2937&color=ffffff&rounded=true&size=128`,
+                    mostrar_avatar_publico: false
+                });
+            } else if (!anteriorMostrarPublico && nuevoMostrarPublico) {
+                const conexionResult = await pool.query(
+                    `SELECT latitud, longitud, conectado, ultima_actividad, disponible FROM guias_conectados WHERE guia_id = $1`,
+                    [id]
+                );
+
+                if (conexionResult.rows.length > 0) {
+                    const conexion = conexionResult.rows[0];
+                    if (conexion.conectado && conexion.latitud && conexion.longitud) {
+                        io.emit('guia-ubicacion-actualizada', {
+                            id: parseInt(id, 10),
+                            nombre: updatedGuia.nombre,
+                            mostrar_avatar_publico: true,
+                            latitud: conexion.latitud,
+                            longitud: conexion.longitud,
+                            disponible: conexion.disponible,
+                            conectado: conexion.conectado,
+                            ultima_actividad: conexion.ultima_actividad,
+                            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedGuia.nombre || 'Guía')}&background=1f2937&color=ffffff&rounded=true&size=128`
+                        });
+                    }
+                }
+            }
+
+            res.json({ success: true, guia: updatedGuia });
         } catch (error) {
             console.error('Error al actualizar guía:', error);
             res.status(500).json({ error: 'Error al actualizar guía' });
