@@ -5,12 +5,13 @@ import api from '../../services/api';
 import { 
   CalendarIcon, CheckCircleIcon, ClockIcon, XCircleIcon,
   PowerIcon, ArrowPathIcon, UserGroupIcon, StarIcon,
-  FunnelIcon, WifiIcon, WifiOffIcon, PlusIcon, TrashIcon,
-  PencilIcon, XMarkIcon, MapPinIcon, QuestionMarkCircleIcon
+  FunnelIcon, WifiIcon, PlusIcon, TrashIcon,
+  PencilIcon, XMarkIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../../config/runtime';
+import { subscribeUser, unsubscribeUser } from '../../services/pushNotifications';
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -142,44 +143,24 @@ export default function PanelGuia() {
     }
   }, [puedeGestionarEventos]);
 
-  // ========== WebSocket ==========
+  // ========== WebSocket (SOLO notificaciones, no afecta disponibilidad) ==========
   const conectarWebSocket = useCallback(() => {
-    if (!user?.id || !disponible) return;
+    if (!user?.id) return;
     if (socketRef.current?.connected) return;
     setIntentandoConexion(true);
     const socketIo = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,
       timeout: 10000
     });
     socketRef.current = socketIo;
-    const emitirConexionInicial = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            socketIo.emit('guia-conectar', {
-              guiaId: user.id,
-              disponible: true,
-              latitud: position.coords.latitude,
-              longitud: position.coords.longitude,
-            });
-          },
-          () => {
-            socketIo.emit('guia-conectar', { guiaId: user.id, disponible: true });
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
-        );
-      } else {
-        socketIo.emit('guia-conectar', { guiaId: user.id, disponible: true });
-      }
-    };
 
     socketIo.on('connect', () => {
       setConectado(true);
       setIntentandoConexion(false);
-      emitirConexionInicial();
+      socketIo.emit('guia-conectar-simple', { guiaId: user.id });
       if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
         if (socketIo.connected) socketIo.emit('heartbeat', { guiaId: user.id });
@@ -190,23 +171,39 @@ export default function PanelGuia() {
     socketIo.on('nueva-solicitud', (data) => {
       setSolicitudPendiente(data);
       toast.success(`📢 Nueva solicitud para ${data.lugar}`, { duration: 10000, icon: '👋' });
+      cargarReservas(); // recargar para que aparezca en la lista
     });
     socketIo.on('reserva-confirmada', () => { toast.success('✅ Reserva confirmada', { icon: '🎉' }); cargarReservas(); setSolicitudPendiente(null); });
     socketIo.on('reserva-ya-asignada', () => { toast.error('❌ Esta reserva ya fue asignada a otro guía'); setSolicitudPendiente(null); });
     socketIo.on('heartbeat-ack', () => console.log('💓 Heartbeat recibido'));
-  }, [user?.id, disponible, cargarReservas]);
+  }, [user?.id, cargarReservas]);
 
   const desconectarWebSocket = useCallback(() => {
     if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
     if (socketRef.current) {
-      if (socketRef.current.connected) socketRef.current.emit('guia-desconectar', { guiaId: user?.id });
-      socketRef.current.disconnect();
+      if (socketRef.current.connected) socketRef.current.disconnect();
       socketRef.current = null;
     }
     setConectado(false);
-  }, [user?.id]);
+  }, []);
 
-  // Envío periódico de ubicación (para el mapa turista)
+  // ========== Notificaciones push (suscribir al usuario) ==========
+  useEffect(() => {
+    if (user?.id && 'Notification' in window && Notification.permission === 'granted') {
+      subscribeUser().catch(err => console.error('Error al suscribir push:', err));
+    }
+  }, [user]);
+
+  // ========== Polling de reservas (para no depender solo del WebSocket) ==========
+  useEffect(() => {
+    if (!disponible) return;
+    const interval = setInterval(() => {
+      cargarReservas();
+    }, 15000); // cada 15 segundos
+    return () => clearInterval(interval);
+  }, [disponible, cargarReservas]);
+
+  // Envío periódico de ubicación (solo si el socket está conectado)
   useEffect(() => {
     if (!socketRef.current?.connected || !disponible) return;
     let intervalId;
@@ -230,20 +227,21 @@ export default function PanelGuia() {
     return () => clearInterval(intervalId);
   }, [socketRef.current?.connected, disponible, user?.id]);
 
+  // ========== Efectos principales ==========
   useEffect(() => {
     if (user?.id) cargarPerfil();
   }, [user?.id, cargarPerfil]);
 
+  // Conectar WebSocket siempre (independientemente de disponibilidad)
   useEffect(() => {
-    if (disponible && user?.id) conectarWebSocket();
-    else desconectarWebSocket();
+    conectarWebSocket();
     return () => desconectarWebSocket();
-  }, [disponible, user?.id, conectarWebSocket, desconectarWebSocket]);
+  }, [conectarWebSocket, desconectarWebSocket]);
 
   useEffect(() => {
-    window.addEventListener('beforeunload', () => { if (socketRef.current?.connected) socketRef.current.emit('guia-desconectar', { guiaId: user?.id }); });
+    window.addEventListener('beforeunload', () => { if (socketRef.current?.connected) socketRef.current.disconnect(); });
     return () => window.removeEventListener('beforeunload', () => {});
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => { if (user?.id) cargarReservas(); }, [user?.id, cargarReservas]);
 
@@ -266,15 +264,18 @@ export default function PanelGuia() {
 
   const toggleDisponibilidad = async () => {
     const nuevoEstado = !disponible;
-    const loadingToast = toast.loading(nuevoEstado ? 'Activando...' : 'Desconectando...');
+    const loadingToast = toast.loading(nuevoEstado ? 'Activando disponibilidad...' : 'Desactivando disponibilidad...');
     try {
       await api.patch(`/usuarios/${user?.id}/disponibilidad`, { disponible: nuevoEstado });
       setDisponible(nuevoEstado);
       toast.dismiss(loadingToast);
-      toast.success(nuevoEstado ? '✅ Disponible' : '⛔ No disponible');
+      toast.success(nuevoEstado ? '✅ Estás disponible para recibir reservas' : '⛔ Ya no recibirás más reservas', {
+        duration: 3000,
+        icon: nuevoEstado ? '🟢' : '🔴'
+      });
     } catch (error) {
       toast.dismiss(loadingToast);
-      toast.error('Error');
+      toast.error('Error al cambiar disponibilidad');
     }
   };
 
@@ -371,16 +372,34 @@ export default function PanelGuia() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{disponible ? 'Disponible' : 'No disponible'}</span>
-                {conectado && disponible && <span className="flex items-center gap-1 text-xs bg-emerald-400/30 px-1.5 py-0.5 rounded-full"><WifiIcon className="w-3 h-3" /> Conectado</span>}
-                {intentandoConexion && disponible && <span className="flex items-center gap-1 text-xs bg-yellow-400/30 px-1.5 py-0.5 rounded-full"><ArrowPathIcon className="w-3 h-3 animate-spin" /> Conectando...</span>}
+                {conectado && disponible && (
+                  <span className="flex items-center gap-1 text-xs bg-emerald-400/30 px-1.5 py-0.5 rounded-full">
+                    <WifiIcon className="w-3 h-3" /> En línea
+                  </span>
+                )}
+                {intentandoConexion && disponible && (
+                  <span className="flex items-center gap-1 text-xs bg-yellow-400/30 px-1.5 py-0.5 rounded-full">
+                    <ArrowPathIcon className="w-3 h-3 animate-spin" /> Conectando...
+                  </span>
+                )}
               </div>
               <p className="text-xs text-emerald-100/70 mt-0.5">
-                {disponible ? (conectado ? 'Recibiendo reservas en tiempo real' : 'Conectando al servidor...') : 'Activa tu disponibilidad para recibir reservas'}
+                {disponible 
+                  ? (conectado ? 'Recibiendo reservas en tiempo real' : 'Conectando al servidor...') 
+                  : 'Activa tu disponibilidad para recibir reservas'}
               </p>
             </div>
           </div>
-          <button onClick={toggleDisponibilidad} disabled={intentandoConexion} className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${disponible ? 'bg-emerald-400' : 'bg-gray-400'} ${intentandoConexion ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${disponible ? 'translate-x-6' : 'translate-x-1'}`} />
+          <button
+            onClick={toggleDisponibilidad}
+            disabled={intentandoConexion}
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              disponible ? 'bg-emerald-400' : 'bg-gray-400'
+            } ${intentandoConexion ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+              disponible ? 'translate-x-6' : 'translate-x-1'
+            }`} />
           </button>
         </div>
 
@@ -399,23 +418,41 @@ export default function PanelGuia() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 px-5 mt-4 border-b border-gray-200 overflow-x-auto pb-1">
-        <button onClick={() => setActiveTab('reservas')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>📋 Mis recorridos</button>
-        {puedeGestionarEventos && (
-          <button onClick={() => setActiveTab('eventos')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
-        )}
+      {/* Tabs - con margen superior para evitar solapamiento con las estadísticas */}
+      <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50 to-stone-50 pt-2 pb-0">
+        <div className="flex gap-2 px-5 border-b border-gray-200 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveTab('reservas')}
+            className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${
+              activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📋 Mis recorridos
+          </button>
+          {puedeGestionarEventos && (
+            <button
+              onClick={() => setActiveTab('eventos')}
+              className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${
+              activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'
+            }`}
+            >
+              🎮 Gestión de eventos
+            </button>
+          )}
+        </div>
       </div>
 
       {activeTab === 'reservas' && (
         <>
-          {/* Estadísticas */}
-          <div className="grid grid-cols-5 gap-2 px-5 -mt-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-sky-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><ClockIcon className="w-3.5 h-3.5 text-sky-600" /></div><div className="text-lg font-bold text-gray-800">{stats.pendientes}</div><div className="text-xs text-gray-400">Pendientes</div></div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-emerald-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" /></div><div className="text-lg font-bold text-gray-800">{stats.completadas}</div><div className="text-xs text-gray-400">Completadas</div></div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-rose-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><XCircleIcon className="w-3.5 h-3.5 text-rose-600" /></div><div className="text-lg font-bold text-gray-800">{stats.canceladas}</div><div className="text-xs text-gray-400">Canceladas</div></div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-yellow-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><StarIcon className="w-3.5 h-3.5 text-yellow-500" /></div><div className="text-lg font-bold text-gray-800">{stats.calificacion?.toFixed(1) || 'Nuevo'}</div><div className="text-xs text-gray-400">Calif.</div></div>
+          {/* Estadísticas - con margen superior reducido y flex wrap */}
+          <div className="px-5 mt-3">
+            <div className="grid grid-cols-5 gap-2">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-sky-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><ClockIcon className="w-3.5 h-3.5 text-sky-600" /></div><div className="text-lg font-bold text-gray-800">{stats.pendientes}</div><div className="text-xs text-gray-400">Pendientes</div></div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-emerald-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" /></div><div className="text-lg font-bold text-gray-800">{stats.completadas}</div><div className="text-xs text-gray-400">Completadas</div></div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-rose-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><XCircleIcon className="w-3.5 h-3.5 text-rose-600" /></div><div className="text-lg font-bold text-gray-800">{stats.canceladas}</div><div className="text-xs text-gray-400">Canceladas</div></div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-yellow-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><StarIcon className="w-3.5 h-3.5 text-yellow-500" /></div><div className="text-lg font-bold text-gray-800">{stats.calificacion?.toFixed(1) || 'Nuevo'}</div><div className="text-xs text-gray-400">Calif.</div></div>
+            </div>
           </div>
 
           {/* Filtros y lista de reservas */}
@@ -508,7 +545,7 @@ export default function PanelGuia() {
             </div>
           )}
 
-          {/* Modal de creación/edición de eventos (igual que antes, no lo repito por brevedad, pero debe ir aquí) */}
+          {/* Modal de creación/edición de eventos (respetando diseño previo) */}
           {mostrarFormEvento && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
