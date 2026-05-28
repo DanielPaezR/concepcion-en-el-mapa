@@ -29,7 +29,7 @@ export default function PanelGuia() {
   const socketRef = useRef(null);
   const heartbeatInterval = useRef(null);
   
-  // Estado para la pestaña activa: 'reservas' o 'eventos'
+  // Estado para la pestaña activa
   const [activeTab, setActiveTab] = useState('reservas');
   const [puedeGestionarEventos, setPuedeGestionarEventos] = useState(false);
   
@@ -56,7 +56,7 @@ export default function PanelGuia() {
   });
   const [cargandoEventos, setCargandoEventos] = useState(false);
 
-  // ========== Funciones auxiliares de estilos ==========
+  // ========== Funciones auxiliares ==========
   const getEstadoColor = (estado) => {
     const colores = {
       pendiente: 'bg-amber-50 text-amber-600 border-amber-200',
@@ -105,7 +105,7 @@ export default function PanelGuia() {
       const activas = data.filter(r => r.estado !== 'cancelada');
       setReservasFiltradas(activas);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error cargando reservas:', error);
       toast.error('Error al cargar reservas');
     } finally {
       setLoading(false);
@@ -143,11 +143,12 @@ export default function PanelGuia() {
     }
   }, [puedeGestionarEventos]);
 
-  // ========== WebSocket (SOLO notificaciones, no afecta disponibilidad) ==========
+  // ========== WebSocket ==========
   const conectarWebSocket = useCallback(() => {
     if (!user?.id) return;
     if (socketRef.current?.connected) return;
     setIntentandoConexion(true);
+    
     const socketIo = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -158,55 +159,75 @@ export default function PanelGuia() {
     socketRef.current = socketIo;
 
     socketIo.on('connect', () => {
+      console.log('✅ WebSocket del guía conectado');
       setConectado(true);
       setIntentandoConexion(false);
-      socketIo.emit('guia-conectar-simple', { guiaId: user.id });
+      
+      // Enviar identificación (sin cambiar disponibilidad)
+      socketIo.emit('guia-conectar', { 
+        guiaId: user.id,
+        disponible: disponible,
+        latitud: null,
+        longitud: null
+      });
+      
       if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
-        if (socketIo.connected) socketIo.emit('heartbeat', { guiaId: user.id });
+        if (socketIo.connected) {
+          socketIo.emit('heartbeat', { guiaId: user.id });
+        }
       }, 30000);
     });
-    socketIo.on('connect_error', () => { setConectado(false); setIntentandoConexion(false); });
-    socketIo.on('disconnect', () => { setConectado(false); if (heartbeatInterval.current) clearInterval(heartbeatInterval.current); });
+    
+    socketIo.on('connect_error', (err) => {
+      console.error('❌ Error WebSocket:', err);
+      setConectado(false);
+      setIntentandoConexion(false);
+    });
+    
+    socketIo.on('disconnect', () => {
+      console.log('🔌 WebSocket desconectado');
+      setConectado(false);
+      if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
+    });
+    
     socketIo.on('nueva-solicitud', (data) => {
+      console.log('📢 Nueva solicitud:', data);
       setSolicitudPendiente(data);
       toast.success(`📢 Nueva solicitud para ${data.lugar}`, { duration: 10000, icon: '👋' });
-      cargarReservas(); // recargar para que aparezca en la lista
+      cargarReservas();
     });
-    socketIo.on('reserva-confirmada', () => { toast.success('✅ Reserva confirmada', { icon: '🎉' }); cargarReservas(); setSolicitudPendiente(null); });
-    socketIo.on('reserva-ya-asignada', () => { toast.error('❌ Esta reserva ya fue asignada a otro guía'); setSolicitudPendiente(null); });
+    
+    socketIo.on('reserva-confirmada', () => {
+      toast.success('✅ Reserva confirmada', { icon: '🎉' });
+      cargarReservas();
+      setSolicitudPendiente(null);
+    });
+    
+    socketIo.on('reserva-ya-asignada', () => {
+      toast.error('❌ Esta reserva ya fue asignada a otro guía');
+      setSolicitudPendiente(null);
+    });
+    
     socketIo.on('heartbeat-ack', () => console.log('💓 Heartbeat recibido'));
-  }, [user?.id, cargarReservas]);
+  }, [user?.id, disponible]);
 
   const desconectarWebSocket = useCallback(() => {
     if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
     if (socketRef.current) {
-      if (socketRef.current.connected) socketRef.current.disconnect();
+      if (socketRef.current.connected) {
+        socketRef.current.emit('guia-desconectar', { guiaId: user?.id });
+        socketRef.current.disconnect();
+      }
       socketRef.current = null;
     }
     setConectado(false);
-  }, []);
+  }, [user?.id]);
 
-  // ========== Notificaciones push (suscribir al usuario) ==========
-  useEffect(() => {
-    if (user?.id && 'Notification' in window && Notification.permission === 'granted') {
-      subscribeUser().catch(err => console.error('Error al suscribir push:', err));
-    }
-  }, [user]);
-
-  // ========== Polling de reservas (para no depender solo del WebSocket) ==========
-  useEffect(() => {
-    if (!disponible) return;
-    const interval = setInterval(() => {
-      cargarReservas();
-    }, 15000); // cada 15 segundos
-    return () => clearInterval(interval);
-  }, [disponible, cargarReservas]);
-
-  // Envío periódico de ubicación (solo si el socket está conectado)
+  // Envío periódico de ubicación (solo si disponible y WebSocket conectado)
   useEffect(() => {
     if (!socketRef.current?.connected || !disponible) return;
-    let intervalId;
+    
     const enviarUbicacion = () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -222,36 +243,58 @@ export default function PanelGuia() {
         );
       }
     };
+    
     enviarUbicacion();
-    intervalId = setInterval(enviarUbicacion, 10000);
+    const intervalId = setInterval(enviarUbicacion, 10000);
     return () => clearInterval(intervalId);
   }, [socketRef.current?.connected, disponible, user?.id]);
+
+  // ========== Notificaciones push ==========
+  useEffect(() => {
+    if (user?.id && 'Notification' in window && Notification.permission === 'granted') {
+      subscribeUser().catch(err => console.error('Error al suscribir push:', err));
+    }
+  }, [user]);
+
+  // ========== Polling de reservas (fallback) ==========
+  useEffect(() => {
+    if (!disponible) return;
+    const interval = setInterval(() => {
+      cargarReservas();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [disponible, cargarReservas]);
 
   // ========== Efectos principales ==========
   useEffect(() => {
     if (user?.id) cargarPerfil();
   }, [user?.id, cargarPerfil]);
 
-  // Conectar WebSocket siempre (independientemente de disponibilidad)
+  // Conectar WebSocket al montar, desconectar al desmontar
   useEffect(() => {
     conectarWebSocket();
     return () => desconectarWebSocket();
   }, [conectarWebSocket, desconectarWebSocket]);
 
+  // Desconectar al cerrar pestaña
   useEffect(() => {
-    window.addEventListener('beforeunload', () => { if (socketRef.current?.connected) socketRef.current.disconnect(); });
-    return () => window.removeEventListener('beforeunload', () => {});
-  }, []);
+    const handleBeforeUnload = () => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('guia-desconectar', { guiaId: user?.id });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [user?.id]);
 
   useEffect(() => { if (user?.id) cargarReservas(); }, [user?.id, cargarReservas]);
-
   useEffect(() => { if (activeTab === 'eventos' && puedeGestionarEventos) cargarEventos(); }, [activeTab, puedeGestionarEventos, cargarEventos]);
-
   useEffect(() => {
     if (filtroEstado === 'todas') setReservasFiltradas(reservas.filter(r => r.estado !== 'cancelada'));
     else setReservasFiltradas(reservas.filter(r => r.estado === filtroEstado));
   }, [filtroEstado, reservas]);
 
+  // ========== Acciones ==========
   const cambiarEstado = async (id, estado) => {
     try {
       await api.patch(`/reservas/${id}/estado`, { estado });
@@ -269,10 +312,12 @@ export default function PanelGuia() {
       await api.patch(`/usuarios/${user?.id}/disponibilidad`, { disponible: nuevoEstado });
       setDisponible(nuevoEstado);
       toast.dismiss(loadingToast);
-      toast.success(nuevoEstado ? '✅ Estás disponible para recibir reservas' : '⛔ Ya no recibirás más reservas', {
-        duration: 3000,
-        icon: nuevoEstado ? '🟢' : '🔴'
-      });
+      toast.success(nuevoEstado ? '✅ Estás disponible para recibir reservas' : '⛔ Ya no recibirás más reservas');
+      
+      // Actualizar WebSocket con el nuevo estado (opcional)
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('guia-cambiar-disponibilidad', { guiaId: user?.id, disponible: nuevoEstado });
+      }
     } catch (error) {
       toast.dismiss(loadingToast);
       toast.error('Error al cambiar disponibilidad');
@@ -329,7 +374,7 @@ export default function PanelGuia() {
       cargarEventos();
     } catch (error) {
       console.error(error);
-      toast.error('Error al guardar evento');
+      toast.error(error.response?.data?.error || 'Error al guardar evento');
     }
   };
 
@@ -390,16 +435,8 @@ export default function PanelGuia() {
               </p>
             </div>
           </div>
-          <button
-            onClick={toggleDisponibilidad}
-            disabled={intentandoConexion}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-              disponible ? 'bg-emerald-400' : 'bg-gray-400'
-            } ${intentandoConexion ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-              disponible ? 'translate-x-6' : 'translate-x-1'
-            }`} />
+          <button onClick={toggleDisponibilidad} disabled={intentandoConexion} className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${disponible ? 'bg-emerald-400' : 'bg-gray-400'} ${intentandoConexion ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${disponible ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
 
@@ -418,33 +455,19 @@ export default function PanelGuia() {
         )}
       </div>
 
-      {/* Tabs - con margen superior para evitar solapamiento con las estadísticas */}
+      {/* Tabs */}
       <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50 to-stone-50 pt-2 pb-0">
         <div className="flex gap-2 px-5 border-b border-gray-200 overflow-x-auto pb-1">
-          <button
-            onClick={() => setActiveTab('reservas')}
-            className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${
-              activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📋 Mis recorridos
-          </button>
+          <button onClick={() => setActiveTab('reservas')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'reservas' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>📋 Mis recorridos</button>
           {puedeGestionarEventos && (
-            <button
-              onClick={() => setActiveTab('eventos')}
-              className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${
-              activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'
-            }`}
-            >
-              🎮 Gestión de eventos
-            </button>
+            <button onClick={() => setActiveTab('eventos')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
           )}
         </div>
       </div>
 
       {activeTab === 'reservas' && (
         <>
-          {/* Estadísticas - con margen superior reducido y flex wrap */}
+          {/* Estadísticas */}
           <div className="px-5 mt-3">
             <div className="grid grid-cols-5 gap-2">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
@@ -455,7 +478,7 @@ export default function PanelGuia() {
             </div>
           </div>
 
-          {/* Filtros y lista de reservas */}
+          {/* Filtros y reservas */}
           <div className="flex justify-between items-center px-5 mt-4">
             <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
               {['todas', 'pendiente', 'confirmada', 'completada', 'cancelada'].map(estado => (
@@ -545,7 +568,7 @@ export default function PanelGuia() {
             </div>
           )}
 
-          {/* Modal de creación/edición de eventos (respetando diseño previo) */}
+          {/* Modal de creación/edición de eventos */}
           {mostrarFormEvento && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
