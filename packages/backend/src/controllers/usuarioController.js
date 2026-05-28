@@ -65,20 +65,38 @@ const usuarioController = {
             const { id } = req.params;
             const { disponible } = req.body;
             
-            const query = 'UPDATE usuarios SET disponible = $1 WHERE id = $2 AND rol = $3 RETURNING *';
-            const result = await pool.query(query, [disponible, id, 'guia']);
+            // Actualizar el campo disponible en usuarios
+            await pool.query('UPDATE usuarios SET disponible = $1 WHERE id = $2', [disponible, id]);
             
-            if (result.rows.length === 0) {
-                return res.status(404).json({ error: 'Guía no encontrado' });
+            if (disponible === true) {
+                // Iniciar una nueva sesión (si no hay una activa)
+                const sesionActiva = await pool.query(
+                    'SELECT id FROM sesiones_guias WHERE guia_id = $1 AND estado = $2',
+                    [id, 'activa']
+                );
+                if (sesionActiva.rows.length === 0) {
+                    await pool.query(
+                        `INSERT INTO sesiones_guias (guia_id, fecha, hora_inicio, estado)
+                        VALUES ($1, CURRENT_DATE, NOW(), 'activa')`,
+                        [id]
+                    );
+                }
+            } else {
+                // Finalizar la sesión activa
+                await pool.query(
+                    `UPDATE sesiones_guias 
+                    SET hora_fin = NOW(), 
+                        duracion_minutos = EXTRACT(EPOCH FROM (NOW() - hora_inicio))/60,
+                        estado = 'finalizada'
+                    WHERE guia_id = $1 AND estado = 'activa'`,
+                    [id]
+                );
             }
             
-            res.json({
-                message: `Guía ${disponible ? 'activado' : 'desactivado'}`,
-                usuario: result.rows[0]
-            });
+            res.json({ success: true, disponible });
         } catch (error) {
-            console.error('Error al cambiar disponibilidad:', error);
-            res.status(500).json({ error: 'Error al cambiar disponibilidad' });
+            console.error('Error:', error);
+            res.status(500).json({ error: error.message });
         }
     },
 

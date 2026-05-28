@@ -302,6 +302,18 @@ export default function PanelGuia() {
     else setReservasFiltradas(reservas.filter(r => r.estado === filtroEstado));
   }, [filtroEstado, reservas]);
 
+  // Reconectar WebSocket cuando la pantalla se encienda / la pestaña gane foco
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && disponible && !socketRef.current?.connected) {
+        console.log('🔄 Pantalla activa de nuevo, reconectando WebSocket...');
+        conectarWebSocket();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [disponible, conectarWebSocket]);
+
   // ========== Acciones ==========
   const cambiarEstado = async (id, estado) => {
     try {

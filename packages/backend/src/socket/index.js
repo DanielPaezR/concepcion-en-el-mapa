@@ -53,7 +53,7 @@ function initializeSocket(server) {
     io.on('connection', (socket) => {
         console.log('🔌 Nuevo cliente conectado:', socket.id);
 
-        // Guía se conecta
+        // Guía se conecta (WebSocket) – SOLO actualiza estado de conexión, NO la sesión de horas
         socket.on('guia-conectar', async (data) => {
             const { guiaId, disponible, latitud, longitud } = data;
             socket.guiaId = guiaId;
@@ -61,71 +61,48 @@ function initializeSocket(server) {
             
             socket.join(`guia_${guiaId}`);
             
-            console.log(`✅ Guía ${guiaId} conectado (disponible: ${disponible})`);
+            console.log(`✅ Guía ${guiaId} conectado (WebSocket). Disponible en backend: ${disponible}`);
             
             try {
-                // Verificar si ya existe registro
+                // Verificar si ya existe registro en guias_conectados
                 const existe = await pool.query(
                     'SELECT * FROM guias_conectados WHERE guia_id = $1',
                     [guiaId]
                 );
                 
                 if (existe.rows.length > 0) {
-                    // Actualizar registro existente
+                    // Actualizar socket_id, latitud, longitud, conectado true y ultima_actividad
                     await pool.query(
                         `UPDATE guias_conectados 
                          SET socket_id = $1, 
-                             disponible = $2,
+                             latitud = $2,
+                             longitud = $3,
                              conectado = true,
-                             latitud = $3,
-                             longitud = $4,
-                             hora_conexion = NOW(),
                              ultima_actividad = NOW()
-                         WHERE guia_id = $5`,
-                        [socket.id, disponible, latitud || null, longitud || null, guiaId]
+                         WHERE guia_id = $4`,
+                        [socket.id, latitud || null, longitud || null, guiaId]
                     );
                 } else {
-                    // Insertar nuevo registro
+                    // Insertar nuevo registro en guias_conectados
                     await pool.query(
                         `INSERT INTO guias_conectados 
-                         (guia_id, socket_id, disponible, conectado, latitud, longitud, hora_conexion, ultima_actividad)
-                         VALUES ($1, $2, $3, true, $4, $5, NOW(), NOW())`,
-                        [guiaId, socket.id, disponible, latitud || null, longitud || null]
-                    );
-                }
-
-                // Reutilizar sesión activa si existe, para evitar duplicados por reconexión
-                const sesionActiva = await pool.query(
-                    `SELECT id FROM sesiones_guias WHERE guia_id = $1 AND estado = 'activa' ORDER BY id DESC LIMIT 1`,
-                    [guiaId]
-                );
-
-                if (sesionActiva.rows.length > 0) {
-                    await pool.query(
-                        `UPDATE sesiones_guias 
-                         SET socket_id = $1,
-                             ubicacion_inicio_lat = $2,
-                             ubicacion_inicio_lng = $3
-                         WHERE id = $4`,
-                        [socket.id, latitud || null, longitud || null, sesionActiva.rows[0].id]
-                    );
-                } else {
-                    await pool.query(
-                        `INSERT INTO sesiones_guias 
-                         (guia_id, socket_id, fecha, hora_inicio, ubicacion_inicio_lat, ubicacion_inicio_lng, estado)
-                         VALUES ($1, $2, CURRENT_DATE, NOW(), $3, $4, 'activa')`,
+                         (guia_id, socket_id, conectado, latitud, longitud, ultima_actividad)
+                         VALUES ($1, $2, true, $3, $4, NOW())`,
                         [guiaId, socket.id, latitud || null, longitud || null]
                     );
                 }
                 
+                // NO se crea ni se actualiza sesiones_guias aquí. Eso lo hace el botón de disponibilidad.
+                
+                // Emitir evento de ubicación actualizada (para el mapa del admin)
                 const guia = await getGuiaPublicProfile(guiaId);
-                if (guia) {
+                if (guia && guia.mostrar_avatar_publico) {
                     io.emit('guia-ubicacion-actualizada', guia);
                 }
 
-                console.log(`✅ Sesión iniciada para guía ${guiaId}`);
+                console.log(`✅ Conexión WebSocket registrada para guía ${guiaId}`);
             } catch (error) {
-                console.error('Error al guardar conexión:', error);
+                console.error('Error al guardar conexión WebSocket:', error);
             }
         });
 
@@ -144,7 +121,7 @@ function initializeSocket(server) {
                     );
                     
                     const guia = await getGuiaPublicProfile(guiaId);
-                    if (guia) {
+                    if (guia && guia.mostrar_avatar_publico) {
                         io.emit('guia-ubicacion-actualizada', guia);
                     }
                 } catch (error) {
@@ -153,7 +130,7 @@ function initializeSocket(server) {
             }
         });
 
-        // Heartbeat
+        // Heartbeat para mantener la sesión WebSocket activa (solo afecta ultima_actividad)
         socket.on('heartbeat', async (data) => {
             const { guiaId } = data;
             if (guiaId) {
@@ -171,111 +148,78 @@ function initializeSocket(server) {
             }
         });
 
-        // Guía se desconecta manualmente
+        // Guía se desconecta manualmente (cierra sesión explícitamente)
+        // NOTA: Este evento se emite cuando el guía hace clic en "Cerrar sesión" o desactiva el switch.
+        // En ambos casos, el backend ya actualizó `usuarios.disponible` y finalizó la sesión de horas.
+        // Aquí solo actualizamos guias_conectados para reflejar que ya no está en línea en el mapa.
         socket.on('guia-desconectar', async (data) => {
             const { guiaId } = data;
             if (guiaId) {
                 try {
-                    const horaFin = new Date();
-                    
-                    // Obtener hora de inicio de la sesión actual
-                    const sesionActual = await pool.query(
-                        `SELECT id, hora_inicio FROM sesiones_guias 
-                         WHERE guia_id = $1 AND socket_id = $2 AND estado = 'activa' 
-                         ORDER BY id DESC LIMIT 1`,
-                        [guiaId, socket.id]
-                    );
-                    
-                    let duracion = 0;
-                    if (sesionActual.rows.length > 0) {
-                        const inicio = new Date(sesionActual.rows[0].hora_inicio);
-                        duracion = Math.floor((horaFin - inicio) / 60000); // minutos
-                        
-                        // Actualizar sesión
-                        await pool.query(
-                            `UPDATE sesiones_guias 
-                             SET hora_fin = NOW(), 
-                                 duracion_minutos = $1,
-                                 estado = 'finalizada'
-                             WHERE id = $2`,
-                            [duracion, sesionActual.rows[0].id]
-                        );
-                    }
-                    
-                    // Actualizar guias_conectados
+                    // Marcar como desconectado en guias_conectados
                     await pool.query(
                         `UPDATE guias_conectados 
-                         SET conectado = false, 
-                             disponible = false,
-                             hora_desconexion = NOW(),
-                             duracion_minutos = $1
-                         WHERE guia_id = $2 AND socket_id = $3`,
-                        [duracion, guiaId, socket.id]
+                         SET conectado = false,
+                             ultima_actividad = NOW()
+                         WHERE guia_id = $1 AND socket_id = $2`,
+                        [guiaId, socket.id]
                     );
 
+                    // Emitir evento para que el admin lo vea fuera de línea en el mapa
                     const guia = await getGuiaPublicProfile(guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { id: guiaId, guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                        io.emit('guia-desconectado', { 
+                            id: guiaId, 
+                            guiaId, 
+                            conectado: false, 
+                            nombre: guia.nombre, 
+                            avatar_url: guia.avatar_url, 
+                            mostrar_avatar_publico: guia.mostrar_avatar_publico 
+                        });
                     } else {
                         io.emit('guia-desconectado', { id: guiaId, guiaId, conectado: false });
                     }
                     
-                    console.log(`🔴 Guía ${guiaId} desconectado - Duración: ${duracion} minutos`);
+                    console.log(`🔴 Guía ${guiaId} se ha desconectado manualmente (WebSocket cerrado).`);
                 } catch (error) {
-                    console.error('Error al desconectar:', error);
+                    console.error('Error al desconectar manualmente:', error);
                 }
             }
             socket.disconnect();
         });
 
-        // Desconexión del cliente (cierre inesperado)
+        // Desconexión inesperada (pérdida de WebSocket, pantalla apagada, etc.)
+        // Aquí tampoco se toca la sesión de horas. Solo se actualiza guias_conectados.
         socket.on('disconnect', async () => {
             if (socket.guiaId) {
                 try {
-                    const horaFin = new Date();
-                    
-                    const sesionActual = await pool.query(
-                        `SELECT id, hora_inicio FROM sesiones_guias 
-                         WHERE guia_id = $1 AND socket_id = $2 AND estado = 'activa' 
-                         ORDER BY id DESC LIMIT 1`,
-                        [socket.guiaId, socket.id]
-                    );
-                    
-                    let duracion = 0;
-                    if (sesionActual.rows.length > 0) {
-                        const inicio = new Date(sesionActual.rows[0].hora_inicio);
-                        duracion = Math.floor((horaFin - inicio) / 60000);
-                        
-                        await pool.query(
-                            `UPDATE sesiones_guias 
-                             SET hora_fin = NOW(), 
-                                 duracion_minutos = $1,
-                                 estado = 'interrumpida'
-                             WHERE id = $2`,
-                            [duracion, sesionActual.rows[0].id]
-                        );
-                    }
-                    
+                    // Marcar como desconectado en guias_conectados
                     await pool.query(
                         `UPDATE guias_conectados 
-                         SET conectado = false, 
-                             disponible = false,
-                             hora_desconexion = NOW(),
-                             duracion_minutos = $1
-                         WHERE guia_id = $2 AND socket_id = $3`,
-                        [duracion, socket.guiaId, socket.id]
+                         SET conectado = false,
+                             ultima_actividad = NOW()
+                         WHERE guia_id = $1 AND socket_id = $2`,
+                        [socket.guiaId, socket.id]
                     );
 
+                    // Emitir evento para que el admin sepa que el guía ya no está en línea
                     const guia = await getGuiaPublicProfile(socket.guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                        io.emit('guia-desconectado', { 
+                            id: socket.guiaId, 
+                            guiaId: socket.guiaId, 
+                            conectado: false, 
+                            nombre: guia.nombre, 
+                            avatar_url: guia.avatar_url, 
+                            mostrar_avatar_publico: guia.mostrar_avatar_publico 
+                        });
                     } else {
                         io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
                     }
                     
-                    console.log(`🔌 Guía ${socket.guiaId} desconectado inesperadamente - Duración: ${duracion} minutos`);
+                    console.log(`🔌 WebSocket del guía ${socket.guiaId} perdido (pantalla apagada o red). Se marca como no conectado en el mapa.`);
                 } catch (error) {
-                    console.error('Error en desconexión:', error);
+                    console.error('Error en desconexión inesperada:', error);
                 }
             } else {
                 console.log(`🔌 Cliente desconectado: ${socket.id}`);
