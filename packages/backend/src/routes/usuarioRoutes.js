@@ -27,6 +27,7 @@ router.post('/sesion/iniciar', usuarioController.iniciarSesion);
 router.post('/sesion/finalizar', usuarioController.finalizarSesion);
 router.get('/sesiones/estadisticas', usuarioController.estadisticasSesiones);
 router.get('/sesiones/detalle/:guiaId', usuarioController.detalleSesiones);
+router.get('/ubicaciones', usuarioController.getGuiasUbicaciones);
 router.get('/guias/ubicaciones', usuarioController.getGuiasUbicaciones);
 
 module.exports = router;

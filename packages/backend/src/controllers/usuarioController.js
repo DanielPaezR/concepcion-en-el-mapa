@@ -183,12 +183,14 @@ const usuarioController = {
                     gc.disponible,
                     gc.socket_id,
                     COALESCE(u.mostrar_avatar_publico, false) AS mostrar_avatar_publico,
+                    p.foto_perfil_url,
                     CASE 
                         WHEN gc.conectado = true AND gc.ultima_actividad > NOW() - INTERVAL '2 minutes' THEN true
                         ELSE false
                     END as en_linea
                 FROM usuarios u
                 LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
+                LEFT JOIN perfiles_guardian p ON u.id = p.usuario_id
                 WHERE u.rol = 'guia'
                 ORDER BY gc.conectado DESC, u.nombre ASC
             `);

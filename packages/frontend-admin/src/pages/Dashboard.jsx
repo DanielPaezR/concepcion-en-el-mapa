@@ -79,7 +79,7 @@ export default function Dashboard() {
   // Cargar guías en vivo desde el backend
   const cargarGuiasEnVivo = async () => {
     try {
-      const response = await api.get('/guias/ubicaciones');
+      const response = await api.get('/usuarios/ubicaciones');
       setGuiasEnVivo(response.data.guias || []);
     } catch (error) {
       console.error('Error al cargar guías en vivo:', error);

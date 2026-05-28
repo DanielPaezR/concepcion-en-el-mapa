@@ -9,6 +9,7 @@ import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
+import Ubicaciones from './pages/Ubicaciones';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
 
@@ -43,6 +44,7 @@ function App() {
         <Route path="reservas" element={<ReservasList />} />
         <Route path="guias" element={<GuiasList />} />
         <Route path="eventos" element={<BancoPreguntas />} />
+        <Route path="ubicaciones" element={<Ubicaciones />} />
         <Route path="encuestas" element={<EncuestasList />} />
       </Route>
 
