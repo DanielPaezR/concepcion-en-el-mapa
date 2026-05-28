@@ -6,7 +6,7 @@ import {
   CalendarIcon, CheckCircleIcon, ClockIcon, XCircleIcon,
   PowerIcon, ArrowPathIcon, UserGroupIcon, StarIcon,
   FunnelIcon, WifiIcon, PlusIcon, TrashIcon,
-  PencilIcon, XMarkIcon
+  PencilIcon, XMarkIcon, MapPinIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
@@ -55,6 +55,17 @@ export default function PanelGuia() {
     lugares_requeridos: []
   });
   const [cargandoEventos, setCargandoEventos] = useState(false);
+
+  // Estado para gestión de ubicaciones
+  const [mostrarFormUbicacion, setMostrarFormUbicacion] = useState(false);
+  const [editandoUbicacion, setEditandoUbicacion] = useState(null);
+  const [formUbicacion, setFormUbicacion] = useState({
+    nombre: '',
+    latitud: '',
+    longitud: '',
+    radio: 50
+  });
+  const [cargandoUbicaciones, setCargandoUbicaciones] = useState(false);
 
   // ========== Funciones auxiliares ==========
   const getEstadoColor = (estado) => {
@@ -163,7 +174,6 @@ export default function PanelGuia() {
       setConectado(true);
       setIntentandoConexion(false);
       
-      // Enviar identificación (sin cambiar disponibilidad)
       socketIo.emit('guia-conectar', { 
         guiaId: user.id,
         disponible: disponible,
@@ -224,7 +234,7 @@ export default function PanelGuia() {
     setConectado(false);
   }, [user?.id]);
 
-  // Envío periódico de ubicación (solo si disponible y WebSocket conectado)
+  // Envío periódico de ubicación
   useEffect(() => {
     if (!socketRef.current?.connected || !disponible) return;
     
@@ -256,7 +266,7 @@ export default function PanelGuia() {
     }
   }, [user]);
 
-  // ========== Polling de reservas (fallback) ==========
+  // ========== Polling de reservas ==========
   useEffect(() => {
     if (!disponible) return;
     const interval = setInterval(() => {
@@ -270,13 +280,11 @@ export default function PanelGuia() {
     if (user?.id) cargarPerfil();
   }, [user?.id, cargarPerfil]);
 
-  // Conectar WebSocket al montar, desconectar al desmontar
   useEffect(() => {
     conectarWebSocket();
     return () => desconectarWebSocket();
   }, [conectarWebSocket, desconectarWebSocket]);
 
-  // Desconectar al cerrar pestaña
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (socketRef.current?.connected) {
@@ -314,7 +322,6 @@ export default function PanelGuia() {
       toast.dismiss(loadingToast);
       toast.success(nuevoEstado ? '✅ Estás disponible para recibir reservas' : '⛔ Ya no recibirás más reservas');
       
-      // Actualizar WebSocket con el nuevo estado (opcional)
       if (socketRef.current?.connected) {
         socketRef.current.emit('guia-cambiar-disponibilidad', { guiaId: user?.id, disponible: nuevoEstado });
       }
@@ -394,16 +401,52 @@ export default function PanelGuia() {
   const actualizarPista = (index, campo, valor) => setFormEvento(prev => ({ ...prev, pistas: prev.pistas.map((p, i) => i === index ? { ...p, [campo]: valor } : p) }));
   const toggleLugarRequerido = (lugarId) => setFormEvento(prev => ({ ...prev, lugares_requeridos: prev.lugares_requeridos.includes(lugarId) ? prev.lugares_requeridos.filter(id => id !== lugarId) : [...prev.lugares_requeridos, lugarId] }));
 
+  // ========== CRUD Ubicaciones ==========
+  const resetFormUbicacion = () => {
+    setFormUbicacion({ nombre: '', latitud: '', longitud: '', radio: 50 });
+    setEditandoUbicacion(null);
+    setMostrarFormUbicacion(false);
+  };
+
+  const handleGuardarUbicacion = async () => {
+    try {
+      if (editandoUbicacion) {
+        await api.put(`/admin/eventos/ubicaciones/${editandoUbicacion.id}`, formUbicacion);
+        toast.success('Ubicación actualizada');
+      } else {
+        await api.post('/admin/eventos/ubicaciones', formUbicacion);
+        toast.success('Ubicación creada');
+      }
+      resetFormUbicacion();
+      cargarEventos(); // recarga ubicaciones y eventos
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.error || 'Error al guardar ubicación');
+    }
+  };
+
+  const eliminarUbicacion = async (id, nombre) => {
+    if (!confirm(`¿Eliminar la ubicación "${nombre}"?`)) return;
+    try {
+      await api.delete(`/admin/eventos/ubicaciones/${id}`);
+      toast.success('Ubicación eliminada');
+      cargarEventos();
+    } catch (error) {
+      toast.error('Error al eliminar ubicación');
+    }
+  };
+
+  // ========== JSX ==========
   if (loading) return <div className="min-h-screen flex justify-center items-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-50 pb-24">
-      {/* Header */}
+      {/* Header (igual que antes) */}
       <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white px-5 pt-10 pb-7 rounded-b-3xl shadow-lg">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Hola, {user?.nombre?.split(' ')[0] || 'Guía'} 👋</h1>
-            <p className="text-emerald-100 text-sm mt-0.5 opacity-90">{activeTab === 'reservas' ? 'Aquí están tus recorridos' : 'Gestión de eventos diarios'}</p>
+            <p className="text-emerald-100 text-sm mt-0.5 opacity-90">{activeTab === 'reservas' ? 'Aquí están tus recorridos' : 'Gestión de eventos y ubicaciones'}</p>
           </div>
           <button onClick={handleLogout} className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white/30 transition">Salir</button>
         </div>
@@ -445,10 +488,10 @@ export default function PanelGuia() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold">Gestión de eventos activada</p>
-                <p className="text-sm text-emerald-800/80">Toca la pestaña “Gestión de eventos” para crear y editar retos diarios.</p>
+                <p className="text-sm text-emerald-800/80">Puedes crear eventos y gestionar ubicaciones.</p>
               </div>
               <button onClick={() => setActiveTab('eventos')} className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-white text-sm font-semibold hover:bg-emerald-700 transition">
-                Ir a eventos
+                Ir a gestión
               </button>
             </div>
           </div>
@@ -467,7 +510,7 @@ export default function PanelGuia() {
 
       {activeTab === 'reservas' && (
         <>
-          {/* Estadísticas */}
+          {/* Estadísticas y lista de reservas (igual que antes) */}
           <div className="px-5 mt-3">
             <div className="grid grid-cols-5 gap-2">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
@@ -478,7 +521,6 @@ export default function PanelGuia() {
             </div>
           </div>
 
-          {/* Filtros y reservas */}
           <div className="flex justify-between items-center px-5 mt-4">
             <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
               {['todas', 'pendiente', 'confirmada', 'completada', 'cancelada'].map(estado => (
@@ -498,6 +540,7 @@ export default function PanelGuia() {
               <div className="space-y-3">
                 {reservasFiltradas.map(reserva => (
                   <div key={reserva.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                    {/* (mismo código de reservas) */}
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-800">{reserva.lugar_nombre}</h3>
@@ -530,50 +573,99 @@ export default function PanelGuia() {
       )}
 
       {activeTab === 'eventos' && puedeGestionarEventos && (
-        <div className="px-5 mt-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">🎮 Eventos diarios</h2>
-            <button onClick={() => setMostrarFormEvento(true)} className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700"><PlusIcon className="w-4 h-4" /> Nuevo evento</button>
+        <div className="px-5 mt-4 space-y-6">
+          {/* Sección de Ubicaciones */}
+          <div>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2"><MapPinIcon className="w-5 h-5 text-teal-500" /> Ubicaciones disponibles</h2>
+              <button onClick={() => { setEditandoUbicacion(null); setFormUbicacion({ nombre: '', latitud: '', longitud: '', radio: 50 }); setMostrarFormUbicacion(true); }} className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700"><PlusIcon className="w-4 h-4" /> Nueva ubicación</button>
+            </div>
+            <div className="mt-2 bg-white rounded-xl p-3 shadow-sm">
+              {cargandoEventos ? (
+                <div className="text-center py-4 text-gray-400">Cargando ubicaciones...</div>
+              ) : ubicaciones.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">No hay ubicaciones creadas aún. Crea una para usar en eventos.</div>
+              ) : (
+                <div className="space-y-2">
+                  {ubicaciones.map(ubi => (
+                    <div key={ubi.id} className="flex justify-between items-center p-2 border-b last:border-0">
+                      <div>
+                        <div className="font-medium text-gray-800">{ubi.nombre}</div>
+                        <div className="text-xs text-gray-500">{ubi.latitud}, {ubi.longitud} | Radio: {ubi.radio}m</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditandoUbicacion(ubi); setFormUbicacion({ nombre: ubi.nombre, latitud: ubi.latitud, longitud: ubi.longitud, radio: ubi.radio }); setMostrarFormUbicacion(true); }} className="text-blue-500 hover:text-blue-700"><PencilIcon className="w-4 h-4" /></button>
+                        <button onClick={() => eliminarUbicacion(ubi.id, ubi.nombre)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {cargandoEventos ? (
-            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div></div>
-          ) : eventos.length === 0 ? (
-            <div className="bg-white rounded-xl p-8 text-center text-gray-400">No hay eventos creados aún</div>
-          ) : (
-            <div className="space-y-2">
-              {eventos.map(ev => (
-                <div key={ev.id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getTipoColor(ev.tipo || 'pregunta')}`}>
-                        {ev.tipo === 'pregunta' && '❓ Pregunta'}
-                        {ev.tipo === 'pistas' && '🔍 Pistas'}
-                        {ev.tipo === 'reto' && '⏱️ Reto'}
-                        {ev.tipo === 'reunion' && '📍 Reunión'}
-                        {ev.tipo === 'temporal' && '🎪 Temporal'}
-                      </span>
-                      <span className="font-medium text-gray-800">{ev.pregunta}</span>
+          {/* Sección de Eventos (ya existente) */}
+          <div>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800">🎮 Eventos diarios</h2>
+              <button onClick={() => setMostrarFormEvento(true)} className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700"><PlusIcon className="w-4 h-4" /> Nuevo evento</button>
+            </div>
+            {cargandoEventos ? (
+              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div></div>
+            ) : eventos.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 text-center text-gray-400">No hay eventos creados aún</div>
+            ) : (
+              <div className="space-y-2 mt-2">
+                {eventos.map(ev => (
+                  <div key={ev.id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getTipoColor(ev.tipo || 'pregunta')}`}>
+                          {ev.tipo === 'pregunta' && '❓ Pregunta'}
+                          {ev.tipo === 'pistas' && '🔍 Pistas'}
+                          {ev.tipo === 'reto' && '⏱️ Reto'}
+                          {ev.tipo === 'reunion' && '📍 Reunión'}
+                          {ev.tipo === 'temporal' && '🎪 Temporal'}
+                        </span>
+                        <span className="font-medium text-gray-800">{ev.pregunta}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Respuesta: {ev.respuesta} | +{ev.puntos || 50} XP</div>
+                      {ev.tipo === 'pistas' && ev.pistas && ev.pistas.length > 0 && <div className="text-xs text-gray-400 mt-1">📜 {ev.pistas.length} pistas</div>}
+                      {ev.tipo === 'temporal' && ev.es_temporal && <div className="text-xs text-pink-500 mt-1">🎪 Evento temporal hasta {ev.fecha_fin ? new Date(ev.fecha_fin).toLocaleDateString() : 'Sin fecha'}</div>}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">Respuesta: {ev.respuesta} | +{ev.puntos || 50} XP</div>
-                    {ev.tipo === 'pistas' && ev.pistas && ev.pistas.length > 0 && <div className="text-xs text-gray-400 mt-1">📜 {ev.pistas.length} pistas</div>}
-                    {ev.tipo === 'temporal' && ev.es_temporal && <div className="text-xs text-pink-500 mt-1">🎪 Evento temporal hasta {ev.fecha_fin ? new Date(ev.fecha_fin).toLocaleDateString() : 'Sin fecha'}</div>}
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditandoEvento(ev); setTipoEvento(ev.tipo || 'pregunta'); setFormEvento(prev => ({ ...prev, ...ev })); setMostrarFormEvento(true); }} className="text-blue-500 hover:text-blue-700"><PencilIcon className="w-4 h-4" /></button>
+                      <button onClick={() => eliminarEvento(ev.id)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditandoEvento(ev); setTipoEvento(ev.tipo || 'pregunta'); setFormEvento(prev => ({ ...prev, ...ev })); setMostrarFormEvento(true); }} className="text-blue-500 hover:text-blue-700"><PencilIcon className="w-4 h-4" /></button>
-                    <button onClick={() => eliminarEvento(ev.id)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
-                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Modal para ubicaciones */}
+          {mostrarFormUbicacion && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+                <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">{editandoUbicacion ? 'Editar ubicación' : 'Nueva ubicación'}</h3><button onClick={resetFormUbicacion}><XMarkIcon className="w-6 h-6 text-gray-500" /></button></div>
+                <div className="space-y-4">
+                  <div><label className="block text-sm font-medium mb-1">Nombre *</label><input type="text" value={formUbicacion.nombre} onChange={e => setFormUbicacion({ ...formUbicacion, nombre: e.target.value })} className="w-full p-2 border rounded" required /></div>
+                  <div><label className="block text-sm font-medium mb-1">Latitud *</label><input type="number" step="any" value={formUbicacion.latitud} onChange={e => setFormUbicacion({ ...formUbicacion, latitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required /></div>
+                  <div><label className="block text-sm font-medium mb-1">Longitud *</label><input type="number" step="any" value={formUbicacion.longitud} onChange={e => setFormUbicacion({ ...formUbicacion, longitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required /></div>
+                  <div><label className="block text-sm font-medium mb-1">Radio (metros)</label><input type="number" value={formUbicacion.radio} onChange={e => setFormUbicacion({ ...formUbicacion, radio: parseInt(e.target.value) })} className="w-full p-2 border rounded" /></div>
                 </div>
-              ))}
+                <div className="flex justify-end gap-3 mt-6"><button onClick={resetFormUbicacion} className="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button><button onClick={handleGuardarUbicacion} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button></div>
+              </div>
             </div>
           )}
 
-          {/* Modal de creación/edición de eventos */}
+          {/* Modal para eventos (ya existente) */}
           {mostrarFormEvento && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
                 <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">{editandoEvento ? 'Editar evento' : 'Nuevo evento'}</h3><button onClick={resetFormEvento}><XMarkIcon className="w-6 h-6 text-gray-500" /></button></div>
                 <div className="space-y-4">
+                  {/* (mismo formulario que antes) */}
                   <div><label className="block text-sm font-medium mb-1">Tipo de evento</label><select value={tipoEvento} onChange={e => setTipoEvento(e.target.value)} className="w-full p-2 border rounded"><option value="pregunta">❓ Pregunta</option><option value="pistas">🔍 Caza de pistas</option><option value="reto">⏱️ Reto contrarreloj</option><option value="reunion">📍 Punto de encuentro</option><option value="temporal">🎪 Evento temporal</option></select></div>
                   <div><label className="block text-sm font-medium mb-1">Título / pregunta *</label><input type="text" value={formEvento.pregunta} onChange={e => setFormEvento({ ...formEvento, pregunta: e.target.value })} className="w-full p-2 border rounded" required /></div>
                   {tipoEvento !== 'reunion' && <div><label className="block text-sm font-medium mb-1">Respuesta correcta *</label><input type="text" value={formEvento.respuesta} onChange={e => setFormEvento({ ...formEvento, respuesta: e.target.value })} className="w-full p-2 border rounded" required /></div>}
