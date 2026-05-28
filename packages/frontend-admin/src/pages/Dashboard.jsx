@@ -5,7 +5,7 @@ import {
   StarIcon, ChartBarIcon, ArrowTrendingUpIcon, QrCodeIcon,
   HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
-  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, WifiOffIcon
+  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, SignalSlashIcon
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -483,7 +483,7 @@ export default function Dashboard() {
                 <div className="text-center py-4 text-gray-400">Cargando guías...</div>
               ) : guiasEnVivo.filter(g => g.conectado).length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  <WifiOffIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <SignalSlashIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                   No hay guías conectados en este momento
                 </div>
               ) : (
