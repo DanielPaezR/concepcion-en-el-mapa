@@ -114,21 +114,28 @@ export default function Dashboard() {
 
     socketIo.on('guia-ubicacion-actualizada', (data) => {
       console.log('📍 Actualización de ubicación:', data);
+      const guiaId = data.guiaId ?? data.id;
+      if (!guiaId) return;
+
       setGuiasEnVivo(prev => {
-        const index = prev.findIndex(g => g.id === data.guiaId);
+        const index = prev.findIndex(g => String(g.id) === String(guiaId));
+        const actualizacion = { ...data, id: guiaId, guiaId };
+
         if (index >= 0) {
           const nuevaLista = [...prev];
-          nuevaLista[index] = { ...nuevaLista[index], ...data };
+          nuevaLista[index] = { ...nuevaLista[index], ...actualizacion };
           return nuevaLista;
         } else {
-          return [...prev, data];
+          return [...prev, actualizacion];
         }
       });
     });
 
     socketIo.on('guia-desconectado', (data) => {
       console.log('🔴 Guía desconectado:', data);
-      setGuiasEnVivo(prev => prev.filter(g => g.id !== data.guiaId));
+      const guiaId = data.guiaId ?? data.id;
+      if (!guiaId) return;
+      setGuiasEnVivo(prev => prev.filter(g => String(g.id) !== String(guiaId)));
     });
 
     return () => {

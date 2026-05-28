@@ -197,6 +197,7 @@ const usuarioController = {
                     if (conexion.conectado && conexion.latitud && conexion.longitud) {
                         io.emit('guia-ubicacion-actualizada', {
                             id: parseInt(id, 10),
+                            guiaId: parseInt(id, 10),
                             nombre: updatedGuia.nombre,
                             mostrar_avatar_publico: true,
                             latitud: conexion.latitud,
@@ -347,8 +348,8 @@ const usuarioController = {
                     u.id,
                     u.nombre,
                     COALESCE(SUM(s.duracion_minutos), 0) as total_minutos,
-                    COUNT(s.id) as dias_trabajados,
-                    ROUND(COALESCE(AVG(s.duracion_minutos), 0)) as promedio_minutos
+                    COUNT(DISTINCT s.fecha) as dias_trabajados,
+                    ROUND(COALESCE(SUM(s.duracion_minutos) / NULLIF(COUNT(DISTINCT s.fecha), 0), 0)) as promedio_minutos
                 FROM usuarios u
                 LEFT JOIN sesiones_guias s ON u.id = s.guia_id
                 WHERE u.rol = 'guia'

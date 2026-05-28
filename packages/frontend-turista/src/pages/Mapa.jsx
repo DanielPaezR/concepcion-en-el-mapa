@@ -1274,6 +1274,7 @@ function Mapa() {
             longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
             onClose={() => setSelectedGuia(null)} closeButton={true} closeOnClick={false}
             anchor="bottom" offset={20}
+            style={{ zIndex: 2000 }}
           >
             <div style={{ padding: '14px', width: isMobile ? 220 : 240, color: '#f8fafc' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

@@ -44,6 +44,8 @@ function initializeSocket(server) {
         const guia = result.rows[0];
         return {
             ...guia,
+            id: guia.id,
+            guiaId: guia.id,
             avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(guia.nombre || 'Gu%C3%ADa')}&background=1f2937&color=ffffff&rounded=true&size=128`
         };
     }
@@ -91,14 +93,30 @@ function initializeSocket(server) {
                         [guiaId, socket.id, disponible, latitud || null, longitud || null]
                     );
                 }
-                
-                // Crear registro en sesiones_guias
-                await pool.query(
-                    `INSERT INTO sesiones_guias 
-                     (guia_id, socket_id, fecha, hora_inicio, ubicacion_inicio_lat, ubicacion_inicio_lng, estado)
-                     VALUES ($1, $2, CURRENT_DATE, NOW(), $3, $4, 'activa')`,
-                    [guiaId, socket.id, latitud || null, longitud || null]
+
+                // Reutilizar sesión activa si existe, para evitar duplicados por reconexión
+                const sesionActiva = await pool.query(
+                    `SELECT id FROM sesiones_guias WHERE guia_id = $1 AND estado = 'activa' ORDER BY id DESC LIMIT 1`,
+                    [guiaId]
                 );
+
+                if (sesionActiva.rows.length > 0) {
+                    await pool.query(
+                        `UPDATE sesiones_guias 
+                         SET socket_id = $1,
+                             ubicacion_inicio_lat = $2,
+                             ubicacion_inicio_lng = $3
+                         WHERE id = $4`,
+                        [socket.id, latitud || null, longitud || null, sesionActiva.rows[0].id]
+                    );
+                } else {
+                    await pool.query(
+                        `INSERT INTO sesiones_guias 
+                         (guia_id, socket_id, fecha, hora_inicio, ubicacion_inicio_lat, ubicacion_inicio_lng, estado)
+                         VALUES ($1, $2, CURRENT_DATE, NOW(), $3, $4, 'activa')`,
+                        [guiaId, socket.id, latitud || null, longitud || null]
+                    );
+                }
                 
                 const guia = await getGuiaPublicProfile(guiaId);
                 if (guia) {
@@ -163,9 +181,9 @@ function initializeSocket(server) {
                     // Obtener hora de inicio de la sesión actual
                     const sesionActual = await pool.query(
                         `SELECT id, hora_inicio FROM sesiones_guias 
-                         WHERE guia_id = $1 AND estado = 'activa' 
+                         WHERE guia_id = $1 AND socket_id = $2 AND estado = 'activa' 
                          ORDER BY id DESC LIMIT 1`,
-                        [guiaId]
+                        [guiaId, socket.id]
                     );
                     
                     let duracion = 0;
@@ -197,9 +215,9 @@ function initializeSocket(server) {
 
                     const guia = await getGuiaPublicProfile(guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                        io.emit('guia-desconectado', { id: guiaId, guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
                     } else {
-                        io.emit('guia-desconectado', { guiaId, conectado: false });
+                        io.emit('guia-desconectado', { id: guiaId, guiaId, conectado: false });
                     }
                     
                     console.log(`🔴 Guía ${guiaId} desconectado - Duración: ${duracion} minutos`);
@@ -218,9 +236,9 @@ function initializeSocket(server) {
                     
                     const sesionActual = await pool.query(
                         `SELECT id, hora_inicio FROM sesiones_guias 
-                         WHERE guia_id = $1 AND estado = 'activa' 
+                         WHERE guia_id = $1 AND socket_id = $2 AND estado = 'activa' 
                          ORDER BY id DESC LIMIT 1`,
-                        [socket.guiaId]
+                        [socket.guiaId, socket.id]
                     );
                     
                     let duracion = 0;
@@ -250,9 +268,9 @@ function initializeSocket(server) {
 
                     const guia = await getGuiaPublicProfile(socket.guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { guiaId: socket.guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                        io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
                     } else {
-                        io.emit('guia-desconectado', { guiaId: socket.guiaId, conectado: false });
+                        io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
                     }
                     
                     console.log(`🔌 Guía ${socket.guiaId} desconectado inesperadamente - Duración: ${duracion} minutos`);
