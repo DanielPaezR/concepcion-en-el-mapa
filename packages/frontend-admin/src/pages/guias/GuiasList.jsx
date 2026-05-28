@@ -17,7 +17,9 @@ export default function GuiasList() {
     nombre: '',
     email: '',
     telefono: '',
-    password: ''
+    password: '',
+    puede_gestionar_eventos: false,
+    mostrar_avatar_publico: false
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,7 +47,9 @@ export default function GuiasList() {
         nombre: guia.nombre || '',
         email: guia.email || '',
         telefono: guia.telefono || '',
-        password: ''
+        password: '',
+        puede_gestionar_eventos: !!guia.puede_gestionar_eventos,
+        mostrar_avatar_publico: !!guia.mostrar_avatar_publico
       });
     } else {
       setEditando(null);
@@ -53,7 +57,9 @@ export default function GuiasList() {
         nombre: '',
         email: '',
         telefono: '',
-        password: ''
+        password: '',
+        puede_gestionar_eventos: false,
+        mostrar_avatar_publico: false
       });
     }
     setModalAbierto(true);
@@ -66,7 +72,9 @@ export default function GuiasList() {
       nombre: '',
       email: '',
       telefono: '',
-      password: ''
+      password: '',
+      puede_gestionar_eventos: false,
+      mostrar_avatar_publico: false
     });
   };
 
@@ -81,7 +89,9 @@ export default function GuiasList() {
           nombre: formData.nombre,
           email: formData.email,
           telefono: formData.telefono,
-          disponible: editando.disponible
+          disponible: editando.disponible,
+          puede_gestionar_eventos: !!formData.puede_gestionar_eventos,
+          mostrar_avatar_publico: !!formData.mostrar_avatar_publico
         });
         toast.success('Guía actualizado correctamente');
       } else {
@@ -95,7 +105,9 @@ export default function GuiasList() {
           nombre: formData.nombre,
           email: formData.email,
           telefono: formData.telefono,
-          password: formData.password
+          password: formData.password,
+          puede_gestionar_eventos: !!formData.puede_gestionar_eventos,
+          mostrar_avatar_publico: !!formData.mostrar_avatar_publico
         });
         toast.success('Guía creado correctamente');
       }
@@ -361,6 +373,36 @@ export default function GuiasList() {
                         onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       />
+                    </div>
+
+                    <div className="flex items-start gap-4">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.puede_gestionar_eventos}
+                          onChange={(e) => setFormData({ ...formData, puede_gestionar_eventos: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <div className="text-sm">
+                          <div className="font-medium">Puede gestionar eventos</div>
+                          <div className="text-xs text-gray-500">Permite crear y editar eventos desde su cuenta de guía</div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-start gap-4">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.mostrar_avatar_publico}
+                          onChange={(e) => setFormData({ ...formData, mostrar_avatar_publico: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <div className="text-sm">
+                          <div className="font-medium">Avatar visible públicamente</div>
+                          <div className="text-xs text-gray-500">Si está activado, su avatar puede mostrarse en el mapa público</div>
+                        </div>
+                      </label>
                     </div>
 
                     {!editando && (

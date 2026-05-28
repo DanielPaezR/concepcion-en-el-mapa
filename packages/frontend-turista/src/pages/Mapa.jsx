@@ -9,6 +9,9 @@ import {
   MapPin, Users, Landmark, TreePine, Utensils, UserCircle,
 } from 'lucide-react';
 import api from '../services/api';
+import { getPublicGuideAvatars } from '../services/guias';
+import { SOCKET_URL } from '../config/runtime';
+import io from 'socket.io-client';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import AvatarJugador from '../components/AvatarJugador';
 import GaleriaFotos from '../components/GaleriaFotos';
@@ -875,17 +878,31 @@ function Mapa() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento]       = useState('');
   const [userAvatar, setUserAvatar]                 = useState(null);
+  const [publicGuides, setPublicGuides]             = useState([]);
+  const [selectedGuia, setSelectedGuia]             = useState(null);
   const [showLevelUp, setShowLevelUp]               = useState(false);
   const [xpBurst, setXpBurst]                       = useState(null); // {x,y,xp}
   const [viewState, setViewState]                   = useState({ longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 });
 
   const navigate = useNavigate();
   const mapRef   = useRef(null);
+  const socketRef = useRef(null);
 
   // ── helpers ──────────────────────────────────────────────────
   const mostrarMensajeGuia = useCallback((msg, tipo = 'normal', dur = 5000) => {
     setMensajeGuia(msg); setTipoGuia(tipo);
     setTimeout(() => setMensajeGuia(''), dur);
+  }, []);
+
+  const updateGuideInState = useCallback((guia) => {
+    if (!guia || !guia.id) return;
+    setPublicGuides((prev) => {
+      const existing = prev.find((item) => item.id === guia.id);
+      if (existing) {
+        return prev.map((item) => item.id === guia.id ? { ...item, ...guia } : item);
+      }
+      return [...prev, guia];
+    });
   }, []);
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
@@ -964,6 +981,54 @@ function Mapa() {
     };
     cargarEsp();
   }, []);
+
+  useEffect(() => {
+    const cargarGuiasPublicas = async () => {
+      try {
+        const response = await getPublicGuideAvatars();
+        if (response.data?.success) {
+          setPublicGuides(response.data.guias || []);
+        }
+      } catch (error) {
+        console.error('Error cargando guías públicas:', error);
+      }
+    };
+
+    cargarGuiasPublicas();
+
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('🛰️ Conectado a WebSocket de guías públicas', socket.id);
+    });
+
+    socket.on('guia-ubicacion-actualizada', (guia) => {
+      if (!guia?.mostrar_avatar_publico) return;
+      updateGuideInState(guia);
+    });
+
+    socket.on('guia-desconectado', (data) => {
+      if (!data?.guiaId) return;
+      setPublicGuides((prev) => prev.map((guia) => (
+        guia.id === data.guiaId ? { ...guia, conectado: false, latitud: data.latitud ?? guia.latitud, longitud: data.longitud ?? guia.longitud } : guia
+      )));
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('guia-ubicacion-actualizada');
+      socket.off('guia-desconectado');
+      socket.disconnect();
+    };
+  }, [updateGuideInState]);
 
   useEffect(() => {
     const h = (e) => { mostrarMensajeGuia(e.detail?.message || 'Sesión expirada.', 'error', 3000); setTimeout(() => navigate('/login'), 2500); };
@@ -1122,7 +1187,7 @@ function Mapa() {
         mapStyle={MAP_STYLE}
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
-        onClick={() => setSelectedLugar(null)}
+        onClick={() => { setSelectedLugar(null); setSelectedGuia(null); }}
       >
         <Map3DEffect />
 
@@ -1169,6 +1234,40 @@ function Mapa() {
           </Marker>
         )}
 
+        {/* Public guide markers */}
+        {publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
+          <Marker key={`guia_${guia.id}`} longitude={parseFloat(guia.longitud)} latitude={parseFloat(guia.latitud)} anchor="bottom" style={{ zIndex: 1400 }}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedGuia(guia);
+              }}
+              style={{
+                width: isMobile ? 44 : 52,
+                height: isMobile ? 44 : 52,
+                borderRadius: '50%',
+                border: `3px solid ${guia.conectado ? 'rgba(34,197,94,0.95)' : 'rgba(107,114,128,0.85)'}`,
+                background: 'rgba(15,23,42,0.95)',
+                boxShadow: guia.conectado ? '0 0 22px rgba(34,197,94,0.35)' : '0 0 18px rgba(107,114,128,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', padding: 2
+              }}
+            >
+              {guia.avatar_url ? (
+                <img
+                  src={guia.avatar_url}
+                  alt={guia.nombre}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ color: '#fff', fontSize: isMobile ? 18 : 20, fontWeight: 700 }}>{guia.nombre?.charAt(0) || 'G'}</span>
+              )}
+            </motion.button>
+          </Marker>
+        ))}
+
         {/* Eventos */}
         {eventos.map((evento) => (
           <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)} onClick={() => setEventoSeleccionado(evento)}>
@@ -1178,6 +1277,32 @@ function Mapa() {
         ))}
 
         {/* Popup */}
+        {selectedGuia && selectedGuia.latitud && selectedGuia.longitud && (
+          <Popup
+            longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
+            onClose={() => setSelectedGuia(null)} closeButton={true} closeOnClick={false}
+            anchor="bottom" offset={20}
+          >
+            <div style={{ padding: '14px', width: isMobile ? 220 : 240, color: '#f8fafc' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#0f172a' }}>
+                  {selectedGuia.avatar_url ? (
+                    <img src={selectedGuia.avatar_url} alt={selectedGuia.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>{selectedGuia.nombre?.charAt(0) || 'G'}</div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedGuia.nombre}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(226,232,240,0.75)' }}>{selectedGuia.conectado ? 'Guía en línea' : 'Guía desconectado'}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(226,232,240,0.82)' }}>
+                {selectedGuia.mostrar_avatar_publico ? 'Visibilidad pública activada' : 'Avatar no visible públicamente'}
+              </div>
+            </div>
+          </Popup>
+        )}
         {selectedLugar && (
           <Popup
             longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)}

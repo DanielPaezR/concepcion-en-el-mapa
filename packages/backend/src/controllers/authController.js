@@ -75,8 +75,8 @@ const authController = {
             // req.user viene del middleware auth
             const usuario = req.user;
             
-            // Obtener datos actualizados del usuario
-            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible FROM usuarios WHERE id = $1';
+            // Obtener datos actualizados del usuario (incluye flags de guía)
+            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico FROM usuarios WHERE id = $1';
             const result = await pool.query(query, [usuario.id]);
             
             if (result.rows.length === 0) {
@@ -174,11 +174,11 @@ const authController = {
             }
 
             const query = `
-                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, activo
+                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, activo, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico
                 FROM usuarios 
                 ORDER BY id
             `;
-            
+
             const result = await pool.query(query);
             res.json(result.rows);
 

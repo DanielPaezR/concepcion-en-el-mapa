@@ -21,6 +21,33 @@ function initializeSocket(server) {
         pingInterval: 25000
     });
 
+    async function getGuiaPublicProfile(guiaId) {
+        const result = await pool.query(`
+            SELECT 
+                u.id,
+                u.nombre,
+                COALESCE(u.mostrar_avatar_publico, false) AS mostrar_avatar_publico,
+                gc.latitud,
+                gc.longitud,
+                gc.disponible,
+                gc.conectado,
+                CASE 
+                    WHEN gc.conectado = true AND gc.ultima_actividad > NOW() - INTERVAL '2 minutes' THEN true
+                    ELSE false
+                END AS en_linea
+            FROM usuarios u
+            LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
+            WHERE u.id = $1
+        `, [guiaId]);
+
+        if (result.rows.length === 0) return null;
+        const guia = result.rows[0];
+        return {
+            ...guia,
+            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(guia.nombre || 'Gu%C3%ADa')}&background=1f2937&color=ffffff&rounded=true&size=128`
+        };
+    }
+
     io.on('connection', (socket) => {
         console.log('🔌 Nuevo cliente conectado:', socket.id);
 
@@ -73,6 +100,11 @@ function initializeSocket(server) {
                     [guiaId, socket.id, latitud || null, longitud || null]
                 );
                 
+                const guia = await getGuiaPublicProfile(guiaId);
+                if (guia) {
+                    io.emit('guia-ubicacion-actualizada', guia);
+                }
+
                 console.log(`✅ Sesión iniciada para guía ${guiaId}`);
             } catch (error) {
                 console.error('Error al guardar conexión:', error);
@@ -93,8 +125,10 @@ function initializeSocket(server) {
                         [latitud, longitud, guiaId, socket.id]
                     );
                     
-                    // Emitir ubicación a los turistas (si es necesario)
-                    io.emit('guia-ubicacion-actualizada', { guiaId, latitud, longitud });
+                    const guia = await getGuiaPublicProfile(guiaId);
+                    if (guia) {
+                        io.emit('guia-ubicacion-actualizada', guia);
+                    }
                 } catch (error) {
                     console.error('Error al actualizar ubicación:', error);
                 }
@@ -160,6 +194,13 @@ function initializeSocket(server) {
                          WHERE guia_id = $2 AND socket_id = $3`,
                         [duracion, guiaId, socket.id]
                     );
+
+                    const guia = await getGuiaPublicProfile(guiaId);
+                    if (guia) {
+                        io.emit('guia-desconectado', { guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                    } else {
+                        io.emit('guia-desconectado', { guiaId, conectado: false });
+                    }
                     
                     console.log(`🔴 Guía ${guiaId} desconectado - Duración: ${duracion} minutos`);
                 } catch (error) {
@@ -206,6 +247,13 @@ function initializeSocket(server) {
                          WHERE guia_id = $2 AND socket_id = $3`,
                         [duracion, socket.guiaId, socket.id]
                     );
+
+                    const guia = await getGuiaPublicProfile(socket.guiaId);
+                    if (guia) {
+                        io.emit('guia-desconectado', { guiaId: socket.guiaId, conectado: false, nombre: guia.nombre, avatar_url: guia.avatar_url, mostrar_avatar_publico: guia.mostrar_avatar_publico });
+                    } else {
+                        io.emit('guia-desconectado', { guiaId: socket.guiaId, conectado: false });
+                    }
                     
                     console.log(`🔌 Guía ${socket.guiaId} desconectado inesperadamente - Duración: ${duracion} minutos`);
                 } catch (error) {
