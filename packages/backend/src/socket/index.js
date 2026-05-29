@@ -26,15 +26,12 @@ function initializeSocket(server) {
             SELECT 
                 u.id,
                 u.nombre,
+                u.disponible,
                 COALESCE(u.mostrar_avatar_publico, false) AS mostrar_avatar_publico,
                 gc.latitud,
                 gc.longitud,
-                gc.disponible,
                 gc.conectado,
-                CASE 
-                    WHEN gc.conectado = true AND gc.ultima_actividad > NOW() - INTERVAL '2 minutes' THEN true
-                    ELSE false
-                END AS en_linea
+                u.disponible AS en_linea
             FROM usuarios u
             LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
             WHERE u.id = $1
@@ -148,6 +145,15 @@ function initializeSocket(server) {
             }
         });
 
+        // Sincronizar cambio de disponibilidad manual
+        socket.on('guia-cambiar-disponibilidad', async (data) => {
+            const { guiaId } = data;
+            const guia = await getGuiaPublicProfile(guiaId);
+            if (guia) {
+                io.emit('guia-ubicacion-actualizada', guia);
+            }
+        });
+
         // Guía se desconecta manualmente (cierra sesión explícitamente)
         // NOTA: Este evento se emite cuando el guía hace clic en "Cerrar sesión" o desactiva el switch.
         // En ambos casos, el backend ya actualizó `usuarios.disponible` y finalizó la sesión de horas.
@@ -168,14 +174,17 @@ function initializeSocket(server) {
                     // Emitir evento para que el admin lo vea fuera de línea en el mapa
                     const guia = await getGuiaPublicProfile(guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { 
-                            id: guiaId, 
-                            guiaId, 
-                            conectado: false, 
-                            nombre: guia.nombre, 
-                            avatar_url: guia.avatar_url, 
-                            mostrar_avatar_publico: guia.mostrar_avatar_publico 
-                        });
+                        if (guia.disponible) {
+                            // Si sigue disponible pero cerró socket, solo actualizamos estado
+                            io.emit('guia-ubicacion-actualizada', guia);
+                        } else {
+                            // Si ya no está disponible, lo quitamos del mapa
+                            io.emit('guia-desconectado', { 
+                                id: guiaId, 
+                                guiaId, 
+                                conectado: false
+                            });
+                        }
                     } else {
                         io.emit('guia-desconectado', { id: guiaId, guiaId, conectado: false });
                     }
@@ -205,18 +214,17 @@ function initializeSocket(server) {
                     // Emitir evento para que el admin sepa que el guía ya no está en línea
                     const guia = await getGuiaPublicProfile(socket.guiaId);
                     if (guia) {
-                        io.emit('guia-desconectado', { 
-                            id: socket.guiaId, 
-                            guiaId: socket.guiaId, 
-                            conectado: false, 
-                            nombre: guia.nombre, 
-                            avatar_url: guia.avatar_url, 
-                            mostrar_avatar_publico: guia.mostrar_avatar_publico 
-                        });
+                        if (guia.disponible) {
+                            // El socket se perdió (pantalla apagada) pero el guía sigue "trabajando"
+                            // Mantenemos al guía en el mapa informando que no tiene conexión activa
+                            io.emit('guia-ubicacion-actualizada', guia);
+                        } else {
+                            io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
+                        }
                     } else {
                         io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
                     }
-                    
+
                     console.log(`🔌 WebSocket del guía ${socket.guiaId} perdido (pantalla apagada o red). Se marca como no conectado en el mapa.`);
                 } catch (error) {
                     console.error('Error en desconexión inesperada:', error);

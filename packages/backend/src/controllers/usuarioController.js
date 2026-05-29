@@ -93,6 +93,28 @@ const usuarioController = {
                 );
             }
             
+            // Notificar vía Socket que la disponibilidad cambió (independiente del WebSocket del guía)
+            try {
+                const io = getIo();
+                const guiaActualizado = await pool.query(`
+                    SELECT u.id, u.nombre, u.disponible, gc.latitud, gc.longitud, gc.conectado
+                    FROM usuarios u
+                    LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
+                    WHERE u.id = $1
+                `, [id]);
+                
+                if (guiaActualizado.rows.length > 0) {
+                    const g = guiaActualizado.rows[0];
+                    io.emit('guia-ubicacion-actualizada', {
+                        ...g,
+                        guiaId: g.id,
+                        en_linea: g.disponible
+                    });
+                }
+            } catch (socketError) {
+                console.error('Error notificando cambio de disponibilidad vía socket:', socketError);
+            }
+
             res.json({ success: true, disponible });
         } catch (error) {
             console.error('Error:', error);
@@ -247,14 +269,11 @@ const usuarioController = {
                     gc.longitud,
                     gc.conectado,
                     gc.ultima_actividad,
-                    gc.disponible,
+                    u.disponible,
                     gc.socket_id,
                     COALESCE(u.mostrar_avatar_publico, false) AS mostrar_avatar_publico,
                     p.foto_perfil_url,
-                    CASE 
-                        WHEN gc.conectado = true AND gc.ultima_actividad > NOW() - INTERVAL '2 minutes' THEN true
-                        ELSE false
-                    END as en_linea
+                    u.disponible as en_linea
                 FROM usuarios u
                 LEFT JOIN guias_conectados gc ON u.id = gc.guia_id
                 LEFT JOIN perfiles_guardian p ON u.id = p.usuario_id
