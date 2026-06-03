@@ -5,7 +5,8 @@ import {
   StarIcon, ChartBarIcon, ArrowTrendingUpIcon, QrCodeIcon,
   HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
-  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, SignalSlashIcon
+  Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, SignalSlashIcon,
+  KeyIcon  // 🔑 agregado para cambio de contraseña
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -19,6 +20,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../config/runtime';
+import CambiarPasswordModal from '../components/CambiarPasswordModal'; // 🆕
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B', '#4ECDC4', '#45B7D1'];
@@ -61,8 +63,11 @@ export default function Dashboard() {
     inicio: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     fin: new Date().toISOString().split('T')[0]
   });
-  const navigate = useNavigate();
+  
+  // 🆕 estado para el modal de cambio de contraseña
+  const [mostrarModalPassword, setMostrarModalPassword] = useState(false);
 
+  const navigate = useNavigate();
   const mapRef = useRef(null);
 
   const menuItems = [
@@ -76,10 +81,9 @@ export default function Dashboard() {
     { id: 'ubicaciones', nombre: 'Ubicaciones', icon: BuildingLibraryIcon, ruta: '/admin/ubicaciones', color: 'text-teal-500' },
   ];
 
-  // Cargar guías en vivo desde el backend (endpoint corregido)
+  // Cargar guías en vivo
   const cargarGuiasEnVivo = async () => {
     try {
-      // Cambiar a endpoint público o el que tengas disponible
       const response = await api.get('/public/avatares-guias');
       setGuiasEnVivo(response.data.guias || []);
     } catch (error) {
@@ -89,7 +93,7 @@ export default function Dashboard() {
     }
   };
 
-  // Conectar WebSocket para actualizaciones en tiempo real
+  // Conectar WebSocket
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -206,7 +210,6 @@ export default function Dashboard() {
     try {
       const response = await api.get(`/usuarios/sesiones/estadisticas?fechaInicio=${rangoFechas.inicio}&fechaFin=${rangoFechas.fin}`);
       const data = response.data.estadisticas || [];
-      // Asegurar que cada guía tenga valores numéricos válidos
       const dataConNumeros = data.map(g => ({
         ...g,
         total_minutos: Number(g.total_minutos) || 0,
@@ -326,7 +329,18 @@ export default function Dashboard() {
                 );
               })}
             </nav>
-            <div className="p-4 border-t border-gray-700">
+            <div className="p-4 border-t border-gray-700 space-y-2">
+              {/* 🆕 Botón cambio de contraseña (móvil) */}
+              <button
+                onClick={() => {
+                  setMenuAbierto(false);
+                  setMostrarModalPassword(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-800 text-gray-300"
+              >
+                <KeyIcon className="w-5 h-5" />
+                <span className="text-sm">Cambiar contraseña</span>
+              </button>
               <button onClick={() => { localStorage.removeItem('token'); navigate('/login'); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-600/20 text-red-400">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 <span className="text-sm">Cerrar sesión</span>
@@ -335,6 +349,24 @@ export default function Dashboard() {
           </div>
         </>
       )}
+
+      {/* Barra superior desktop (con opciones) */}
+      <div className="hidden md:flex justify-end items-center gap-3 p-4 bg-white shadow-sm">
+        <button
+          onClick={() => setMostrarModalPassword(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
+        >
+          <KeyIcon className="w-4 h-4" />
+          Cambiar contraseña
+        </button>
+        <button
+          onClick={() => { localStorage.removeItem('token'); navigate('/login'); }}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
+        >
+          <ArrowRightOnRectangleIcon className="w-4 h-4" />
+          Cerrar sesión
+        </button>
+      </div>
 
       {/* Contenido principal */}
       <div className="pt-16 md:pt-6 pb-6 px-4 md:px-6 max-w-7xl mx-auto">
@@ -595,6 +627,12 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* 🆕 Modal de cambio de contraseña */}
+      <CambiarPasswordModal
+        isOpen={mostrarModalPassword}
+        onClose={() => setMostrarModalPassword(false)}
+      />
 
       <style>{`
         @keyframes slideIn {

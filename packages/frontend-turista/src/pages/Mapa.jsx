@@ -843,8 +843,12 @@ function Mapa() {
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
   const [showLevelUp, setShowLevelUp]               = useState(false);
-  const [xpBurst, setXpBurst]                       = useState(null); // {x,y,xp}
+  const [xpBurst, setXpBurst]                       = useState(null);
   const [viewState, setViewState]                   = useState({ longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 });
+
+  // 🆕 PWA: estado para instalación
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
 
   const navigate = useNavigate();
   const mapRef   = useRef(null);
@@ -909,7 +913,6 @@ function Mapa() {
         setXp(nXP);
         localStorage.setItem('player_xp', nXP);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevos));
-        // Burst de XP en centro pantalla
         setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: sistemaExp.expBase });
         if (sistemaExp.expAcumulada.length > 0) {
           const nLvl = Math.min(calcularNivelPorXP(nXP, sistemaExp.expAcumulada), 5);
@@ -932,8 +935,46 @@ function Mapa() {
     if (ok) { setSelectedLugar(null); navigate(`/lugar/${lugar.id}`); }
   };
 
+  // 🆕 Funciones para manejar clics en marcadores sin conflictos
+  const handleLugarClick = (lugar) => {
+    setSelectedGuia(null);
+    setSelectedLugar(lugar);
+  };
+
+  const handleGuiaClick = (guia) => {
+    setSelectedLugar(null);
+    setSelectedGuia(guia);
+  };
+
+  // 🆕 Instalación PWA
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('Usuario aceptó la instalación PWA');
+        } else {
+          console.log('Usuario rechazó la instalación');
+        }
+        setDeferredPrompt(null);
+        setShowInstallButton(false);
+      });
+    }
+  };
+
   // ── efectos ──────────────────────────────────────────────────
   useEffect(() => { const h = () => setIsMobile(window.innerWidth < 640); window.addEventListener('resize', h); return () => window.removeEventListener('resize', h); }, []);
+
+  // 🆕 Escuchar evento beforeinstallprompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
 
   useEffect(() => {
     const cargar = async () => {
@@ -1160,6 +1201,36 @@ function Mapa() {
         </motion.button>
       )}
 
+      {/* 🆕 Botón de instalación PWA */}
+      {showInstallButton && (
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          onClick={handleInstallClick}
+          className="hud-btn hud-btn-gold"
+          style={{
+            position: 'absolute',
+            bottom: isMobile ? 160 : 170,
+            left: isMobile ? 12 : 16,
+            width: isMobile ? 42 : 46,
+            height: isMobile ? 42 : 46,
+            borderRadius: '50%',
+            zIndex: 1100,
+            background: 'rgba(34,197,94,0.85)',
+            border: '1px solid rgba(251,191,36,0.8)',
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.92 }}
+          title="Instalar aplicación"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width={isMobile ? 20 : 24} height={isMobile ? 20 : 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#fbbf24' }}>
+            <path d="M12 5v14M5 12h14" />
+            <path d="M5 12h14" />
+          </svg>
+        </motion.button>
+      )}
+
       {/* MAPA */}
       <Map
         ref={mapRef}
@@ -1180,14 +1251,14 @@ function Mapa() {
           </Marker>
         )}
 
-        {/* Lugares */}
+        {/* Lugares - 🆕 usa handleLugarClick */}
         {lugares.map((lugar) => (
           <Marker key={lugar.id}
             longitude={parseFloat(lugar.longitud)} latitude={parseFloat(lugar.latitud)}
             anchor="bottom"
-            onClick={(e) => { e.originalEvent.stopPropagation(); setSelectedLugar(lugar); }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); handleLugarClick(lugar); }}
           >
-            <LugarPin lugar={lugar} discovered={discoveredPlaces.includes(lugar.id)} isMobile={isMobile} onClick={() => setSelectedLugar(lugar)} />
+            <LugarPin lugar={lugar} discovered={discoveredPlaces.includes(lugar.id)} isMobile={isMobile} onClick={() => handleLugarClick(lugar)} />
           </Marker>
         ))}
 
@@ -1216,13 +1287,13 @@ function Mapa() {
           </Marker>
         )}
 
-        {/* Public guide markers */}
+        {/* Public guide markers - 🆕 usa handleGuiaClick */}
         {publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
           <Marker key={`guia_${guia.id}`} longitude={parseFloat(guia.longitud)} latitude={parseFloat(guia.latitud)} anchor="bottom" style={{ zIndex: 1400 }}>
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedGuia(guia);
+                handleGuiaClick(guia);
               }}
               style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
@@ -1239,7 +1310,7 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Popup */}
+        {/* Popup de GUÍA (zIndex 2000) */}
         {selectedGuia && selectedGuia.latitud && selectedGuia.longitud && (
           <Popup
             longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
@@ -1267,11 +1338,14 @@ function Mapa() {
             </div>
           </Popup>
         )}
+
+        {/* Popup de LUGAR (zIndex 3000) */}
         {selectedLugar && (
           <Popup
             longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)}
             onClose={() => setSelectedLugar(null)} closeButton={true} closeOnClick={false}
             anchor="bottom" offset={20}
+            style={{ zIndex: 3000 }}
           >
             <LugarPopupContent
               lugar={selectedLugar} discovered={discoveredPlaces.includes(selectedLugar.id)}

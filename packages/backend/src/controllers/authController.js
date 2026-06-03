@@ -254,6 +254,51 @@ const authController = {
             console.error('Error cambiando disponibilidad:', error);
             res.status(500).json({ error: 'Error cambiando disponibilidad' });
         }
+    },
+    // Cambiar contraseña (usuario autenticado)
+    async cambiarPassword(req, res) {
+        try {
+            const { currentPassword, newPassword } = req.body;
+            const userId = req.user.id;
+
+            // Validaciones
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({ error: 'La contraseña actual y la nueva son requeridas' });
+            }
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+            }
+
+            // Obtener el usuario con su hash actual
+            const query = 'SELECT password_hash FROM usuarios WHERE id = $1';
+            const result = await pool.query(query, [userId]);
+            
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+
+            const user = result.rows[0];
+            
+            // Verificar contraseña actual
+            const passwordValida = await bcrypt.compare(currentPassword, user.password_hash);
+            if (!passwordValida) {
+                return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+            }
+
+            // Encriptar nueva contraseña
+            const salt = await bcrypt.genSalt(10);
+            const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+            // Actualizar en la base de datos
+            const updateQuery = 'UPDATE usuarios SET password_hash = $1 WHERE id = $2';
+            await pool.query(updateQuery, [newPasswordHash, userId]);
+
+            res.json({ message: 'Contraseña actualizada correctamente' });
+
+        } catch (error) {
+            console.error('Error cambiando contraseña:', error);
+            res.status(500).json({ error: 'Error interno del servidor' });
+        }
     }
 };
 

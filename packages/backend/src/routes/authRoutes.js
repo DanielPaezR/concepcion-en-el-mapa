@@ -21,6 +21,8 @@ router.post('/login', authController.login);
 // Rutas protegidas (requieren autenticación)
 router.get('/verificar', authMiddleware, authController.verificar);
 router.get('/perfil', authMiddleware, authController.perfil);
+// Cambiar contraseña
+router.post('/cambiar-password', authMiddleware, authController.cambiarPassword);
 
 // Rutas de admin (requieren autenticación y rol admin)
 router.post('/register', authMiddleware, authController.register);

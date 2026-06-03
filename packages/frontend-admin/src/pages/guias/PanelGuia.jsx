@@ -6,12 +6,13 @@ import {
   CalendarIcon, CheckCircleIcon, ClockIcon, XCircleIcon,
   PowerIcon, ArrowPathIcon, UserGroupIcon, StarIcon,
   FunnelIcon, WifiIcon, PlusIcon, TrashIcon,
-  PencilIcon, XMarkIcon, MapPinIcon
+  PencilIcon, XMarkIcon, MapPinIcon, KeyIcon   // 🆕 KeyIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../../config/runtime';
 import { subscribeUser, unsubscribeUser } from '../../services/pushNotifications';
+import CambiarPasswordModal from '../../components/CambiarPasswordModal'; // 🆕
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -29,11 +30,9 @@ export default function PanelGuia() {
   const socketRef = useRef(null);
   const heartbeatInterval = useRef(null);
   
-  // Estado para la pestaña activa
   const [activeTab, setActiveTab] = useState('reservas');
   const [puedeGestionarEventos, setPuedeGestionarEventos] = useState(false);
   
-  // Estado para eventos
   const [eventos, setEventos] = useState([]);
   const [ubicaciones, setUbicaciones] = useState([]);
   const [mostrarFormEvento, setMostrarFormEvento] = useState(false);
@@ -56,7 +55,6 @@ export default function PanelGuia() {
   });
   const [cargandoEventos, setCargandoEventos] = useState(false);
 
-  // Estado para gestión de ubicaciones
   const [mostrarFormUbicacion, setMostrarFormUbicacion] = useState(false);
   const [editandoUbicacion, setEditandoUbicacion] = useState(null);
   const [formUbicacion, setFormUbicacion] = useState({
@@ -66,6 +64,9 @@ export default function PanelGuia() {
     radio: 50
   });
   const [cargandoUbicaciones, setCargandoUbicaciones] = useState(false);
+
+  // 🆕 estado para modal de cambio de contraseña
+  const [mostrarModalPassword, setMostrarModalPassword] = useState(false);
 
   // ========== Funciones auxiliares ==========
   const getEstadoColor = (estado) => {
@@ -124,7 +125,6 @@ export default function PanelGuia() {
     }
   }, [user?.calificacion_promedio]);
 
-  // Cargar perfil (disponibilidad y permisos)
   const cargarPerfil = useCallback(async () => {
     try {
       const response = await api.get(`/usuarios/${user?.id}`);
@@ -453,14 +453,24 @@ export default function PanelGuia() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-stone-50 pb-24">
-      {/* Header (igual que antes) */}
+      {/* Header */}
       <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white px-5 pt-10 pb-7 rounded-b-3xl shadow-lg">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Hola, {user?.nombre?.split(' ')[0] || 'Guía'} 👋</h1>
             <p className="text-emerald-100 text-sm mt-0.5 opacity-90">{activeTab === 'reservas' ? 'Aquí están tus recorridos' : 'Gestión de eventos y ubicaciones'}</p>
           </div>
-          <button onClick={handleLogout} className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white/30 transition">Salir</button>
+          <div className="flex gap-2">
+            {/* 🆕 Botón cambio de contraseña */}
+            <button
+              onClick={() => setMostrarModalPassword(true)}
+              className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white/30 transition flex items-center gap-2"
+            >
+              <KeyIcon className="w-4 h-4" />
+              Cambiar contraseña
+            </button>
+            <button onClick={handleLogout} className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white/30 transition">Salir</button>
+          </div>
         </div>
 
         {/* Switch de disponibilidad */}
@@ -552,7 +562,6 @@ export default function PanelGuia() {
               <div className="space-y-3">
                 {reservasFiltradas.map(reserva => (
                   <div key={reserva.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                    {/* (mismo código de reservas) */}
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-800">{reserva.lugar_nombre}</h3>
@@ -704,6 +713,12 @@ export default function PanelGuia() {
           )}
         </div>
       )}
+
+      {/* 🆕 Modal de cambio de contraseña */}
+      <CambiarPasswordModal
+        isOpen={mostrarModalPassword}
+        onClose={() => setMostrarModalPassword(false)}
+      />
     </div>
   );
 }
