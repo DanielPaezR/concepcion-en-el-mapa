@@ -58,7 +58,7 @@ const PushSubscription = {
             JOIN usuarios u ON ps.usuario_id = u.id
             WHERE ps.rol = $1 
             AND ps.suscrito = true
-            AND u.disponible = true   -- ← Estado manual (persistente)
+            AND u.disponible = true
             ORDER BY ps.fecha_suscripcion DESC
         `;
         const result = await pool.query(query, [rol]);

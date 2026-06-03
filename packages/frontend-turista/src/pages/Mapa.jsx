@@ -20,6 +20,7 @@ import Map3DEffect from '../components/Map3DEffect';
 import AnclarGuardian from '../components/AnclarGuardian';
 import EstadoReserva from '../components/EstadoReserva';
 import MenuExplorador from '../components/MenuExplorador';
+import LocationPrompt from '../components/LocationPrompt';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -1167,8 +1168,18 @@ function Mapa() {
 
       <LocationPrompt
         show={showLocationPrompt && !userResponded}
-        onAccept={() => { setShowLocationPrompt(false); setShouldLocate(true); setUserResponded(true); localStorage.setItem('locationResponse', 'granted'); }}
-        onDeny={() => { setShowLocationPrompt(false); setLocationPermission('denied'); setUserResponded(true); localStorage.setItem('locationResponse', 'denied'); }}
+        onAccept={() => {
+          setShowLocationPrompt(false);
+          setShouldLocate(true);
+          setUserResponded(true);
+          localStorage.setItem('locationResponse', 'granted');
+        }}
+        onDeny={() => {
+          setShowLocationPrompt(false);
+          setLocationPermission('denied');
+          setUserResponded(true);
+          localStorage.setItem('locationResponse', 'denied');
+        }}
       />
 
       <QuestLogPanel show={showQuestLog} lugares={lugares} discoveredPlaces={discoveredPlaces}
