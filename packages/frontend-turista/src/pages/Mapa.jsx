@@ -685,46 +685,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
   </AnimatePresence>
 );
 
-// 📍 Prompt de ubicación
-const LocationPrompt = ({ show, onAccept, onDeny }) => (
-  <AnimatePresence>
-    {show && (
-      <motion.div
-        initial={{ opacity: 0, y: 50, scale: 0.94 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 50 }}
-        transition={{ type: 'spring', damping: 22 }}
-        className="hud-font"
-        style={{
-          position: 'absolute', bottom: 120, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 2000,
-          background: 'rgba(4,10,30,0.98)', backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(34,197,94,0.28)',
-          borderTop: '1px solid rgba(34,197,94,0.5)',
-          borderRadius: 24,
-          padding: '24px 28px', width: '88%', maxWidth: 340,
-          boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(34,197,94,0.05)',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ position: 'absolute', top: 0, left: 30, right: 30, height: 1, background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.6), transparent)' }} />
-        <motion.div animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ marginBottom: 14 }}>
-          <LocateFixed size={44} color="#4ade80" style={{ margin: '0 auto', filter: 'drop-shadow(0 0 12px rgba(74,222,128,0.6))' }} />
-        </motion.div>
-        <h3 className="orb-font" style={{ color: 'white', fontWeight: 700, fontSize: 14, marginBottom: 8, letterSpacing: '.06em' }}>ACTIVAR UBICACIÓN</h3>
-        <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13, marginBottom: 22, lineHeight: 1.65 }}>
-          Necesitamos tu ubicación para descubrir lugares al acercarte.
-        </p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onAccept}
-            style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '12px 0', borderRadius: 13, fontWeight: 700, fontSize: 13, border: '1px solid rgba(34,197,94,0.45)', cursor: 'pointer', letterSpacing: '.07em', fontFamily: "'Orbitron',monospace", boxShadow: '0 0 20px rgba(34,197,94,0.2)' }}>ACTIVAR</motion.button>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onDeny}
-            style={{ flex: 1, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.38)', padding: '12px 0', borderRadius: 13, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>OMITIR</motion.button>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
 
 // 🎯 Modal Evento
 const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
