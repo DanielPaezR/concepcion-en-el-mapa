@@ -287,7 +287,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header móvil */}
-      <div className="fixed top-0 left-0 right-0 bg-green-600 text-white z-30 flex items-center justify-between px-4 py-3 shadow-lg md:hidden">
+      <div className="fixed top-0 left-0 right-0 bg-green-600 text-white z-30 flex items-center justify-between px-4 py-3 shadow-lg lg:hidden">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-lg">🗺️</div>
           <span className="font-bold text-sm">Concepción Admin</span>
@@ -300,8 +300,8 @@ export default function Dashboard() {
       {/* Menú lateral móvil */}
       {menuAbierto && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMenuAbierto(false)} />
-          <div className="fixed top-0 left-0 bottom-0 w-72 bg-gray-900 text-white z-50 flex flex-col shadow-2xl md:hidden animate-slide-in">
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMenuAbierto(false)} />
+          <div className="fixed top-0 left-0 bottom-0 w-72 bg-gray-900 text-white z-50 flex flex-col shadow-2xl lg:hidden animate-slide-in">
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-lg">🗺️</div>
@@ -321,7 +321,7 @@ export default function Dashboard() {
                       setMenuAbierto(false);
                       navigate(item.ruta);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 transition-all duration-200 hover:bg-gray-800 active:bg-gray-700"
+                    className="w-full flex items-center gap-3 px-4 py-4 transition-all duration-200 hover:bg-gray-800 active:bg-gray-700"
                   >
                     <Icon className={`w-5 h-5 ${item.color}`} />
                     <span className="text-sm">{item.nombre}</span>
@@ -336,12 +336,12 @@ export default function Dashboard() {
                   setMenuAbierto(false);
                   setMostrarModalPassword(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-800 text-gray-300"
+                className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-gray-200"
               >
                 <KeyIcon className="w-5 h-5" />
                 <span className="text-sm">Cambiar contraseña</span>
               </button>
-              <button onClick={() => { localStorage.removeItem('token'); navigate('/login'); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-600/20 text-red-400">
+              <button onClick={() => { localStorage.removeItem('token'); navigate('/login'); }} className="w-full flex items-center gap-3 px-4 py-4 rounded-xl hover:bg-red-600/20 active:scale-95 transition-all text-red-400">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 <span className="text-sm">Cerrar sesión</span>
               </button>
@@ -351,7 +351,7 @@ export default function Dashboard() {
       )}
 
       {/* Barra superior desktop (con opciones) */}
-      <div className="hidden md:flex justify-end items-center gap-3 p-4 bg-white shadow-sm">
+      <div className="hidden lg:flex justify-end items-center gap-3 p-4 bg-white shadow-sm border-b border-gray-200">
         <button
           onClick={() => setMostrarModalPassword(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
@@ -369,7 +369,7 @@ export default function Dashboard() {
       </div>
 
       {/* Contenido principal */}
-      <div className="pt-16 md:pt-6 pb-6 px-4 md:px-6 max-w-7xl mx-auto">
+      <div className="pt-20 lg:pt-6 pb-6 px-4 lg:px-6 max-w-7xl mx-auto">
         
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-200">

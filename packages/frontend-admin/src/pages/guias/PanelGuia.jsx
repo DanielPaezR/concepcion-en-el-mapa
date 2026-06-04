@@ -6,13 +6,14 @@ import {
   CalendarIcon, CheckCircleIcon, ClockIcon, XCircleIcon,
   PowerIcon, ArrowPathIcon, UserGroupIcon, StarIcon,
   FunnelIcon, WifiIcon, PlusIcon, TrashIcon,
-  PencilIcon, XMarkIcon, MapPinIcon, KeyIcon   // 🆕 KeyIcon
+  PencilIcon, XMarkIcon, MapPinIcon, KeyIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../../config/runtime';
 import { subscribeUser, unsubscribeUser } from '../../services/pushNotifications';
-import CambiarPasswordModal from '../../components/CambiarPasswordModal'; // 🆕
+import CambiarPasswordModal from '../../components/CambiarPasswordModal';
+import ChatModal from '../../components/ChatModal'; // 🆕
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -65,8 +66,12 @@ export default function PanelGuia() {
   });
   const [cargandoUbicaciones, setCargandoUbicaciones] = useState(false);
 
-  // 🆕 estado para modal de cambio de contraseña
   const [mostrarModalPassword, setMostrarModalPassword] = useState(false);
+  const [obteniendoUbicacion, setObteniendoUbicacion] = useState(false);
+
+  // 🆕 Estados para el chat
+  const [chatAbierto, setChatAbierto] = useState(false);
+  const [chatData, setChatData] = useState({ reservaId: null, otroNombre: '', otroId: null });
 
   // ========== Funciones auxiliares ==========
   const getEstadoColor = (estado) => {
@@ -430,7 +435,7 @@ export default function PanelGuia() {
         toast.success('Ubicación creada');
       }
       resetFormUbicacion();
-      cargarEventos(); // recarga ubicaciones y eventos
+      cargarEventos();
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.error || 'Error al guardar ubicación');
@@ -448,6 +453,35 @@ export default function PanelGuia() {
     }
   };
 
+  const usarMiUbicacion = () => {
+    if (!navigator.geolocation) {
+      toast.error('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setObteniendoUbicacion(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormUbicacion(prev => ({
+          ...prev,
+          latitud: latitude,
+          longitud: longitude
+        }));
+        toast.success('Ubicación actual obtenida');
+        setObteniendoUbicacion(false);
+      },
+      (error) => {
+        console.error('Error de geolocalización:', error);
+        let mensaje = 'No se pudo obtener tu ubicación';
+        if (error.code === 1) mensaje = 'Permiso denegado. Activa la ubicación.';
+        if (error.code === 2) mensaje = 'Ubicación no disponible.';
+        toast.error(mensaje);
+        setObteniendoUbicacion(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   // ========== JSX ==========
   if (loading) return <div className="min-h-screen flex justify-center items-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>;
 
@@ -461,7 +495,6 @@ export default function PanelGuia() {
             <p className="text-emerald-100 text-sm mt-0.5 opacity-90">{activeTab === 'reservas' ? 'Aquí están tus recorridos' : 'Gestión de eventos y ubicaciones'}</p>
           </div>
           <div className="flex gap-2">
-            {/* 🆕 Botón cambio de contraseña */}
             <button
               onClick={() => setMostrarModalPassword(true)}
               className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white/30 transition flex items-center gap-2"
@@ -532,7 +565,7 @@ export default function PanelGuia() {
 
       {activeTab === 'reservas' && (
         <>
-          {/* Estadísticas y lista de reservas (igual que antes) */}
+          {/* Estadísticas */}
           <div className="px-5 mt-3">
             <div className="grid grid-cols-5 gap-2">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-sm text-center"><div className="bg-amber-100 w-7 h-7 rounded-xl flex items-center justify-center mx-auto mb-1"><CalendarIcon className="w-3.5 h-3.5 text-amber-600" /></div><div className="text-lg font-bold text-gray-800">{stats.hoy}</div><div className="text-xs text-gray-400">Hoy</div></div>
@@ -574,14 +607,34 @@ export default function PanelGuia() {
                         {reserva.estado}
                       </div>
                     </div>
+                    
+                    {/* Botones de acción */}
                     {reserva.estado !== 'cancelada' && reserva.guia_id === user?.id && (
                       <div className="flex gap-2 mt-4">
-                        {reserva.estado === 'pendiente' && <button onClick={() => cambiarEstado(reserva.id, 'confirmada')} className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-600">Confirmar</button>}
+                        {reserva.estado === 'pendiente' && (
+                          <button onClick={() => cambiarEstado(reserva.id, 'confirmada')} className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-600">Confirmar</button>
+                        )}
                         {reserva.estado === 'confirmada' && (
                           <>
                             <button onClick={() => cambiarEstado(reserva.id, 'completada')} className="flex-1 bg-sky-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sky-600">Completar</button>
                             <button onClick={() => cambiarEstado(reserva.id, 'cancelada')} className="flex-1 bg-rose-400 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-rose-500">Cancelar</button>
                           </>
+                        )}
+                        {/* 🆕 Botón Chat - solo si la reserva tiene turista asignado */}
+                        {reserva.turista_id && (
+                          <button
+                            onClick={() => {
+                              setChatData({
+                                reservaId: reserva.id,
+                                otroNombre: reserva.turista_nombre || 'Turista',
+                                otroId: reserva.turista_id
+                              });
+                              setChatAbierto(true);
+                            }}
+                            className="flex-1 bg-indigo-100 text-indigo-700 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-200 transition flex items-center justify-center gap-2"
+                          >
+                            💬 Chat con turista
+                          </button>
                         )}
                       </div>
                     )}
@@ -668,19 +721,66 @@ export default function PanelGuia() {
           {mostrarFormUbicacion && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
-                <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">{editandoUbicacion ? 'Editar ubicación' : 'Nueva ubicación'}</h3><button onClick={resetFormUbicacion}><XMarkIcon className="w-6 h-6 text-gray-500" /></button></div>
-                <div className="space-y-4">
-                  <div><label className="block text-sm font-medium mb-1">Nombre *</label><input type="text" value={formUbicacion.nombre} onChange={e => setFormUbicacion({ ...formUbicacion, nombre: e.target.value })} className="w-full p-2 border rounded" required /></div>
-                  <div><label className="block text-sm font-medium mb-1">Latitud *</label><input type="number" step="any" value={formUbicacion.latitud} onChange={e => setFormUbicacion({ ...formUbicacion, latitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required /></div>
-                  <div><label className="block text-sm font-medium mb-1">Longitud *</label><input type="number" step="any" value={formUbicacion.longitud} onChange={e => setFormUbicacion({ ...formUbicacion, longitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required /></div>
-                  <div><label className="block text-sm font-medium mb-1">Radio (metros)</label><input type="number" value={formUbicacion.radio} onChange={e => setFormUbicacion({ ...formUbicacion, radio: parseInt(e.target.value) })} className="w-full p-2 border rounded" /></div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">{editandoUbicacion ? 'Editar ubicación' : 'Nueva ubicación'}</h3>
+                  <button onClick={resetFormUbicacion}><XMarkIcon className="w-6 h-6 text-gray-500" /></button>
                 </div>
-                <div className="flex justify-end gap-3 mt-6"><button onClick={resetFormUbicacion} className="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button><button onClick={handleGuardarUbicacion} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button></div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nombre *</label>
+                    <input type="text" value={formUbicacion.nombre} onChange={e => setFormUbicacion({ ...formUbicacion, nombre: e.target.value })} className="w-full p-2 border rounded" required />
+                  </div>
+
+                  {/* Botón "Usar mi ubicación" */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={usarMiUbicacion}
+                      disabled={obteniendoUbicacion}
+                      className="mb-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {obteniendoUbicacion ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Obteniendo...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Usar mi ubicación actual
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Latitud *</label>
+                    <input type="number" step="any" value={formUbicacion.latitud} onChange={e => setFormUbicacion({ ...formUbicacion, latitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Longitud *</label>
+                    <input type="number" step="any" value={formUbicacion.longitud} onChange={e => setFormUbicacion({ ...formUbicacion, longitud: parseFloat(e.target.value) })} className="w-full p-2 border rounded" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Radio (metros)</label>
+                    <input type="number" value={formUbicacion.radio} onChange={e => setFormUbicacion({ ...formUbicacion, radio: parseInt(e.target.value) })} className="w-full p-2 border rounded" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button onClick={resetFormUbicacion} className="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button>
+                  <button onClick={handleGuardarUbicacion} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Modal para eventos (ya existente) */}
+          {/* Modal para eventos */}
           {mostrarFormEvento && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -714,10 +814,19 @@ export default function PanelGuia() {
         </div>
       )}
 
-      {/* 🆕 Modal de cambio de contraseña */}
+      {/* Modal de cambio de contraseña */}
       <CambiarPasswordModal
         isOpen={mostrarModalPassword}
         onClose={() => setMostrarModalPassword(false)}
+      />
+
+      {/* 🆕 Modal de chat */}
+      <ChatModal
+        isOpen={chatAbierto}
+        onClose={() => setChatAbierto(false)}
+        reservaId={chatData.reservaId}
+        otroNombre={chatData.otroNombre}
+        otroId={chatData.otroId}
       />
     </div>
   );

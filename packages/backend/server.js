@@ -10,6 +10,7 @@ const server = http.createServer(app);
 
 // 🔥 Inicializar Socket.IO
 const io = initializeSocket(server);
+app.set('io', io);
 
 // Hacer io accesible globalmente (opcional, para usar en otros archivos)
 global.io = io;

@@ -1,4 +1,3 @@
-// packages/backend/src/socket/index.js
 const { Server } = require('socket.io');
 const pool = require('../config/database');
 
@@ -50,6 +49,16 @@ function initializeSocket(server) {
     io.on('connection', (socket) => {
         console.log('🔌 Nuevo cliente conectado:', socket.id);
 
+        // ========== NUEVO: para chat (turistas y guías) ==========
+        socket.on('usuario-conectar', (userId) => {
+            if (userId) {
+                socket.userId = userId;
+                socket.join(`usuario_${userId}`);
+                console.log(`👤 Usuario ${userId} conectado a su sala de chat personal`);
+            }
+        });
+        // ========================================================
+
         // Guía se conecta (WebSocket) – SOLO actualiza estado de conexión, NO la sesión de horas
         socket.on('guia-conectar', async (data) => {
             const { guiaId, disponible, latitud, longitud } = data;
@@ -88,8 +97,6 @@ function initializeSocket(server) {
                         [guiaId, socket.id, latitud || null, longitud || null]
                     );
                 }
-                
-                // NO se crea ni se actualiza sesiones_guias aquí. Eso lo hace el botón de disponibilidad.
                 
                 // Emitir evento de ubicación actualizada (para el mapa del admin)
                 const guia = await getGuiaPublicProfile(guiaId);
@@ -155,14 +162,10 @@ function initializeSocket(server) {
         });
 
         // Guía se desconecta manualmente (cierra sesión explícitamente)
-        // NOTA: Este evento se emite cuando el guía hace clic en "Cerrar sesión" o desactiva el switch.
-        // En ambos casos, el backend ya actualizó `usuarios.disponible` y finalizó la sesión de horas.
-        // Aquí solo actualizamos guias_conectados para reflejar que ya no está en línea en el mapa.
         socket.on('guia-desconectar', async (data) => {
             const { guiaId } = data;
             if (guiaId) {
                 try {
-                    // Marcar como desconectado en guias_conectados
                     await pool.query(
                         `UPDATE guias_conectados 
                          SET conectado = false,
@@ -171,14 +174,11 @@ function initializeSocket(server) {
                         [guiaId, socket.id]
                     );
 
-                    // Emitir evento para que el admin lo vea fuera de línea en el mapa
                     const guia = await getGuiaPublicProfile(guiaId);
                     if (guia) {
                         if (guia.disponible) {
-                            // Si sigue disponible pero cerró socket, solo actualizamos estado
                             io.emit('guia-ubicacion-actualizada', guia);
                         } else {
-                            // Si ya no está disponible, lo quitamos del mapa
                             io.emit('guia-desconectado', { 
                                 id: guiaId, 
                                 guiaId, 
@@ -197,12 +197,10 @@ function initializeSocket(server) {
             socket.disconnect();
         });
 
-        // Desconexión inesperada (pérdida de WebSocket, pantalla apagada, etc.)
-        // Aquí tampoco se toca la sesión de horas. Solo se actualiza guias_conectados.
+        // Desconexión inesperada
         socket.on('disconnect', async () => {
             if (socket.guiaId) {
                 try {
-                    // Marcar como desconectado en guias_conectados
                     await pool.query(
                         `UPDATE guias_conectados 
                          SET conectado = false,
@@ -211,12 +209,9 @@ function initializeSocket(server) {
                         [socket.guiaId, socket.id]
                     );
 
-                    // Emitir evento para que el admin sepa que el guía ya no está en línea
                     const guia = await getGuiaPublicProfile(socket.guiaId);
                     if (guia) {
                         if (guia.disponible) {
-                            // El socket se perdió (pantalla apagada) pero el guía sigue "trabajando"
-                            // Mantenemos al guía en el mapa informando que no tiene conexión activa
                             io.emit('guia-ubicacion-actualizada', guia);
                         } else {
                             io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
@@ -225,10 +220,13 @@ function initializeSocket(server) {
                         io.emit('guia-desconectado', { id: socket.guiaId, guiaId: socket.guiaId, conectado: false });
                     }
 
-                    console.log(`🔌 WebSocket del guía ${socket.guiaId} perdido (pantalla apagada o red). Se marca como no conectado en el mapa.`);
+                    console.log(`🔌 WebSocket del guía ${socket.guiaId} perdido.`);
                 } catch (error) {
                     console.error('Error en desconexión inesperada:', error);
                 }
+            } else if (socket.userId) {
+                // Opcional: limpiar sala de usuario si quieres, no obligatorio
+                console.log(`👤 Usuario ${socket.userId} desconectado (socket perdido)`);
             } else {
                 console.log(`🔌 Cliente desconectado: ${socket.id}`);
             }

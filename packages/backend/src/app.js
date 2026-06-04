@@ -23,6 +23,7 @@ const eventoRoutes = require('./routes/eventoRoutes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
 const pushNotificationRoutes = require('./routes/pushNotificationRoutes');
 const fileUpload = require('express-fileupload');
+const mensajesRoutes = require('./routes/mensajesRoutes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/turista', turistaRoutes);
 app.use('/api/escaneos', escaneoRoutes);
 app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
+app.use('/api/mensajes', mensajesRoutes);
 app.use('/api/push', pushNotificationRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 app.use(fileUpload({

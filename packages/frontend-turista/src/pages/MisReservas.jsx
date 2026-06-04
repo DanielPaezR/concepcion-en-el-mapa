@@ -6,12 +6,15 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
+import ChatModal from '../components/ChatModal'; // 🆕
 
 export default function MisReservas() {
     const [reservas, setReservas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filtro, setFiltro] = useState('todas');
     const [busqueda, setBusqueda] = useState('');
+    const [chatAbierto, setChatAbierto] = useState(false);
+    const [chatData, setChatData] = useState({ reservaId: null, otroNombre: '', otroId: null });
     const navigate = useNavigate();
     const usuario = getTuristaActual();
 
@@ -26,27 +29,20 @@ export default function MisReservas() {
             const response = await api.get(`/reservas?turista_id=${usuario?.id}`);
             const reservasData = response.data || [];
             
-            // Para cada reserva, verificar si ya tiene encuesta
+            // Verificar si ya tienen encuesta
             const reservasConEncuesta = await Promise.all(reservasData.map(async (reserva) => {
                 try {
                     const encuestaRes = await api.get(`/encuestas/reserva/${reserva.id}`);
-                    // Si la respuesta tiene encuesta: { success: true, encuesta: {...} }
-                    // Si no hay encuesta: { success: true, encuesta: null }
                     const tieneEncuesta = encuestaRes.data?.encuesta !== null;
-                    return {
-                        ...reserva,
-                        tieneEncuesta: tieneEncuesta
-                    };
-                } catch (error) {
-                    // Si hay error (ej. 404 antes de corregir), asumimos que no tiene encuesta
-                    console.log(`Error verificando encuesta para reserva ${reserva.id}:`, error.response?.status);
+                    return { ...reserva, tieneEncuesta };
+                } catch {
                     return { ...reserva, tieneEncuesta: false };
                 }
             }));
             
             setReservas(reservasConEncuesta);
         } catch (error) {
-            console.error('Error al cargar reservas:', error);
+            console.error('Error:', error);
         } finally {
             setLoading(false);
         }
@@ -171,12 +167,29 @@ export default function MisReservas() {
                                         {estadoInfo.text}
                                     </div>
                                 </div>
+
+                                {/* 🆕 Botón Chat - solo si reserva tiene guía asignado */}
+                                {reserva.guia_id && (
+                                    <button
+                                        onClick={() => {
+                                            setChatData({
+                                                reservaId: reserva.id,
+                                                otroNombre: reserva.guia_nombre || 'Guía',
+                                                otroId: reserva.guia_id
+                                            });
+                                            setChatAbierto(true);
+                                        }}
+                                        className="mt-2 w-full bg-emerald-100 text-emerald-700 py-2 rounded-lg text-sm font-medium hover:bg-emerald-200 transition flex items-center justify-center gap-2"
+                                    >
+                                        💬 Chat con el guía
+                                    </button>
+                                )}
                                 
-                                {/* Botón Calificar - solo si está completada Y NO tiene encuesta */}
+                                {/* Botón Calificar - solo si completada Y NO tiene encuesta */}
                                 {reserva.estado === 'completada' && !reserva.tieneEncuesta && (
                                     <button
                                         onClick={() => navigate(`/encuesta/${reserva.id}`)}
-                                        className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+                                        className="mt-2 w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
                                     >
                                         📝 Calificar experiencia
                                     </button>
@@ -184,7 +197,7 @@ export default function MisReservas() {
 
                                 {/* Mensaje si ya fue calificada */}
                                 {reserva.estado === 'completada' && reserva.tieneEncuesta && (
-                                    <div className="mt-3 w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-sm text-center">
+                                    <div className="mt-2 w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-sm text-center">
                                         ✅ Ya calificaste esta experiencia
                                     </div>
                                 )}
@@ -193,6 +206,15 @@ export default function MisReservas() {
                     })
                 )}
             </div>
+
+            {/* 🆕 Modal de chat */}
+            <ChatModal
+                isOpen={chatAbierto}
+                onClose={() => setChatAbierto(false)}
+                reservaId={chatData.reservaId}
+                otroNombre={chatData.otroNombre}
+                otroId={chatData.otroId}
+            />
         </div>
     );
 }
