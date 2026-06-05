@@ -726,7 +726,7 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
 // 🏆 Popup del lugar
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
   const distance   = userPosition ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud)) : null;
-  const canExplore = distance !== null && distance <= 20;
+  const canExplore = distance !== null && distance <= 50;
   const td         = TIPO_DATA[lugar.tipo] || TIPO_DATA.historico;
   const desc       = lugar.descripcion?.length > 85 ? lugar.descripcion.substring(0, 85) + '…' : lugar.descripcion || 'Un lugar increíble por descubrir.';
 
@@ -780,7 +780,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         }}
       >{canExplore ? '✨ EXPLORAR LUGAR' : '🔒 ACÉRCATE MÁS'}</motion.button>
       {!canExplore && distance !== null && (
-        <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 8, textAlign: 'center', marginTop: 6, letterSpacing: '.05em', fontFamily: "'Orbitron',monospace" }}>NECESITAS ESTAR A MENOS DE 20 M</p>
+        <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 8, textAlign: 'center', marginTop: 6, letterSpacing: '.05em', fontFamily: "'Orbitron',monospace" }}>NECESITAS ESTAR A MENOS DE 50 M</p>
       )}
     </div>
   );
@@ -900,7 +900,7 @@ function Mapa() {
   const registrarDescubrimiento = async (lugar, evt) => {
     if (!userPosition) { mostrarMensajeGuia('📍 Activa tu ubicación para explorar', 'pensativo', 3000); return false; }
     const dist = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
-    if (dist > 20) { mostrarMensajeGuia(`❌ Acércate más (${Math.round(dist)} m)`, 'pensativo', 3000); return false; }
+    if (dist > 50) { mostrarMensajeGuia(`❌ Acércate más (${Math.round(dist)} m)`, 'pensativo', 3000); return false; }
     if (discoveredPlaces.includes(lugar.id)) { mostrarMensajeGuia(`📖 Ya hallaste ${lugar.nombre}`, 'normal', 2000); return false; }
     try {
       const res = await api.post('/descubrimientos/registrar', { lugar_id: lugar.id, latitud: userPosition.lat, longitud: userPosition.lng });

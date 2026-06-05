@@ -6,7 +6,7 @@ import {
   HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
   Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, SignalSlashIcon,
-  KeyIcon  // 🔑 agregado para cambio de contraseña
+  KeyIcon
 } from '@heroicons/react/24/outline';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -20,7 +20,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../config/runtime';
-import CambiarPasswordModal from '../components/CambiarPasswordModal'; // 🆕
+import CambiarPasswordModal from '../components/CambiarPasswordModal';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B', '#4ECDC4', '#45B7D1'];
@@ -64,7 +64,6 @@ export default function Dashboard() {
     fin: new Date().toISOString().split('T')[0]
   });
   
-  // 🆕 estado para el modal de cambio de contraseña
   const [mostrarModalPassword, setMostrarModalPassword] = useState(false);
 
   const navigate = useNavigate();
@@ -81,7 +80,6 @@ export default function Dashboard() {
     { id: 'ubicaciones', nombre: 'Ubicaciones', icon: BuildingLibraryIcon, ruta: '/admin/ubicaciones', color: 'text-teal-500' },
   ];
 
-  // Cargar guías en vivo
   const cargarGuiasEnVivo = async () => {
     try {
       const response = await api.get('/public/avatares-guias');
@@ -93,7 +91,6 @@ export default function Dashboard() {
     }
   };
 
-  // Conectar WebSocket
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -286,18 +283,28 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header móvil */}
-      <div className="fixed top-0 left-0 right-0 bg-green-600 text-white z-30 flex items-center justify-between px-4 py-3 shadow-lg lg:hidden">
+      {/* Header móvil - mejorado */}
+      <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-green-600 to-green-500 text-white z-30 flex items-center justify-between px-4 py-3 shadow-lg lg:hidden">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-lg">🗺️</div>
           <span className="font-bold text-sm">Concepción Admin</span>
         </div>
-        <button onClick={() => setMenuAbierto(true)} className="p-2 rounded-lg hover:bg-white/20 transition">
-          <Bars3Icon className="w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 🆕 Botón cambio de contraseña móvil (directo en header) */}
+          <button
+            onClick={() => setMostrarModalPassword(true)}
+            className="p-2 rounded-lg bg-white/20 active:bg-white/30 transition-all active:scale-95"
+            aria-label="Cambiar contraseña"
+          >
+            <KeyIcon className="w-5 h-5" />
+          </button>
+          <button onClick={() => setMenuAbierto(true)} className="p-2 rounded-lg hover:bg-white/20 transition active:scale-95">
+            <Bars3Icon className="w-6 h-6" />
+          </button>
+        </div>
       </div>
 
-      {/* Menú lateral móvil */}
+      {/* Menú lateral móvil - mejorado */}
       {menuAbierto && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMenuAbierto(false)} />
@@ -329,18 +336,7 @@ export default function Dashboard() {
                 );
               })}
             </nav>
-            <div className="p-4 border-t border-gray-700 space-y-2">
-              {/* 🆕 Botón cambio de contraseña (móvil) */}
-              <button
-                onClick={() => {
-                  setMenuAbierto(false);
-                  setMostrarModalPassword(true);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-gray-200"
-              >
-                <KeyIcon className="w-5 h-5" />
-                <span className="text-sm">Cambiar contraseña</span>
-              </button>
+            <div className="p-4 border-t border-gray-700">
               <button onClick={() => { localStorage.removeItem('token'); navigate('/login'); }} className="w-full flex items-center gap-3 px-4 py-4 rounded-xl hover:bg-red-600/20 active:scale-95 transition-all text-red-400">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 <span className="text-sm">Cerrar sesión</span>
@@ -350,7 +346,7 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* Barra superior desktop (con opciones) */}
+      {/* Barra superior desktop */}
       <div className="hidden lg:flex justify-end items-center gap-3 p-4 bg-white shadow-sm border-b border-gray-200">
         <button
           onClick={() => setMostrarModalPassword(true)}
@@ -368,19 +364,19 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Contenido principal */}
+      {/* Contenido principal - ajustado padding para móvil */}
       <div className="pt-20 lg:pt-6 pb-6 px-4 lg:px-6 max-w-7xl mx-auto">
         
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${activeTab === 'dashboard' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>📊 Dashboard</button>
-          <button onClick={() => setActiveTab('mapa')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${activeTab === 'mapa' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>🗺️ Guías en Vivo</button>
-          <button onClick={() => setActiveTab('horas')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${activeTab === 'horas' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>⏱️ Seguimiento de Horas</button>
+        <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+          <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition whitespace-nowrap ${activeTab === 'dashboard' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>📊 Dashboard</button>
+          <button onClick={() => setActiveTab('mapa')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition whitespace-nowrap ${activeTab === 'mapa' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>🗺️ Guías en Vivo</button>
+          <button onClick={() => setActiveTab('horas')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition whitespace-nowrap ${activeTab === 'horas' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-gray-700'}`}>⏱️ Seguimiento de Horas</button>
         </div>
 
+        {/* El resto del contenido se mantiene igual */}
         {activeTab === 'dashboard' && (
           <>
-            {/* Tarjetas de métricas */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
               {metricCards.map((card, idx) => (
                 <div key={idx} className="bg-white rounded-xl shadow-sm p-3 group" title={card.tooltip}>
@@ -397,7 +393,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Gráficos */}
             <div className="space-y-6">
               {/* Reservas por mes */}
               <div className="bg-white rounded-xl shadow-sm p-4">
@@ -494,7 +489,6 @@ export default function Dashboard() {
 
         {activeTab === 'mapa' && (
           <div className="space-y-4">
-            {/* Lista de guías conectados */}
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
@@ -523,7 +517,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Mapa */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 500 }}>
               <Map ref={mapRef} {...viewState} onMove={evt => setViewState(evt.viewState)} mapStyle="mapbox://styles/mapbox/outdoors-v12" mapboxAccessToken={MAPBOX_TOKEN} attributionControl={false} style={{ width: '100%', height: '100%' }}>
                 <NavigationControl position="top-right" />
@@ -550,7 +543,6 @@ export default function Dashboard() {
               </Map>
             </div>
 
-            {/* Estadísticas de ubicación */}
             <div className="bg-white rounded-xl shadow-sm p-4">
               <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2"><UserGroupIcon className="w-5 h-5 text-purple-500" /> Actividad de guías</h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -565,7 +557,6 @@ export default function Dashboard() {
 
         {activeTab === 'horas' && (
           <div className="space-y-6">
-            {/* Selector de fechas */}
             <div className="bg-white rounded-xl shadow-sm p-4">
               <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2"><ClockIcon className="w-5 h-5 text-purple-500" /> Rango de fechas</h3>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -575,7 +566,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Resumen general */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-3 text-white"><div className="text-2xl font-bold">{(estadisticasHoras.reduce((acc, g) => acc + g.total_minutos, 0) / 60).toFixed(1)}h</div><div className="text-xs opacity-90">Total horas acumuladas</div></div>
               <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-3 text-white"><div className="text-2xl font-bold">{estadisticasHoras.length}</div><div className="text-xs opacity-90">Guías activos</div></div>
@@ -583,7 +573,6 @@ export default function Dashboard() {
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-3 text-white"><div className="text-2xl font-bold">{estadisticasHoras.length > 0 ? (estadisticasHoras.reduce((acc, g) => acc + g.total_minutos, 0) / estadisticasHoras.length / 60).toFixed(1) : 0}h</div><div className="text-xs opacity-90">Promedio por guía</div></div>
             </div>
 
-            {/* Tabla de horas */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200"><h3 className="text-base font-semibold text-gray-800 flex items-center gap-2"><UsersIcon className="w-5 h-5 text-indigo-500" /> Detalle por guía</h3></div>
               <div className="overflow-x-auto">
@@ -605,7 +594,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Detalle de sesiones */}
             {guiaSeleccionado && sesionesDetalle.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -628,7 +616,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* 🆕 Modal de cambio de contraseña */}
       <CambiarPasswordModal
         isOpen={mostrarModalPassword}
         onClose={() => setMostrarModalPassword(false)}
