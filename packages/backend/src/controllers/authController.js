@@ -147,7 +147,8 @@ const authController = {
     async perfil(req, res) {
         try {
             const query = `
-                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible
+                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible,
+                       nivel, xp_total
                 FROM usuarios 
                 WHERE id = $1
             `;
@@ -158,7 +159,17 @@ const authController = {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
 
-            res.json(result.rows[0]);
+            // Opcional: agregar lugares descubiertos
+            const lugaresQuery = await pool.query(
+                'SELECT COUNT(*) as lugares_descubiertos FROM descubrimientos WHERE usuario_id = $1',
+                [req.user.id]
+            );
+            const lugaresDescubiertos = parseInt(lugaresQuery.rows[0]?.lugares_descubiertos || 0);
+
+            res.json({
+                ...result.rows[0],
+                lugares_descubiertos: lugaresDescubiertos
+            });
 
         } catch (error) {
             console.error('Error obteniendo perfil:', error);
