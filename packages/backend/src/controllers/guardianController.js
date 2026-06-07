@@ -132,7 +132,7 @@ const guardianController = {
                 return res.status(400).json({ error: 'Ya tienes un guardián activo' });
             }
             
-            // 🔥 NUEVA VALIDACIÓN: Verificar nivel del usuario (mínimo nivel 5)
+            // ✅ VERIFICAR NIVEL DESDE LA TABLA usuarios
             const usuarioInfo = await pool.query(`
                 SELECT nivel FROM usuarios WHERE id = $1
             `, [usuarioId]);

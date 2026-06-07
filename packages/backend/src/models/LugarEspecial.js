@@ -2,18 +2,17 @@
 const pool = require('../config/database');
 
 const LugarEspecial = {
-    // Obtener el lugar especial (solo hay uno)
     async obtener() {
-        const query = 'SELECT * FROM lugares_especiales WHERE activo = true LIMIT 1';
+        // Cambiar 'lugares_especiales' a 'lugar_especial'
+        const query = 'SELECT * FROM lugar_especial WHERE activo = true LIMIT 1';
         const result = await pool.query(query);
         return result.rows[0];
     },
 
-    // Verificar si un usuario tiene desbloqueado el lugar especial (nivel 5)
     async estaDesbloqueado(usuarioId, playerLevel) {
         const lugar = await this.obtener();
         if (!lugar) return false;
-        return playerLevel >= lugar.nivel_requerido;
+        return playerLevel >= 5; // Nivel requerido fijo en 5
     }
 };
 

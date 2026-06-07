@@ -210,7 +210,6 @@ const XPBurst = ({ x, y, xp, onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 1200); return () => clearTimeout(t); }, [onDone]);
   return (
     <div style={{ position: 'fixed', left: x, top: y, pointerEvents: 'none', zIndex: 9000 }}>
-      {/* Número de XP flotante */}
       <div style={{
         position: 'absolute', left: -24, top: -50,
         fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 22,
@@ -218,7 +217,6 @@ const XPBurst = ({ x, y, xp, onDone }) => {
         animation: 'xp-float 1.1s ease-out forwards',
         whiteSpace: 'nowrap',
       }}>+{xp} XP</div>
-      {/* Partículas */}
       {Array.from({ length: PARTS }).map((_, i) => {
         const angle = (i / PARTS) * 360;
         const dist  = 40 + Math.random() * 50;
@@ -274,14 +272,13 @@ const LevelUpBanner = ({ level, show }) => (
         <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 10, letterSpacing: '.1em' }}>
           EXPLORADOR ASCENDIDO
         </div>
-        {/* Líneas decorativas */}
         <div style={{ position: 'absolute', top: '50%', left: 16, right: 16, height: 1, background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.2), transparent)', pointerEvents: 'none' }} />
       </motion.div>
     )}
   </AnimatePresence>
 );
 
-// 📡 Radar mini (esquina inferior derecha)
+// 📡 Radar mini
 const RadarMini = ({ userPosition, lugares, discoveredPlaces, isMobile }) => {
   if (!userPosition || isMobile) return null;
   const SIZE = 90;
@@ -297,7 +294,6 @@ const RadarMini = ({ userPosition, lugares, discoveredPlaces, isMobile }) => {
       boxShadow: '0 0 20px rgba(34,197,94,0.12), 0 4px 16px rgba(0,0,0,0.5)',
       overflow: 'hidden',
     }}>
-      {/* Anillos concéntricos */}
       {[0.3, 0.6, 0.9].map((r, i) => (
         <div key={i} style={{
           position: 'absolute',
@@ -309,14 +305,12 @@ const RadarMini = ({ userPosition, lugares, discoveredPlaces, isMobile }) => {
           animationDelay: `${i * 0.4}s`,
         }} />
       ))}
-      {/* Líneas cruzadas */}
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: '100%', height: 1, background: 'rgba(34,197,94,0.12)' }} />
       </div>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 1, height: '100%', background: 'rgba(34,197,94,0.12)' }} />
       </div>
-      {/* Sweep */}
       <div style={{
         position: 'absolute', inset: 0,
         background: 'conic-gradient(rgba(34,197,94,0.18) 0deg, transparent 60deg)',
@@ -324,9 +318,7 @@ const RadarMini = ({ userPosition, lugares, discoveredPlaces, isMobile }) => {
         animation: 'radar-sweep 3s linear infinite',
         transformOrigin: '50% 50%',
       }} />
-      {/* Centro */}
       <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }} />
-      {/* Blips de lugares */}
       {lugares.slice(0, 12).map((l) => {
         const dlat = (parseFloat(l.latitud) - userPosition.lat) * 111000;
         const dlng = (parseFloat(l.longitud) - userPosition.lng) * 111000 * Math.cos(userPosition.lat * Math.PI / 180);
@@ -346,7 +338,6 @@ const RadarMini = ({ userPosition, lugares, discoveredPlaces, isMobile }) => {
           }} />
         );
       })}
-      {/* Label */}
       <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, textAlign: 'center', fontFamily: "'Orbitron',monospace", fontSize: 6, color: 'rgba(34,197,94,0.5)', letterSpacing: '.1em' }}>RADAR</div>
     </div>
   );
@@ -410,10 +401,8 @@ const HUDHeader = ({
         gap: 8,
       }}
     >
-      {/* ── Izquierda ── */}
       <div style={{ display: 'flex', gap: 5, alignItems: 'center', pointerEvents: 'auto', flexWrap: 'wrap' }}>
 
-        {/* Badge nivel */}
         <div className="level-badge" style={{
           background: `linear-gradient(150deg, ${lc.from}, ${lc.to})`,
           border: `1.5px solid ${lc.border}`,
@@ -445,7 +434,6 @@ const HUDHeader = ({
           </span>
         </div>
 
-        {/* Lugares */}
         <div style={{
           background: 'rgba(4,10,30,0.88)',
           backdropFilter: 'blur(14px)',
@@ -466,7 +454,6 @@ const HUDHeader = ({
           <div style={{ fontSize: 7, color: 'rgba(255,255,255,0.22)', letterSpacing: '.1em', marginTop: 1 }}>LUGARES</div>
         </div>
 
-        {/* XP (solo desktop) */}
         {!isMobile && (
           <div style={{
             background: 'rgba(4,10,30,0.88)', backdropFilter: 'blur(14px)',
@@ -495,7 +482,6 @@ const HUDHeader = ({
         )}
       </div>
 
-      {/* ── Derecha ── */}
       <div style={{ display: 'flex', gap: 6, pointerEvents: 'auto', flexShrink: 0 }}>
         <motion.button onClick={onToggleMenuExplorador} whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.93 }}
           className="hud-btn hud-btn-gold"
@@ -533,7 +519,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
       whileHover={{ scale: 1.18, y: -3 }} whileTap={{ scale: 0.9 }}
       style={{ cursor: 'pointer', position: 'relative' }}>
 
-      {/* Aura exterior (solo no descubiertos) */}
       {!discovered && (
         <div style={{
           position: 'absolute', inset: -6,
@@ -545,7 +530,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
         }} />
       )}
 
-      {/* Sombra proyectada */}
       <div style={{
         position: 'absolute', bottom: -8, left: '50%',
         transform: 'translateX(-50%)',
@@ -556,7 +540,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
         pointerEvents: 'none',
       }} />
 
-      {/* Cuerpo del pin */}
       <div
         className={discovered ? 'pin-gold' : 'pin-enemy'}
         style={{
@@ -573,7 +556,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
           position: 'relative', overflow: 'hidden',
         }}
       >
-        {/* Brillo interior */}
         <div style={{
           position: 'absolute', top: '10%', left: '10%', width: '40%', height: '40%',
           background: discovered ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)',
@@ -586,7 +568,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
         </span>
       </div>
 
-      {/* Corona de descubierto */}
       {discovered && (
         <div style={{
           position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
@@ -598,7 +579,6 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
   );
 };
 
-// 📡 Marcador del jugador con sonar
 // 📜 Quest Log holográfico
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar, isMobile }) => (
   <AnimatePresence>
@@ -626,10 +606,8 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
           boxShadow: '0 0 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03), 0 0 40px rgba(34,197,94,0.04)',
         }}
       >
-        {/* Línea de brillo top */}
         <div style={{ position: 'absolute', top: 0, left: 20, right: 20, height: 1, background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.5), transparent)' }} />
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>📜</div>
           <span className="orb-font" style={{ color: '#fbbf24', fontWeight: 700, fontSize: 12, letterSpacing: '.1em' }}>MISIONES</span>
@@ -638,7 +616,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
           </div>
         </div>
 
-        {/* Barra progreso */}
         <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 10, overflow: 'hidden' }}>
           <motion.div
             animate={{ width: lugares.length > 0 ? `${(discoveredPlaces.length / lugares.length) * 100}%` : '0%' }}
@@ -647,7 +624,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
           />
         </div>
 
-        {/* Lista */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {lugares.map((lugar, i) => {
             const found = discoveredPlaces.includes(lugar.id);
@@ -684,7 +660,6 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
     )}
   </AnimatePresence>
 );
-
 
 // 🎯 Modal Evento
 const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
@@ -723,8 +698,8 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
   </motion.div>
 );
 
-// 🏆 Popup del lugar
-const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcularDistancia }) => {
+// 🏆 Popup del lugar (NUEVA VERSIÓN CON DOS BOTONES)
+const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, onVerDetalles, onAbrirMapa, calcularDistancia }) => {
   const distance   = userPosition ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud)) : null;
   const canExplore = distance !== null && distance <= 50;
   const td         = TIPO_DATA[lugar.tipo] || TIPO_DATA.historico;
@@ -732,7 +707,6 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
 
   return (
     <div style={{ padding: '16px 16px 14px', minWidth: 210, maxWidth: 248 }}>
-      {/* Imagen */}
       <div style={{ width: '100%', height: 116, borderRadius: 14, marginBottom: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
         {lugar.imagen_url
           ? <img src={lugar.imagen_url} alt={lugar.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = `<span style="font-size:46px">${td.emoji}</span>`; }} />
@@ -740,11 +714,9 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
         {discovered && (
           <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(34,197,94,0.88)', borderRadius: 20, padding: '2px 9px', fontSize: 9, color: 'white', fontWeight: 700, letterSpacing: '.06em', fontFamily: "'Orbitron',monospace" }}>✓ HALLADO</div>
         )}
-        {/* Gradiente abajo */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(transparent, rgba(4,10,30,0.7))', pointerEvents: 'none' }} />
       </div>
 
-      {/* Badge tipo */}
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${td.color}14`, border: `1px solid ${td.color}30`, borderRadius: 20, padding: '2px 9px', marginBottom: 8, fontSize: 9, color: td.color, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>
         {td.emoji} {td.label}
       </div>
@@ -752,35 +724,79 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, calcul
       <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>{lugar.nombre}</h3>
       <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, lineHeight: 1.65, margin: '0 0 10px' }}>{desc}</p>
 
-      {/* Tip */}
-      <div style={{ background: 'rgba(251,191,36,0.05)', borderLeft: '2px solid rgba(251,191,36,0.3)', padding: '5px 8px', marginBottom: 12, borderRadius: '0 7px 7px 0' }}>
-        <span style={{ color: 'rgba(251,191,36,0.7)', fontSize: 9, fontWeight: 600 }}>🔍 Acércate para desbloquear la historia completa</span>
-      </div>
+      {!discovered && (
+        <div style={{ background: 'rgba(251,191,36,0.05)', borderLeft: '2px solid rgba(251,191,36,0.3)', padding: '5px 8px', marginBottom: 12, borderRadius: '0 7px 7px 0' }}>
+          <span style={{ color: 'rgba(251,191,36,0.7)', fontSize: 9, fontWeight: 600 }}>🔍 Acércate para desbloquear la historia completa</span>
+        </div>
+      )}
 
-      {/* Distancia */}
-      {!canExplore && distance !== null && (
+      {!discovered && !canExplore && distance !== null && (
         <div style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 9, padding: '6px 9px', marginBottom: 10, textAlign: 'center' }}>
           <span style={{ color: '#fca5a5', fontSize: 11, fontWeight: 600 }}>📍 A {Math.round(distance)} m de aquí</span>
         </div>
       )}
 
-      {/* Botón */}
-      <motion.button
-        whileHover={canExplore ? { scale: 1.03 } : {}} whileTap={canExplore ? { scale: 0.97 } : {}}
-        onClick={(e) => { e.stopPropagation(); if (canExplore) onExplorar(); }}
-        disabled={!canExplore}
-        className="orb-font"
-        style={{
-          width: '100%', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 11,
-          cursor: canExplore ? 'pointer' : 'not-allowed', letterSpacing: '.07em',
-          background: canExplore ? 'linear-gradient(135deg, #15803d, #14532d)' : 'rgba(255,255,255,0.04)',
-          color: canExplore ? 'white' : 'rgba(255,255,255,0.25)',
-          border: canExplore ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.06)',
-          boxShadow: canExplore ? '0 0 20px rgba(34,197,94,0.18)' : 'none',
-        }}
-      >{canExplore ? '✨ EXPLORAR LUGAR' : '🔒 ACÉRCATE MÁS'}</motion.button>
-      {!canExplore && distance !== null && (
-        <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 8, textAlign: 'center', marginTop: 6, letterSpacing: '.05em', fontFamily: "'Orbitron',monospace" }}>NECESITAS ESTAR A MENOS DE 50 M</p>
+      <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+        {!discovered ? (
+          <motion.button
+            whileHover={canExplore ? { scale: 1.03 } : {}}
+            whileTap={canExplore ? { scale: 0.97 } : {}}
+            onClick={(e) => { e.stopPropagation(); if (canExplore) onExplorar(); }}
+            disabled={!canExplore}
+            className="orb-font"
+            style={{
+              width: '100%', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 11,
+              cursor: canExplore ? 'pointer' : 'not-allowed', letterSpacing: '.07em',
+              background: canExplore ? 'linear-gradient(135deg, #15803d, #14532d)' : 'rgba(255,255,255,0.04)',
+              color: canExplore ? 'white' : 'rgba(255,255,255,0.25)',
+              border: canExplore ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.06)',
+              boxShadow: canExplore ? '0 0 20px rgba(34,197,94,0.18)' : 'none',
+            }}
+          >
+            {canExplore ? '✨ EXPLORAR LUGAR' : '🔒 ACÉRCATE MÁS'}
+          </motion.button>
+        ) : (
+          <>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={(e) => { e.stopPropagation(); onVerDetalles(); }}
+              className="orb-font"
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 11,
+                cursor: 'pointer', letterSpacing: '.07em',
+                background: 'linear-gradient(135deg, #1e40af, #1e3a8a)',
+                color: 'white',
+                border: '1px solid rgba(59,130,246,0.35)',
+                boxShadow: '0 0 20px rgba(59,130,246,0.18)',
+              }}
+            >
+              📖 VER DETALLES
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={(e) => { e.stopPropagation(); onAbrirMapa(); }}
+              className="orb-font"
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 11,
+                cursor: 'pointer', letterSpacing: '.07em',
+                background: 'linear-gradient(135deg, #059669, #047857)',
+                color: 'white',
+                border: '1px solid rgba(16,185,129,0.35)',
+                boxShadow: '0 0 20px rgba(16,185,129,0.18)',
+              }}
+            >
+              🗺️ CÓMO LLEGAR
+            </motion.button>
+          </>
+        )}
+      </div>
+
+      {!discovered && !canExplore && distance !== null && (
+        <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 8, textAlign: 'center', marginTop: 6, letterSpacing: '.05em', fontFamily: "'Orbitron',monospace" }}>
+          NECESITAS ESTAR A MENOS DE 50 M
+        </p>
       )}
     </div>
   );
@@ -846,7 +862,7 @@ function Mapa() {
   const [xpBurst, setXpBurst]                       = useState(null);
   const [viewState, setViewState]                   = useState({ longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 });
 
-  // 🆕 PWA: estado para instalación
+  // PWA
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
 
@@ -866,7 +882,6 @@ function Mapa() {
       setPublicGuides((prev) => prev.filter((item) => item.id !== guia.id));
       return;
     }
-
     setPublicGuides((prev) => {
       const existing = prev.find((item) => item.id === guia.id);
       if (existing) {
@@ -877,27 +892,44 @@ function Mapa() {
   }, []);
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3, φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a  = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   };
 
-  const calcularSistemaExp = (total) => {
-    const pesos = [1, 1.5, 2, 2.5, 3], suma = pesos.reduce((a, b) => a + b, 0);
-    const expBase = 10;
-    const expReq  = pesos.map(p => Math.round((p / suma) * total * expBase));
-    const expAcum = [];
-    expReq.reduce((acc, curr, i) => { expAcum[i] = acc + curr; return expAcum[i]; }, 0);
-    return { expRequerida: expReq, expAcumulada: expAcum, expBase };
-  };
+  // ✅ Sincronización con backend: perfil y lugares descubiertos
+  const cargarPerfilYDescubrimientos = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('turista_token');
+      if (!token) return;
 
-  const calcularNivelPorXP = (xpActual, expAcumulada) => {
-    for (let i = 0; i < expAcumulada.length; i++) if (xpActual < expAcumulada[i]) return i + 1;
-    return expAcumulada.length + 1;
-  };
+      const perfilRes = await api.get('/auth/perfil');
+      const usuario = perfilRes.data;
+      setPlayerLevel(usuario.nivel || 1);
+      setXp(usuario.xp_total || 0);
+      if (usuario.foto_perfil) setUserAvatar(usuario.foto_perfil);
 
-  const registrarDescubrimiento = async (lugar, evt) => {
+      const descRes = await api.get('/descubrimientos/mis-descubrimientos');
+      const ids = (descRes.data || []).map(d => d.lugar_id);
+      setDiscoveredPlaces(ids);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch (error) {
+      console.error('Error cargando perfil/descubrimientos:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarPerfilYDescubrimientos();
+  }, [cargarPerfilYDescubrimientos]);
+
+  const registrarDescubrimiento = async (lugar) => {
     if (!userPosition) { mostrarMensajeGuia('📍 Activa tu ubicación para explorar', 'pensativo', 3000); return false; }
     const dist = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
     if (dist > 50) { mostrarMensajeGuia(`❌ Acércate más (${Math.round(dist)} m)`, 'pensativo', 3000); return false; }
@@ -905,23 +937,10 @@ function Mapa() {
     try {
       const res = await api.post('/descubrimientos/registrar', { lugar_id: lugar.id, latitud: userPosition.lat, longitud: userPosition.lng });
       if (res.data.success) {
-        const nuevos = [...discoveredPlaces, lugar.id];
-        setDiscoveredPlaces(nuevos);
+        await cargarPerfilYDescubrimientos();
         setLastVisitedPlace(lugar);
         setTimeout(() => setLastVisitedPlace(null), 3000);
-        const nXP = nuevos.length * sistemaExp.expBase;
-        setXp(nXP);
-        localStorage.setItem('player_xp', nXP);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevos));
-        setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: sistemaExp.expBase });
-        if (sistemaExp.expAcumulada.length > 0) {
-          const nLvl = Math.min(calcularNivelPorXP(nXP, sistemaExp.expAcumulada), 5);
-          if (nLvl > playerLevel) {
-            setPlayerLevel(nLvl);
-            setShowLevelUp(true);
-            setTimeout(() => setShowLevelUp(false), 3500);
-          }
-        }
+        setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 10 });
         return true;
       }
     } catch (e) {
@@ -932,40 +951,43 @@ function Mapa() {
 
   const handleExplorarLugar = async (lugar) => {
     const ok = await registrarDescubrimiento(lugar);
-    if (ok) { setSelectedLugar(null); navigate(`/lugar/${lugar.id}`); }
+    if (ok) setSelectedLugar(null);
   };
 
-  // 🆕 Funciones para manejar clics en marcadores sin conflictos
-  const handleLugarClick = (lugar) => {
-    setSelectedGuia(null);
-    setSelectedLugar(lugar);
+  const handleVerDetalles = (lugar) => {
+    navigate(`/lugar/${lugar.id}`);
   };
 
-  const handleGuiaClick = (guia) => {
-    setSelectedLugar(null);
-    setSelectedGuia(guia);
+  const handleAbrirMapa = (lugar) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`;
+    window.open(url, '_blank');
   };
 
-  // 🆕 Instalación PWA
-  const handleInstallClick = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('Usuario aceptó la instalación PWA');
-        } else {
-          console.log('Usuario rechazó la instalación');
-        }
-        setDeferredPrompt(null);
-        setShowInstallButton(false);
-      });
+  const calcularSistemaExp = (total) => {
+    const pesos = [1, 1.5, 2, 2.5, 3];
+    const suma = pesos.reduce((a, b) => a + b, 0);
+    const expBase = 10;
+    const expReq = pesos.map(p => Math.round((p / suma) * total * expBase));
+    const expAcum = [];
+    let acc = 0;
+    expReq.forEach((curr) => { acc += curr; expAcum.push(acc); });
+    return { expRequerida: expReq, expAcumulada: expAcum, expBase };
+  };
+
+  const calcularNivelPorXP = (xpActual, expAcumulada) => {
+    for (let i = 0; i < expAcumulada.length; i++) {
+      if (xpActual < expAcumulada[i]) return i + 1;
     }
+    return expAcumulada.length + 1;
   };
 
-  // ── efectos ──────────────────────────────────────────────────
-  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 640); window.addEventListener('resize', h); return () => window.removeEventListener('resize', h); }, []);
+  // Efectos (resize, beforeinstallprompt, etc.)
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
-  // 🆕 Escuchar evento beforeinstallprompt
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -977,13 +999,6 @@ function Mapa() {
   }, []);
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        const r = await api.get('/auth/perfil');
-        if (r.data?.foto_perfil) setUserAvatar(r.data.foto_perfil);
-      } catch {}
-    };
-    cargar();
     const cargarEsp = async () => {
       setLugarEspecial({ id: 'parque_principal_galeria', nombre: '📸 Parque Principal - Rincón de Recuerdos', latitud: 6.3953494, longitud: -75.2592802, tipo: 'especial' });
     };
@@ -1001,7 +1016,6 @@ function Mapa() {
         console.error('Error cargando guías públicas:', error);
       }
     };
-
     cargarGuiasPublicas();
 
     const socket = io(SOCKET_URL, {
@@ -1011,30 +1025,22 @@ function Mapa() {
       reconnectionDelay: 2000,
       timeout: 10000,
     });
-
     socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('🛰️ Conectado a WebSocket de guías públicas', socket.id);
-    });
-
+    socket.on('connect', () => console.log('🛰️ Conectado a WebSocket de guías públicas', socket.id));
     socket.on('guia-ubicacion-actualizada', (guia) => {
       if (!guia?.mostrar_avatar_publico) return;
       updateGuideInState(guia);
     });
-
     socket.on('guia-desconectado', (data) => {
       if (!data?.guiaId) return;
       if (data.mostrar_avatar_publico === false) {
         setPublicGuides((prev) => prev.filter((guia) => guia.id !== data.guiaId));
         return;
       }
-
       setPublicGuides((prev) => prev.map((guia) => (
         guia.id === data.guiaId ? { ...guia, conectado: false, latitud: data.latitud ?? guia.latitud, longitud: data.longitud ?? guia.longitud } : guia
       )));
     });
-
     return () => {
       socket.off('connect');
       socket.off('guia-ubicacion-actualizada');
@@ -1050,36 +1056,55 @@ function Mapa() {
   }, [navigate, mostrarMensajeGuia]);
 
   useEffect(() => {
-    if (!loading && lugares.length > 0) { mostrarMensajeGuia('¡Bienvenido a Concepción! Descubre sus secretos.', 'bienvenida', 6000); cargarEventos(); }
+    if (!loading && lugares.length > 0) {
+      mostrarMensajeGuia('¡Bienvenido a Concepción! Descubre sus secretos.', 'bienvenida', 6000);
+      cargarEventos();
+    }
   }, [loading, lugares.length]);
-
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem(STORAGE_KEY);
-      if (s) { const p = JSON.parse(s); if (Array.isArray(p)) setDiscoveredPlaces(p); }
-      const sx = localStorage.getItem('player_xp');
-      if (sx) setXp(parseInt(sx));
-    } catch { localStorage.removeItem(STORAGE_KEY); }
-  }, []);
 
   useEffect(() => {
     if (lugares.length > 0) {
       const sis = calcularSistemaExp(lugares.length);
       setSistemaExp(sis);
-      if (xp > 0) setPlayerLevel(Math.min(calcularNivelPorXP(xp, sis.expAcumulada), 5));
     }
   }, [lugares]);
 
-  useEffect(() => {
-    if (discoveredPlaces.length > 0 && sistemaExp.expBase > 0) {
-      const nXP = discoveredPlaces.length * sistemaExp.expBase;
-      setXp(nXP);
-      localStorage.setItem('player_xp', nXP);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(discoveredPlaces));
-      if (sistemaExp.expAcumulada.length > 0) setPlayerLevel(Math.min(calcularNivelPorXP(nXP, sistemaExp.expAcumulada), 5));
+  const cargarLugares = async () => {
+    try {
+      const r = await api.get('/lugares');
+      if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
+    } catch {
+    } finally {
+      setLoading(false);
     }
-  }, [discoveredPlaces, sistemaExp]);
+  };
 
+  const cargarEventos = async () => {
+    try {
+      const r = await api.get('/eventos/activos');
+      setEventos(r.data.eventos || []);
+    } catch {}
+  };
+
+  const handleCompletarEvento = async (eventoId, respuesta) => {
+    try {
+      const r = await api.post('/eventos/completar', { eventoId, respuesta });
+      if (r.data.success) {
+        mostrarMensajeGuia(`🎉 ¡Reto completado! +${r.data.xp_ganada} XP`, 'celebrando', 4000);
+        setEventoSeleccionado(null);
+        setRespuestaEvento('');
+        cargarEventos();
+      }
+    } catch {
+      mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
+    }
+  };
+
+  useEffect(() => {
+    cargarLugares();
+  }, []);
+
+  // Manejo de ubicación
   useEffect(() => {
     const check = async () => {
       const s = localStorage.getItem('locationResponse');
@@ -1105,23 +1130,27 @@ function Mapa() {
     return () => navigator.geolocation.clearWatch(id);
   }, [shouldLocate]);
 
-  const cargarLugares = async () => {
-    try { const r = await api.get('/lugares'); if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data); }
-    catch {} finally { setLoading(false); }
+  const handleLugarClick = (lugar) => {
+    setSelectedGuia(null);
+    setSelectedLugar(lugar);
   };
 
-  const cargarEventos = async () => {
-    try { const r = await api.get('/eventos/activos'); setEventos(r.data.eventos || []); } catch {}
+  const handleGuiaClick = (guia) => {
+    setSelectedLugar(null);
+    setSelectedGuia(guia);
   };
 
-  const handleCompletarEvento = async (eventoId, respuesta) => {
-    try {
-      const r = await api.post('/eventos/completar', { eventoId, respuesta });
-      if (r.data.success) { mostrarMensajeGuia(`🎉 ¡Reto completado! +${r.data.xp_ganada} XP`, 'celebrando', 4000); setEventoSeleccionado(null); setRespuestaEvento(''); cargarEventos(); }
-    } catch { mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000); }
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') console.log('Usuario aceptó la instalación PWA');
+        else console.log('Usuario rechazó la instalación');
+        setDeferredPrompt(null);
+        setShowInstallButton(false);
+      });
+    }
   };
-
-  useEffect(() => { cargarLugares(); }, []);
 
   if (loading) return <LoadingScreen />;
   if (!MAPBOX_TOKEN) return (
@@ -1134,15 +1163,12 @@ function Mapa() {
     <div style={{ height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <StyleInjector />
 
-      {/* Overlays CRT */}
       <div className="crt-overlay" />
       <div className="crt-vignette" />
       <div className="crt-scanline" />
 
-      {/* Banner de nivel */}
       <LevelUpBanner level={playerLevel} show={showLevelUp} />
 
-      {/* Partículas XP */}
       {xpBurst && (
         <XPBurst x={xpBurst.x} y={xpBurst.y} xp={xpBurst.xp} onDone={() => setXpBurst(null)} />
       )}
@@ -1190,7 +1216,6 @@ function Mapa() {
         totalLugares={lugares.length} fotoPerfil={userAvatar}
         isOpen={mostrarMenuExplorador} onClose={() => setMostrarMenuExplorador(false)} />
 
-      {/* Botón centrar ubicación */}
       {userPosition && (
         <motion.button onClick={() => setViewState(p => ({ ...p, longitude: userPosition.lng, latitude: userPosition.lat, zoom: 17 }))}
           whileHover={{ scale: 1.1, y: -1 }} whileTap={{ scale: 0.92 }}
@@ -1201,7 +1226,6 @@ function Mapa() {
         </motion.button>
       )}
 
-      {/* 🆕 Botón de instalación PWA */}
       {showInstallButton && (
         <motion.button
           initial={{ opacity: 0, y: 20 }}
@@ -1231,7 +1255,6 @@ function Mapa() {
         </motion.button>
       )}
 
-      {/* MAPA */}
       <Map
         ref={mapRef}
         {...viewState}
@@ -1244,14 +1267,18 @@ function Mapa() {
       >
         <Map3DEffect />
 
-        {/* Avatar jugador */}
+        {/* Avatar jugador sin bloquear clics */}
         {userPosition && (
-          <Marker longitude={userPosition.lng} latitude={userPosition.lat} anchor="center">
+          <Marker
+            longitude={userPosition.lng}
+            latitude={userPosition.lat}
+            anchor="center"
+            style={{ pointerEvents: 'none', zIndex: 500 }}
+          >
             <AvatarJugador level={playerLevel} isMobile={isMobile} />
           </Marker>
         )}
 
-        {/* Lugares - 🆕 usa handleLugarClick */}
         {lugares.map((lugar) => (
           <Marker key={lugar.id}
             longitude={parseFloat(lugar.longitud)} latitude={parseFloat(lugar.latitud)}
@@ -1262,7 +1289,6 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Galería especial */}
         {lugarEspecial && (
           <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 1500 }}>
             <motion.div
@@ -1287,7 +1313,6 @@ function Mapa() {
           </Marker>
         )}
 
-        {/* Public guide markers - 🆕 usa handleGuiaClick */}
         {publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
           <Marker key={`guia_${guia.id}`} longitude={parseFloat(guia.longitud)} latitude={parseFloat(guia.latitud)} anchor="bottom" style={{ zIndex: 1400 }}>
             <div
@@ -1302,7 +1327,6 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Eventos */}
         {eventos.map((evento) => (
           <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)} onClick={() => setEventoSeleccionado(evento)}>
             <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}
@@ -1310,7 +1334,6 @@ function Mapa() {
           </Marker>
         ))}
 
-        {/* Popup de GUÍA (zIndex 2000) */}
         {selectedGuia && selectedGuia.latitud && selectedGuia.longitud && (
           <Popup
             longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
@@ -1339,7 +1362,6 @@ function Mapa() {
           </Popup>
         )}
 
-        {/* Popup de LUGAR (zIndex 3000) */}
         {selectedLugar && (
           <Popup
             longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)}
@@ -1348,9 +1370,12 @@ function Mapa() {
             style={{ zIndex: 3000 }}
           >
             <LugarPopupContent
-              lugar={selectedLugar} discovered={discoveredPlaces.includes(selectedLugar.id)}
+              lugar={selectedLugar}
+              discovered={discoveredPlaces.includes(selectedLugar.id)}
               userPosition={userPosition}
               onExplorar={() => handleExplorarLugar(selectedLugar)}
+              onVerDetalles={() => handleVerDetalles(selectedLugar)}
+              onAbrirMapa={() => handleAbrirMapa(selectedLugar)}
               calcularDistancia={calcularDistancia}
             />
           </Popup>

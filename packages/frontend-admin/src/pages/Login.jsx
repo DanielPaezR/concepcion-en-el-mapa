@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 export default function Login() {
-  const [email, setEmail] = useState('admin@concepcion.cl');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -28,15 +28,14 @@ export default function Login() {
       const rol = payload.rol;
       
       console.log('Rol del usuario:', rol);
-      console.log('Redirigiendo a:', rol === 'admin' ? '/admin' : '/guia');
       
-      // Redirigir según el rol
+      // Redirigir según el rol usando React Router
       if (rol === 'admin') {
-        window.location.href = '/admin';
+        navigate('/admin');
       } else if (rol === 'guia') {
-        window.location.href = '/guia';
+        navigate('/guia');
       } else {
-        window.location.href = '/';
+        navigate('/');
       }
     } catch (err) {
       console.error('Error en login:', err);
@@ -50,6 +49,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Panel de Administración</h2>
+          <p className="text-gray-500 text-sm mt-1">Ingresa tus credenciales</p>
         </div>
         
         {error && (
@@ -63,7 +63,7 @@ export default function Login() {
             <input
               type="email"
               required
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Correo electrónico"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -71,7 +71,7 @@ export default function Login() {
             <input
               type="password"
               required
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Contraseña"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -79,7 +79,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50"
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
             </button>
