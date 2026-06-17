@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,38 +8,29 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
+
     try {
-      const response = await api.post('/auth/login', { email, password });
-      const { token, usuario } = response.data;
-      
-      console.log('Login response:', { token: token?.substring(0, 50), usuario });
-      
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // Decodificar token para saber el rol
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const rol = payload.rol;
-      
-      console.log('Rol del usuario:', rol);
-      
-      // Redirigir según el rol usando React Router
-      if (rol === 'admin') {
-        navigate('/admin');
-      } else if (rol === 'guia') {
-        navigate('/guia');
+      const result = await login(email, password);
+
+      if (result.success) {
+        const rol = result.user?.rol;
+        if (rol === 'admin') {
+          navigate('/admin');
+        } else if (rol === 'guia') {
+          navigate('/guia');
+        } else {
+          navigate('/');
+        }
       } else {
-        navigate('/');
+        setError(result.error);
       }
-    } catch (err) {
-      console.error('Error en login:', err);
-      setError(err.response?.data?.error || 'Error al iniciar sesión');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -51,13 +42,13 @@ export default function Login() {
           <h2 className="text-2xl font-bold text-gray-900">Panel de Administración</h2>
           <p className="text-gray-500 text-sm mt-1">Ingresa tus credenciales</p>
         </div>
-        
+
         {error && (
           <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <input
