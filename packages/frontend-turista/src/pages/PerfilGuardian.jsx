@@ -72,8 +72,8 @@ export default function PerfilGuardian() {
   const cargarPerfilYProgreso = async (userId) => {
     try {
       // 1. Obtener perfil de usuario (nivel, XP, email, etc.)
-      const perfilRes = await api.get('/turista/perfil');
-      const usuario = perfilRes.data;
+      const perfilRes = await api.get('/turista/progreso');
+      const usuario = perfilRes.data.usuario;
       setNivelReal(usuario.nivel || 1);
       setXpReal(usuario.xp_total || 0);
       
