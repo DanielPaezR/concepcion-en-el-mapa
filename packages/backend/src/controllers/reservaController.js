@@ -7,10 +7,10 @@ const reservaController = {
     // Crear una nueva solicitud de guía
     async create(req, res) {
         try {
-            const { lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro, turista_id } = req.body;
-            
-            // Usar turista_id del body si existe, sino del token, sino null
-            const turistaId = turista_id || req.user?.id || null;
+            const { lugar_id, fecha_encuentro, numero_personas, intereses, punto_encuentro } = req.body;
+
+            // El turista siempre se identifica por el token, nunca por el body (evita suplantación)
+            const turistaId = req.user.id;
 
             console.log('📝 Creando reserva:', { lugar_id, fecha_encuentro, numero_personas, turista_id: turistaId });
 
@@ -43,7 +43,13 @@ const reservaController = {
                 relacionadoId: reservaCreada.id
             };
 
-            await pushNotificationService.sendToRole('guia', notificationGuia);
+            // La notificación es un efecto secundario: si falla, no debe impedir
+            // que el turista reciba la confirmación de que su reserva sí se creó.
+            try {
+                await pushNotificationService.sendToRole('guia', notificationGuia);
+            } catch (notifError) {
+                console.error('⚠️ Error al notificar a los guías:', notifError);
+            }
 
             res.status(201).json({
                 success: true,
@@ -247,7 +253,11 @@ const reservaController = {
                     relacionadoId: reservaActualizada.id
                 };
 
-                await pushNotificationService.sendToUser(reservaActualizada.turista_id, notificationTurista);
+                try {
+                    await pushNotificationService.sendToUser(reservaActualizada.turista_id, notificationTurista);
+                } catch (notifError) {
+                    console.error('⚠️ Error al notificar al turista:', notifError);
+                }
             }
 
             res.json({ success: true, reserva: reservaActualizada });

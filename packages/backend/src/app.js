@@ -10,7 +10,6 @@ const encuestaRoutes = require('./routes/encuestaRoutes');
 const galeriaRoutes = require('./routes/galeriaRoutes');
 const insigniaRoutes = require('./routes/insigniaRoutes');
 const lugarEspecialRoutes = require('./routes/lugarEspecialRoutes');
-const authTuristaRoutes = require('./routes/authTuristaRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const metricasRoutes = require('./routes/metricasRoutes');
@@ -22,8 +21,11 @@ const adminEventosRoutes = require('./routes/adminEventosRoutes');
 const eventoRoutes = require('./routes/eventoRoutes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
 const pushNotificationRoutes = require('./routes/pushNotificationRoutes');
-const fileUpload = require('express-fileupload');
 const mensajesRoutes = require('./routes/mensajesRoutes');
+
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado. Define esta variable de entorno antes de iniciar el servidor.');
+}
 
 const app = express();
 
@@ -43,7 +45,7 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('localhost')) {
             callback(null, true);
         } else {
-            callback(null, true); // Fallback permisivo para asegurar conexión en el pueblo
+            callback(new Error('Origen no permitido por CORS'));
         }
     },
     credentials: true,
@@ -62,7 +64,6 @@ app.use('/api/encuestas', encuestaRoutes);
 app.use('/api/galeria', galeriaRoutes);
 app.use('/api/insignias', insigniaRoutes);
 app.use('/api/lugar-especial', lugarEspecialRoutes);
-app.use('/api/auth/turista', authTuristaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/metricas', metricasRoutes);
@@ -75,11 +76,6 @@ app.use('/api/eventos', eventoRoutes);
 app.use('/api/mensajes', mensajesRoutes);
 app.use('/api/push', pushNotificationRoutes);
 app.use('/api/favoritos', favoritoRoutes);
-app.use(fileUpload({
-    useTempFiles: true,
-    tempFileDir: '/tmp/',
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
-}));
 
 // Ruta de prueba
 app.get('/', (req, res) => {

@@ -827,6 +827,7 @@ export default function PanelGuia() {
         reservaId={chatData.reservaId}
         otroNombre={chatData.otroNombre}
         otroId={chatData.otroId}
+        usuarioId={user?.id}
       />
     </div>
   );

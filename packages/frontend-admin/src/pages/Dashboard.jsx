@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   MapPinIcon, CalendarIcon, UsersIcon, ClipboardDocumentListIcon,
   StarIcon, ChartBarIcon, ArrowTrendingUpIcon, QrCodeIcon,
-  HomeIcon, TrophyIcon, PhotoIcon, BuildingLibraryIcon,
+  HomeIcon, BuildingLibraryIcon,
   Cog6ToothIcon, ArrowRightOnRectangleIcon, XMarkIcon,
   Bars3Icon, ClockIcon, UserGroupIcon, WifiIcon, SignalSlashIcon,
   KeyIcon
@@ -18,8 +18,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import io from 'socket.io-client';
-import { SOCKET_URL } from '../config/runtime';
+import { connectSocket } from '../services/socket';
 import CambiarPasswordModal from '../components/CambiarPasswordModal';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -58,7 +57,6 @@ export default function Dashboard() {
     bearing: 0
   });
   const [guiaPopup, setGuiaPopup] = useState(null);
-  const [socket, setSocket] = useState(null);
   const [rangoFechas, setRangoFechas] = useState({
     inicio: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     fin: new Date().toISOString().split('T')[0]
@@ -75,8 +73,6 @@ export default function Dashboard() {
     { id: 'eventos', nombre: 'Eventos', icon: CalendarIcon, ruta: '/admin/eventos', color: 'text-purple-500' },
     { id: 'reservas', nombre: 'Reservas', icon: ClipboardDocumentListIcon, ruta: '/admin/reservas', color: 'text-orange-500' },
     { id: 'guias', nombre: 'Guías', icon: UsersIcon, ruta: '/admin/guias', color: 'text-indigo-500' },
-    { id: 'insignias', nombre: 'Insignias', icon: TrophyIcon, ruta: '/admin/insignias', color: 'text-yellow-500' },
-    { id: 'galeria', nombre: 'Galería', icon: PhotoIcon, ruta: '/admin/galeria', color: 'text-pink-500' },
     { id: 'ubicaciones', nombre: 'Ubicaciones', icon: BuildingLibraryIcon, ruta: '/admin/ubicaciones', color: 'text-teal-500' },
   ];
 
@@ -100,21 +96,16 @@ export default function Dashboard() {
 
     cargarGuiasEnVivo();
 
-    const socketIo = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 2000
-    });
+    // Reutiliza el socket compartido (el mismo que App.jsx conecta al autenticar) en vez de
+    // abrir una segunda conexión al mismo servidor. connectSocket() es idempotente.
+    const socketIo = connectSocket();
 
-    setSocket(socketIo);
-
-    socketIo.on('connect', () => {
+    const handleConnect = () => {
       console.log('🔌 Admin conectado a WebSocket');
       socketIo.emit('admin-conectar', { adminId: 'admin' });
-    });
+    };
 
-    socketIo.on('guia-ubicacion-actualizada', (data) => {
+    const handleUbicacionActualizada = (data) => {
       console.log('📍 Actualización de ubicación:', data);
       const guiaId = data.guiaId ?? data.id;
       if (!guiaId) return;
@@ -131,17 +122,24 @@ export default function Dashboard() {
           return [...prev, actualizacion];
         }
       });
-    });
+    };
 
-    socketIo.on('guia-desconectado', (data) => {
+    const handleGuiaDesconectado = (data) => {
       console.log('🔴 Guía desconectado:', data);
       const guiaId = data.guiaId ?? data.id;
       if (!guiaId) return;
       setGuiasEnVivo(prev => prev.filter(g => String(g.id) !== String(guiaId)));
-    });
+    };
+
+    if (socketIo.connected) handleConnect();
+    socketIo.on('connect', handleConnect);
+    socketIo.on('guia-ubicacion-actualizada', handleUbicacionActualizada);
+    socketIo.on('guia-desconectado', handleGuiaDesconectado);
 
     return () => {
-      socketIo.disconnect();
+      socketIo.off('connect', handleConnect);
+      socketIo.off('guia-ubicacion-actualizada', handleUbicacionActualizada);
+      socketIo.off('guia-desconectado', handleGuiaDesconectado);
     };
   }, []);
 

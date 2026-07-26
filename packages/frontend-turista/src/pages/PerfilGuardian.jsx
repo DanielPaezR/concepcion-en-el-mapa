@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Crown, Camera, Edit2, Save, X, User, CheckCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { decodeJwtPayload } from '../services/api';
 import toast from 'react-hot-toast';
 
 // ─── Función para calcular sistema de EXP (consistente con Mapa.jsx) ───
@@ -129,7 +129,7 @@ export default function PerfilGuardian() {
       let token = localStorage.getItem('token');
       if (!token) token = localStorage.getItem('turista_token');
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = decodeJwtPayload(token);
         setUsuarioActual(payload);
         if (payload.id === parseInt(id)) setEsMiPerfil(true);
       }

@@ -1,19 +1,27 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Usar DATABASE_URL (Recomendado para Railway)
+// En producción (Railway) se usa DATABASE_URL con SSL.
+// En desarrollo local se usan las variables sueltas DB_* sin SSL.
 const connectionString = process.env.DATABASE_URL;
 
-if (!connectionString) {
-  console.error('❌ ERROR: No se encontró DATABASE_URL en las variables de entorno');
+if (!connectionString && !process.env.DB_HOST) {
+  console.error('❌ ERROR: No se encontró DATABASE_URL ni DB_HOST en las variables de entorno');
   process.exit(1);
 }
 
 console.log('🔐 Conectando a PostgreSQL...');
 
 const pool = new Pool({
-  connectionString,
-  ssl: { rejectUnauthorized: false },
+  ...(connectionString
+    ? { connectionString, ssl: { rejectUnauthorized: false } }
+    : {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }),
   connectionTimeoutMillis: 10000, // Aumentado a 10 segundos
   max: 20,
   idleTimeoutMillis: 30000,

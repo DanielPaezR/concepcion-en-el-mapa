@@ -162,16 +162,24 @@ export const logout = () => {
     }
 };
 
+// Decodifica el payload de un JWT (los tokens usan base64url, no base64 estándar)
+export const decodeJwtPayload = (token) => {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+};
+
 // Función para verificar si el token es válido (opcional)
 export const isTokenValid = () => {
     const token = getCurrentToken();
     if (!token) return false;
-    
+
     try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = decodeJwtPayload(token);
         const exp = payload.exp * 1000; // Convertir a milisegundos
         const now = Date.now();
-        
+
         // Si expira en menos de 5 minutos, considerar que no es válido
         return exp - now > 5 * 60 * 1000;
     } catch (e) {

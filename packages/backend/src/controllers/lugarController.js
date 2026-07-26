@@ -61,11 +61,11 @@ const lugarController = {
             }
             
             const query = `
-                INSERT INTO lugares (nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO lugares (nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url, horario)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *
             `;
-            const values = [nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url];
+            const values = [nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url, horario || null];
             const result = await pool.query(query, values);
             
             res.status(201).json({ success: true, data: result.rows[0] });
@@ -105,13 +105,13 @@ const lugarController = {
             }
             
             const query = `
-                UPDATE lugares 
-                SET nombre = $1, descripcion = $2, tipo = $3, latitud = $4, longitud = $5, 
-                    direccion = $6, imagen_url = $7, fecha_actualizacion = CURRENT_TIMESTAMP
-                WHERE id = $8
+                UPDATE lugares
+                SET nombre = $1, descripcion = $2, tipo = $3, latitud = $4, longitud = $5,
+                    direccion = $6, imagen_url = $7, horario = $8, fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE id = $9
                 RETURNING *
             `;
-            const values = [nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url, id];
+            const values = [nombre, descripcion, tipo, latitud, longitud, direccion, imagen_url, horario || null, id];
             const result = await pool.query(query, values);
             
             if (result.rows.length === 0) {

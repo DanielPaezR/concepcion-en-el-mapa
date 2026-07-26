@@ -22,7 +22,7 @@ export default function MisReservas() {
         if (usuario?.id) {
             cargarReservas();
         }
-    }, [usuario]);
+    }, [usuario?.id]);
 
     const cargarReservas = async () => {
         try {

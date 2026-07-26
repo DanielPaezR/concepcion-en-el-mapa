@@ -78,7 +78,7 @@ export const autenticarTurista = async () => {
         const refreshToken = localStorage.getItem('refreshToken');
         
         if (refreshToken) {
-            const response = await axios.post(`${API_URL}/auth/refresh`, {
+            const response = await api.post('/auth/refresh', {
                 refreshToken
             });
             
@@ -149,6 +149,9 @@ export const logoutTurista = () => {
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem('turista_id');
     localStorage.removeItem(SESSION_ID_KEY);
+    // También usados por el interceptor de api.js al renovar el token
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     delete api.defaults.headers.common['Authorization'];
     window.location.href = '/';
 };

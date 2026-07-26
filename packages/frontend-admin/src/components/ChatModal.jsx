@@ -4,7 +4,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { getSocket } from '../services/socket'; // Asume que tienes este helper
 
-export default function ChatModal({ isOpen, onClose, reservaId, otroNombre, otroId }) {
+export default function ChatModal({ isOpen, onClose, reservaId, otroNombre, otroId, usuarioId }) {
     const [mensajes, setMensajes] = useState([]);
     const [nuevoMensaje, setNuevoMensaje] = useState('');
     const [cargando, setCargando] = useState(false);
@@ -78,9 +78,6 @@ export default function ChatModal({ isOpen, onClose, reservaId, otroNombre, otro
     };
 
     if (!isOpen) return null;
-
-    // Obtener el ID del usuario actual desde localStorage o contexto
-    const usuarioId = parseInt(localStorage.getItem('userId'));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

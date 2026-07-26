@@ -20,7 +20,8 @@ export default function LugarForm() {
     latitud: '',
     longitud: '',
     direccion: '',
-    imagen_url: ''
+    imagen_url: '',
+    horario: ''
   });
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -53,7 +54,8 @@ export default function LugarForm() {
         latitud: lugar.latitud || '',
         longitud: lugar.longitud || '',
         direccion: lugar.direccion || '',
-        imagen_url: lugar.imagen_url || ''
+        imagen_url: lugar.imagen_url || '',
+        horario: lugar.horario || ''
       });
       if (lugar.imagen_url) setImagenPreview(lugar.imagen_url);
     } catch (error) {
@@ -86,7 +88,8 @@ export default function LugarForm() {
     formDataToSend.append('longitud', formData.longitud);
     formDataToSend.append('direccion', formData.direccion);
     formDataToSend.append('imagen_url_actual', formData.imagen_url);
-    
+    formDataToSend.append('horario', formData.horario);
+
     if (archivoSeleccionado) {
       formDataToSend.append('imagen', archivoSeleccionado);
     }
@@ -294,7 +297,7 @@ export default function LugarForm() {
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={() => navigate('/lugares')}
+            onClick={() => navigate('/admin/lugares')}
             className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             Cancelar

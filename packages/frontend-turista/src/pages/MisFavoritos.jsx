@@ -16,7 +16,7 @@ export default function MisFavoritos() {
     if (usuario?.id && !usuario.anonimo) {
       cargarFavoritos();
     }
-  }, [usuario]);
+  }, [usuario?.id, usuario?.anonimo]);
 
   const cargarFavoritos = async () => {
     try {

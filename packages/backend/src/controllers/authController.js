@@ -47,7 +47,7 @@ const authController = {
                     rol: usuario.rol,
                     nombre: usuario.nombre
                 },
-                process.env.JWT_SECRET || 'tu_secreto_jwt',
+                process.env.JWT_SECRET,
                 { expiresIn: '7d' } // Aumentado a 7 días para mayor persistencia
             );
 
