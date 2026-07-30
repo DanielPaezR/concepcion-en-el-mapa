@@ -1,0 +1,26 @@
+-- Índices de rendimiento para las consultas más frecuentes de la app.
+--
+-- Este script se dejó intencionalmente sin CREATE INDEX: al conectarse a la
+-- base de datos real y correr \d en las tablas candidatas, se confirmó que
+-- ambas ya estaban indexadas (creadas por fuera de los scripts de
+-- database/scripts/, con nombres que no siguen la convención idx_tabla_columna
+-- usada en el resto del repo). Agregar los índices propuestos originalmente
+-- habría creado índices B-tree duplicados sobre las mismas columnas —
+-- más peso de escritura en cada INSERT/DELETE sin ningún beneficio de
+-- lectura, ya que las columnas que importan ya están cubiertas.
+--
+-- usuarios.session_id (se consulta en cada apertura de la app):
+--   ya existe "idx_usuarios_session_id" btree(session_id)
+--   y "usuarios_session_id_key" UNIQUE CONSTRAINT sobre session_id.
+--
+-- descubrimientos (se consulta en cada descubrimiento de lugar y en cada
+-- carga de progreso/perfil del usuario):
+--   ya existe "idx_descubrimientos_usuario" btree(usuario_id)
+--   ya existe "idx_descubrimientos_lugar" btree(lugar_id)
+--   ya existe "descubrimientos_usuario_id_lugar_id_key" UNIQUE CONSTRAINT
+--   sobre (usuario_id, lugar_id) — ya impone a nivel de base de datos que
+--   un usuario no puede descubrir el mismo lugar dos veces.
+--
+-- Si en el futuro se necesita un índice nuevo de verdad, agregarlo aquí
+-- verificando primero con \d <tabla> que no exista ya uno equivalente
+-- bajo otro nombre.
