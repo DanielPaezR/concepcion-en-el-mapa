@@ -4,6 +4,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/auth');
+const requireRole = require('../middleware/requireRole');
 
 // Verificar que el controlador se importó correctamente
 console.log('📦 authController:', {
@@ -26,9 +27,9 @@ router.get('/perfil', authMiddleware, authController.perfil);
 router.post('/cambiar-password', authMiddleware, authController.cambiarPassword);
 
 // Rutas de admin (requieren autenticación y rol admin)
-router.post('/register', authMiddleware, authController.register);
-router.get('/usuarios', authMiddleware, authController.listarUsuarios);
-router.put('/usuarios/:id', authMiddleware, authController.actualizarUsuario);
+router.post('/register', authMiddleware, requireRole('admin'), authController.register);
+router.get('/usuarios', authMiddleware, requireRole('admin'), authController.listarUsuarios);
+router.put('/usuarios/:id', authMiddleware, requireRole('admin'), authController.actualizarUsuario);
 
 // Rutas de guía
 router.patch('/disponibilidad', authMiddleware, authController.cambiarDisponibilidad);
