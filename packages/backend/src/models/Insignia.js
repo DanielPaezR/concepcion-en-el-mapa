@@ -55,172 +55,168 @@ const Insignia = {
 
     // Verificar y otorgar insignias (VERSIÓN COMPLETA)
     async verificarYOtorgar(usuarioId, metricas) {
-        const insigniasObtenidas = [];
-        const { 
-            nivel, 
-            lugaresDescubiertos, 
-            totalLugares, 
-            eventosCompletados, 
-            fotosSubidas, 
-            guardianesAnclados, 
+        const {
+            nivel,
+            lugaresDescubiertos,
+            totalLugares,
+            eventosCompletados,
+            fotosSubidas,
+            guardianesAnclados,
             rachaActual,
-            eventosTemporalesCompletados 
+            eventosTemporalesCompletados
         } = metricas;
-        
-        // 1. Insignias por NIVEL
-        const insigniasNivel = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo = 'nivel'
-                AND nivel_requerido IS NOT NULL 
-                AND nivel_requerido <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [nivel, usuarioId]);
-        
+
+        // Las 7 consultas son independientes entre sí (cada una revisa una
+        // categoría distinta de insignia) — antes se ejecutaban una detrás
+        // de otra; ahora corren en paralelo con Promise.all, lo que reduce
+        // el tiempo total de esta función a el de la consulta más lenta en
+        // vez de la suma de las 7.
+        const [
+            insigniasNivel,
+            insigniasLugares,
+            insigniasEventos,
+            insigniasFotos,
+            insigniasGuardianes,
+            insigniasRacha,
+            insigniasTemporales
+        ] = await Promise.all([
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo = 'nivel'
+                    AND nivel_requerido IS NOT NULL
+                    AND nivel_requerido <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [nivel, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo = 'lugares'
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [lugaresDescubiertos, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo IN ('eventos', 'evento')
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [eventosCompletados, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo IN ('fotos', 'foto')
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [fotosSubidas, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo IN ('guardianes', 'guardian')
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [guardianesAnclados, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE tipo = 'racha'
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [rachaActual, usuarioId]),
+            pool.query(`
+                SELECT * FROM insignias
+                WHERE es_temporal = true
+                    AND tipo = 'temporal'
+                    AND lugares_requeridos IS NOT NULL
+                    AND lugares_requeridos <= $1
+                    AND fecha_inicio <= CURRENT_DATE
+                    AND (fecha_fin IS NULL OR fecha_fin >= CURRENT_DATE)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM usuarios_insignias
+                        WHERE usuario_id = $2 AND insignia_id = insignias.id
+                    )
+            `, [eventosTemporalesCompletados || 0, usuarioId])
+        ]);
+
+        const insigniasObtenidas = [];
+
         for (const insignia of insigniasNivel.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 2. Insignias por LUGARES
-        const insigniasLugares = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo = 'lugares'
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [lugaresDescubiertos, usuarioId]);
-        
+
         for (const insignia of insigniasLugares.rows) {
             // Caso especial: "todos los lugares"
             if (insignia.lugares_requeridos === 999 || insignia.nombre.includes('Conquistador')) {
                 if (lugaresDescubiertos < totalLugares) continue;
             }
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 3. Insignias por EVENTOS
-        const insigniasEventos = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo IN ('eventos', 'evento')
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [eventosCompletados, usuarioId]);
-        
+
         for (const insignia of insigniasEventos.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 4. Insignias por FOTOS
-        const insigniasFotos = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo IN ('fotos', 'foto')
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [fotosSubidas, usuarioId]);
-        
+
         for (const insignia of insigniasFotos.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 5. Insignias por GUARDIANES
-        const insigniasGuardianes = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo IN ('guardianes', 'guardian')
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [guardianesAnclados, usuarioId]);
-        
+
         for (const insignia of insigniasGuardianes.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 6. Insignias por RACHA
-        const insigniasRacha = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE tipo = 'racha' 
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [rachaActual, usuarioId]);
-        
+
         for (const insignia of insigniasRacha.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
-        // 7. Insignias TEMPORALES
-        const insigniasTemporales = await pool.query(`
-            SELECT * FROM insignias 
-            WHERE es_temporal = true 
-                AND tipo = 'temporal'
-                AND lugares_requeridos IS NOT NULL 
-                AND lugares_requeridos <= $1
-                AND fecha_inicio <= CURRENT_DATE 
-                AND (fecha_fin IS NULL OR fecha_fin >= CURRENT_DATE)
-                AND NOT EXISTS (
-                    SELECT 1 FROM usuarios_insignias 
-                    WHERE usuario_id = $2 AND insignia_id = insignias.id
-                )
-        `, [eventosTemporalesCompletados || 0, usuarioId]);
-        
+
         for (const insignia of insigniasTemporales.rows) {
-            await this._otorgarInsignia(usuarioId, insignia);
-            insigniasObtenidas.push(insignia);
+            if (await this._otorgarInsignia(usuarioId, insignia)) insigniasObtenidas.push(insignia);
         }
-        
+
         return insigniasObtenidas;
     },
-    
+
     // Método privado para otorgar insignia y guardar notificación
     async _otorgarInsignia(usuarioId, insignia) {
-        // Verificar si ya la tiene
-        const existe = await pool.query(
-            'SELECT id FROM usuarios_insignias WHERE usuario_id = $1 AND insignia_id = $2',
-            [usuarioId, insignia.id]
-        );
-        
-        if (existe.rows.length > 0) return;
-        
-        // Otorgar insignia
-        await pool.query(
-            'INSERT INTO usuarios_insignias (usuario_id, insignia_id) VALUES ($1, $2)',
-            [usuarioId, insignia.id]
-        );
-        
-        // Guardar notificación
+        // ON CONFLICT DO NOTHING usa la restricción UNIQUE(usuario_id, insignia_id)
+        // que ya existe en la tabla — antes esto era un SELECT de verificación
+        // seguido de un INSERT separado (2 consultas, con una ventana de
+        // condición de carrera); ahora es una sola operación atómica.
+        const resultado = await pool.query(`
+            INSERT INTO usuarios_insignias (usuario_id, insignia_id)
+            VALUES ($1, $2)
+            ON CONFLICT (usuario_id, insignia_id) DO NOTHING
+            RETURNING id
+        `, [usuarioId, insignia.id]);
+
+        // Si no se insertó ninguna fila, ya la tenía — no hay nada más que hacer.
+        if (resultado.rows.length === 0) return false;
+
         const mensajeNotificacion = `🎉 ¡NUEVA INSIGNIA! ${insignia.nombre}\n${insignia.descripcion || '¡Logro desbloqueado!'}`;
-        
+
         await pool.query(`
             INSERT INTO notificaciones_insignias (usuario_id, insignia_id, mensaje, leida)
             VALUES ($1, $2, $3, false)
         `, [usuarioId, insignia.id, mensajeNotificacion]);
-        
+
         console.log(`🏅 [${new Date().toISOString()}] Usuario ${usuarioId} obtuvo: ${insignia.nombre}`);
+        return true;
     }
 };
 
