@@ -55,15 +55,15 @@ const turistaController = {
                     nivel: usuario.nivel || 1
                 },
                 process.env.JWT_SECRET,
-                { expiresIn: '365d' }
+                { expiresIn: '30d' }
             );
-            
-            res.json({ 
-                success: true, 
-                token, 
-                usuario: { 
-                    id: usuario.id, 
-                    nombre: usuario.nombre, 
+
+            res.json({
+                success: true,
+                token,
+                usuario: {
+                    id: usuario.id,
+                    nombre: usuario.nombre,
                     anonimo: true,   // ← AGREGAR
                     xp_total: usuario.xp_total || 0,
                     nivel: usuario.nivel || 1
@@ -129,7 +129,7 @@ const turistaController = {
             const token = jwt.sign(
                 { id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
                 process.env.JWT_SECRET,
-                { expiresIn: '365d' }
+                { expiresIn: '30d' }
             );
             
             res.json({ 
@@ -183,12 +183,12 @@ const turistaController = {
                     nivel: usuario.nivel || 1
                 },
                 process.env.JWT_SECRET,
-                { expiresIn: '365d' }
+                { expiresIn: '30d' }
             );
-            
-            res.json({ 
-                success: true, 
-                token, 
+
+            res.json({
+                success: true,
+                token,
                 usuario: {
                     id: usuario.id,
                     email: usuario.email,

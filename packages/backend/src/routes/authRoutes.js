@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
+const { loginLimiter } = require('../middleware/rateLimiters');
 
 // Verificar que el controlador se importó correctamente
 console.log('📦 authController:', {
@@ -18,7 +19,7 @@ console.log('📦 authController:', {
 });
 
 // Rutas públicas (no requieren autenticación)
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 
 // Rutas protegidas (requieren autenticación)
 router.get('/verificar', authMiddleware, authController.verificar);
