@@ -23,6 +23,7 @@ const favoritoRoutes = require('./routes/favoritoRoutes');
 const pushNotificationRoutes = require('./routes/pushNotificationRoutes');
 const mensajesRoutes = require('./routes/mensajesRoutes');
 const comercioRoutes = require('./routes/comercioRoutes');
+const archivoRecuerdoRoutes = require('./routes/archivoRecuerdoRoutes');
 
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET no está configurado. Define esta variable de entorno antes de iniciar el servidor.');
@@ -76,6 +77,7 @@ app.use('/api/admin/eventos', adminEventosRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/mensajes', mensajesRoutes);
 app.use('/api/comercios', comercioRoutes);
+app.use('/api/recuerdos', archivoRecuerdoRoutes);
 app.use('/api/push', pushNotificationRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 
