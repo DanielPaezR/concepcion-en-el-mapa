@@ -13,19 +13,41 @@ import PerfilGuardian from './pages/PerfilGuardian';
 import MisFavoritos from './pages/MisFavoritos';
 import NotificacionInsignia from './components/NotificacionInsignia';
 import LandingPage from './pages/LandingPage';
+import { connectSocket, getSocket } from './services/socket';
+import { getTuristaActual } from './services/auth'; // Ajusta según tu función
 
 function App() {
   useEffect(() => {
     // Registrar visita cada vez que se abre la app
     registrarVisita();
+
+    // Conectar socket y registrar al usuario si está autenticado
+    const usuario = getTuristaActual(); // O usa el contexto de autenticación
+    if (usuario && usuario.id) {
+      const socket = connectSocket();
+      const handleConnect = () => {
+        socket.emit('usuario-conectar', usuario.id);
+        console.log('Socket conectado y usuario registrado:', usuario.id);
+      };
+      if (socket.connected) {
+        handleConnect();
+      } else {
+        socket.once('connect', handleConnect);
+      }
+      return () => {
+        if (socket) {
+          socket.off('connect', handleConnect);
+        }
+      };
+    }
   }, []);
 
   return (
     <>
       <NotificacionInsignia />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/mapa" element={<Mapa />} />
+        <Route path="/" element={<Mapa />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/lugar/:id" element={<LugarDetalle />} />
         <Route path="/solicitar-guia/:lugarId" element={<SolicitarGuia />} />
         <Route path="/encuesta/:reservaId" element={<Encuesta />} />

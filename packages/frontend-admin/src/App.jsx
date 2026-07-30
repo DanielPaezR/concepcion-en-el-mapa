@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -9,11 +10,36 @@ import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
 import Layout from './components/Layout';
+import Ubicaciones from './pages/Ubicaciones';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
+import { connectSocket, getSocket } from './services/socket'; // 🆕 importar socket
 
 function App() {
   const { user, loading } = useAuth();
+
+  // 🆕 Conectar socket cuando el usuario está autenticado
+  useEffect(() => {
+    if (user && user.id) {
+      const socket = connectSocket();
+      const handleConnect = () => {
+        socket.emit('usuario-conectar', user.id);
+        console.log('✅ Socket conectado y usuario identificado:', user.id, 'rol:', user.rol);
+      };
+      if (socket.connected) {
+        handleConnect();
+      } else {
+        socket.once('connect', handleConnect);
+      }
+
+      // Limpiar al desconectar (opcional)
+      return () => {
+        if (socket) {
+          socket.off('connect', handleConnect);
+        }
+      };
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -43,6 +69,7 @@ function App() {
         <Route path="reservas" element={<ReservasList />} />
         <Route path="guias" element={<GuiasList />} />
         <Route path="eventos" element={<BancoPreguntas />} />
+        <Route path="ubicaciones" element={<Ubicaciones />} />
         <Route path="encuestas" element={<EncuestasList />} />
       </Route>
 

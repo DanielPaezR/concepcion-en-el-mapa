@@ -8,10 +8,9 @@ export default function BancoPreguntas() {
   const [ubicaciones, setUbicaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [tipoEvento, setTipoEvento] = useState('pregunta'); // 'pregunta', 'pistas', 'reto', 'reunion', 'ubicacion', 'temporal'
+  const [tipoEvento, setTipoEvento] = useState('pregunta');
   const [usarMapa, setUsarMapa] = useState(true);
   
-  // Estado para nueva ubicación
   const [nuevaUbicacion, setNuevaUbicacion] = useState({ 
     nombre: '', 
     latitud: '', 
@@ -20,7 +19,6 @@ export default function BancoPreguntas() {
     descripcion: ''
   });
   
-  // Estado para nueva pregunta/evento
   const [nuevaPregunta, setNuevaPregunta] = useState({ 
     pregunta: '', 
     respuesta: '', 
@@ -29,14 +27,16 @@ export default function BancoPreguntas() {
     duracion: 30,
     puntos: 50,
     ubicacion_id: '',
-    // Campos para eventos temporales
     es_temporal: false,
     fecha_inicio: '',
     fecha_fin: '',
-    evento_temporal_tipo: 'navidad', // navidad, fiestas, semana_santa, reto_pueblo
+    evento_temporal_tipo: 'navidad',
     requiere_visitas: 1,
     lugares_requeridos: []
   });
+
+  // NUEVO: estado para controlar la obtención de ubicación
+  const [obteniendoUbicacion, setObteniendoUbicacion] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -58,6 +58,36 @@ export default function BancoPreguntas() {
     }
   };
 
+  // NUEVO: función para obtener ubicación actual
+  const usarMiUbicacion = () => {
+    if (!navigator.geolocation) {
+      toast.error('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setObteniendoUbicacion(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setNuevaUbicacion(prev => ({
+          ...prev,
+          latitud: latitude,
+          longitud: longitude
+        }));
+        toast.success('Ubicación actual obtenida');
+        setObteniendoUbicacion(false);
+      },
+      (error) => {
+        console.error('Error de geolocalización:', error);
+        let mensaje = 'No se pudo obtener tu ubicación';
+        if (error.code === 1) mensaje = 'Permiso denegado. Activa la ubicación.';
+        if (error.code === 2) mensaje = 'Ubicación no disponible.';
+        toast.error(mensaje);
+        setObteniendoUbicacion(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleCoordenadasChange = (lat, lng) => {
     setNuevaUbicacion(prev => ({
       ...prev,
@@ -69,7 +99,7 @@ export default function BancoPreguntas() {
   const agregarUbicacion = async (e) => {
     e.preventDefault();
     if (!nuevaUbicacion.latitud || !nuevaUbicacion.longitud) {
-      toast.error('Selecciona una ubicación en el mapa');
+      toast.error('Selecciona una ubicación en el mapa o usa "Usar mi ubicación"');
       return;
     }
     try {
@@ -89,7 +119,6 @@ export default function BancoPreguntas() {
       let data;
       
       if (tipoEvento === 'temporal') {
-        // Evento temporal especial
         data = {
           tipo: 'temporal',
           pregunta: nuevaPregunta.pregunta,
@@ -337,7 +366,6 @@ export default function BancoPreguntas() {
               </select>
             </div>
 
-            {/* Selección de lugares para visitar */}
             {nuevaPregunta.requiere_visitas > 1 && (
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -634,6 +662,7 @@ export default function BancoPreguntas() {
     }
   };
 
+  // ================== FORMULARIO DE UBICACIÓN MODIFICADO ==================
   const renderFormularioUbicacion = () => (
     <div className="space-y-4">
       <div>
@@ -646,6 +675,35 @@ export default function BancoPreguntas() {
           required
         />
       </div>
+      
+      {/* NUEVO: Botón "Usar mi ubicación" */}
+      <div>
+        <button
+          type="button"
+          onClick={usarMiUbicacion}
+          disabled={obteniendoUbicacion}
+          className="mb-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          {obteniendoUbicacion ? (
+            <>
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Obteniendo...
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Usar mi ubicación actual
+            </>
+          )}
+        </button>
+      </div>
+
       <div>
         <label className="block text-sm font-medium mb-2">Ubicación en el mapa</label>
         <MapaCoordenadas

@@ -1,77 +1,108 @@
+// controllers/escaneoController.js
 const pool = require('../config/database');
 
 const escaneoController = {
-    // Registrar una visita/escaneo (sin lugar específico)
     async registrar(req, res) {
         try {
-            const sessionId = req.headers['x-session-id'];
-            const userAgent = req.headers['user-agent'];
-            const ipAddress = req.ip || req.connection.remoteAddress;
+            const { lugar_id } = req.body;
+            let usuarioId = req.user?.id;
+            let esAnonimo = false;
             
-            console.log('📱 Nueva visita registrada:', { sessionId });
-            
-            // Obtener usuario si está autenticado
-            let usuarioId = null;
-            if (req.user && req.user.id) {
-                usuarioId = req.user.id;
+            // Si no hay usuario autenticado, crear uno anónimo temporal
+            if (!usuarioId) {
+                esAnonimo = true;
+                const anonimoResult = await pool.query(
+                    `INSERT INTO usuarios (nombre, email, rol, anonimo) 
+                     VALUES ($1, $2, $3, true) RETURNING id`,
+                    ['Visitante Anónimo', `anonimo_${Date.now()}@temp.com`, 'turista']
+                );
+                usuarioId = anonimoResult.rows[0].id;
             }
             
-            // Registrar visita
-            const query = `
-                INSERT INTO escaneos_qr (usuario_id, session_id, user_agent, ip_address, created_at)
-                VALUES ($1, $2, $3, $4, NOW())
-                RETURNING id
-            `;
-            const values = [usuarioId, sessionId, userAgent, ipAddress];
-            const result = await pool.query(query, values);
+            // Verificar si ya escaneó este lugar antes
+            const yaEscaneo = await pool.query(
+                'SELECT id FROM escaneos_qr WHERE usuario_id = $1 AND lugar_id = $2',
+                [usuarioId, lugar_id]
+            );
             
-            console.log('✅ Visita registrada, ID:', result.rows[0].id);
+            let esPrimeraVez = false;
+            if (yaEscaneo.rows.length === 0) {
+                await pool.query(
+                    `INSERT INTO escaneos_qr (usuario_id, lugar_id, fecha_escaneo)
+                     VALUES ($1, $2, NOW())`,
+                    [usuarioId, lugar_id]
+                );
+                esPrimeraVez = true;
+            } else {
+                // Actualizar fecha del último escaneo
+                await pool.query(
+                    `UPDATE escaneos_qr SET fecha_escaneo = NOW() WHERE id = $1`,
+                    [yaEscaneo.rows[0].id]
+                );
+            }
             
-            res.json({
-                success: true,
-                message: 'Visita registrada',
-                visita_id: result.rows[0].id
+            res.json({ 
+                success: true, 
+                es_primera_vez: esPrimeraVez,
+                mensaje: esPrimeraVez ? '¡Primera vez que escaneas este lugar!' : '¡Bienvenido de vuelta!'
             });
         } catch (error) {
-            console.error('❌ Error:', error);
-            res.status(500).json({ error: error.message });
+            console.error('Error al registrar escaneo:', error);
+            res.status(500).json({ error: 'Error al registrar escaneo' });
         }
     },
-    
-    // Obtener estadísticas de visitas (solo admin)
+
     async getEstadisticas(req, res) {
         try {
-            // Total de visitas
+            // Total de registros de escaneos
             const totalResult = await pool.query('SELECT COUNT(*) as total FROM escaneos_qr');
             
-            // Visitantes únicos (por session_id)
-            const unicosResult = await pool.query(`
-                SELECT COUNT(DISTINCT session_id) as unicos
-                FROM escaneos_qr
-            `);
-            
-            // Visitas por día (últimos 30 días)
-            const porDiaResult = await pool.query(`
-                SELECT 
-                    DATE(created_at) as fecha,
-                    COUNT(*) as total
-                FROM escaneos_qr
-                WHERE created_at >= NOW() - INTERVAL '30 days'
-                GROUP BY DATE(created_at)
-                ORDER BY fecha DESC
+            // Escaneos por lugar
+            const porLugar = await pool.query(`
+                SELECT l.nombre, COUNT(e.id) as total
+                FROM escaneos_qr e
+                JOIN lugares l ON e.lugar_id = l.id
+                GROUP BY l.id, l.nombre
+                ORDER BY total DESC
+                LIMIT 10
             `);
             
             res.json({
                 success: true,
                 estadisticas: {
                     total: parseInt(totalResult.rows[0].total),
-                    unicos: parseInt(unicosResult.rows[0].unicos),
-                    porDia: porDiaResult.rows
+                    porLugar: porLugar.rows
                 }
             });
         } catch (error) {
-            console.error('❌ Error:', error);
-            res.status(500).json({ error: error.message });
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al obtener estadísticas' });
+        }
+    },
+
+    // NUEVO: Obtener visitantes únicos (sin duplicados por usuario)
+    async getVisitantesUnicos(req, res) {
+        try {
+            // Visitantes únicos (distintos usuarios que han escaneado al menos un lugar)
+            const unicosResult = await pool.query(
+                'SELECT COUNT(DISTINCT usuario_id) as unicos FROM escaneos_qr'
+            );
+            
+            // Total de visitas (incluye múltiples visitas del mismo usuario)
+            const totalResult = await pool.query(
+                'SELECT COUNT(*) as total FROM escaneos_qr'
+            );
+            
+            res.json({
+                success: true,
+                estadisticas: {
+                    unicos: parseInt(unicosResult.rows[0].unicos),
+                    total: parseInt(totalResult.rows[0].total)
+                }
+            });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al obtener visitantes únicos' });
         }
     }
 };

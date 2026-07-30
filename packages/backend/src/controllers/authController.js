@@ -47,7 +47,7 @@ const authController = {
                     rol: usuario.rol,
                     nombre: usuario.nombre
                 },
-                process.env.JWT_SECRET || 'tu_secreto_jwt',
+                process.env.JWT_SECRET,
                 { expiresIn: '7d' } // Aumentado a 7 días para mayor persistencia
             );
 
@@ -75,8 +75,8 @@ const authController = {
             // req.user viene del middleware auth
             const usuario = req.user;
             
-            // Obtener datos actualizados del usuario
-            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible FROM usuarios WHERE id = $1';
+            // Obtener datos actualizados del usuario (incluye flags de guía)
+            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico FROM usuarios WHERE id = $1';
             const result = await pool.query(query, [usuario.id]);
             
             if (result.rows.length === 0) {
@@ -147,7 +147,8 @@ const authController = {
     async perfil(req, res) {
         try {
             const query = `
-                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible
+                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible,
+                       nivel, xp_total
                 FROM usuarios 
                 WHERE id = $1
             `;
@@ -158,7 +159,17 @@ const authController = {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
 
-            res.json(result.rows[0]);
+            // Opcional: agregar lugares descubiertos
+            const lugaresQuery = await pool.query(
+                'SELECT COUNT(*) as lugares_descubiertos FROM descubrimientos WHERE usuario_id = $1',
+                [req.user.id]
+            );
+            const lugaresDescubiertos = parseInt(lugaresQuery.rows[0]?.lugares_descubiertos || 0);
+
+            res.json({
+                ...result.rows[0],
+                lugares_descubiertos: lugaresDescubiertos
+            });
 
         } catch (error) {
             console.error('Error obteniendo perfil:', error);
@@ -174,11 +185,11 @@ const authController = {
             }
 
             const query = `
-                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, activo
+                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, activo, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico
                 FROM usuarios 
                 ORDER BY id
             `;
-            
+
             const result = await pool.query(query);
             res.json(result.rows);
 
@@ -253,6 +264,51 @@ const authController = {
         } catch (error) {
             console.error('Error cambiando disponibilidad:', error);
             res.status(500).json({ error: 'Error cambiando disponibilidad' });
+        }
+    },
+    // Cambiar contraseña (usuario autenticado)
+    async cambiarPassword(req, res) {
+        try {
+            const { currentPassword, newPassword } = req.body;
+            const userId = req.user.id;
+
+            // Validaciones
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({ error: 'La contraseña actual y la nueva son requeridas' });
+            }
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+            }
+
+            // Obtener el usuario con su hash actual
+            const query = 'SELECT password_hash FROM usuarios WHERE id = $1';
+            const result = await pool.query(query, [userId]);
+            
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+
+            const user = result.rows[0];
+            
+            // Verificar contraseña actual
+            const passwordValida = await bcrypt.compare(currentPassword, user.password_hash);
+            if (!passwordValida) {
+                return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+            }
+
+            // Encriptar nueva contraseña
+            const salt = await bcrypt.genSalt(10);
+            const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+            // Actualizar en la base de datos
+            const updateQuery = 'UPDATE usuarios SET password_hash = $1 WHERE id = $2';
+            await pool.query(updateQuery, [newPasswordHash, userId]);
+
+            res.json({ message: 'Contraseña actualizada correctamente' });
+
+        } catch (error) {
+            console.error('Error cambiando contraseña:', error);
+            res.status(500).json({ error: 'Error interno del servidor' });
         }
     }
 };

@@ -24,11 +24,14 @@ const turistaController = {
             if (result.rows.length === 0) {
                 // Crear nuevo usuario anónimo
                 const nombre = `Explorador_${sessionId.slice(-6)}`;
+                // La columna email es NOT NULL/UNIQUE; se genera un email sintético
+                // ligado al session_id ya que los usuarios anónimos no tienen uno real.
+                const emailAnonimo = `${sessionId}@anonimo.local`;
                 result = await pool.query(
-                    `INSERT INTO usuarios (session_id, nombre, anonimo, created_at, ultima_conexion)
-                     VALUES ($1, $2, true, NOW(), NOW())
+                    `INSERT INTO usuarios (email, session_id, nombre, anonimo, created_at, ultima_conexion)
+                     VALUES ($1, $2, $3, true, NOW(), NOW())
                      RETURNING id, session_id, nombre, anonimo, xp_total, nivel`,
-                    [sessionId, nombre]
+                    [emailAnonimo, sessionId, nombre]
                 );
                 usuario = result.rows[0];
                 console.log('✅ Nuevo usuario anónimo creado:', usuario.id);
@@ -51,7 +54,7 @@ const turistaController = {
                     anonimo: usuario.anonimo,
                     nivel: usuario.nivel || 1
                 },
-                process.env.JWT_SECRET || 'tu_secreto_jwt',
+                process.env.JWT_SECRET,
                 { expiresIn: '365d' }
             );
             
@@ -125,7 +128,7 @@ const turistaController = {
             // Crear token
             const token = jwt.sign(
                 { id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
-                process.env.JWT_SECRET || 'tu_secreto_jwt',
+                process.env.JWT_SECRET,
                 { expiresIn: '365d' }
             );
             
@@ -179,7 +182,7 @@ const turistaController = {
                     anonimo: false,
                     nivel: usuario.nivel || 1
                 },
-                process.env.JWT_SECRET || 'tu_secreto_jwt',
+                process.env.JWT_SECRET,
                 { expiresIn: '365d' }
             );
             

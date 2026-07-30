@@ -16,7 +16,7 @@ export default function MisFavoritos() {
     if (usuario?.id && !usuario.anonimo) {
       cargarFavoritos();
     }
-  }, [usuario]);
+  }, [usuario?.id, usuario?.anonimo]);
 
   const cargarFavoritos = async () => {
     try {
@@ -67,7 +67,7 @@ export default function MisFavoritos() {
             <Heart className="w-12 h-12 mx-auto text-gray-300 mb-3" />
             No tienes lugares favoritos
             <button
-              onClick={() => navigate('/mapa')}
+              onClick={() => navigate('/')}
               className="block w-full mt-4 bg-green-600 text-white py-2 rounded-lg"
             >
               Explorar lugares

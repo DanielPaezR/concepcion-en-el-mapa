@@ -1,5 +1,5 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Fragment, useState } from 'react'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Menu, Transition } from '@headlessui/react'
 import {
   HomeIcon,
@@ -10,16 +10,21 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  UserCircleIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
+// Logo de Concepción
+const LOGO_URL = '/logo192.png';
+
+// Solo mantener las secciones que realmente existen
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
   { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },
-  { name: 'Banco Eventos', href: '/admin/eventos', icon: ClipboardDocumentListIcon },
 ];
 
 function classNames(...classes) {
@@ -28,11 +33,32 @@ function classNames(...classes) {
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // Cerrar sidebar automáticamente cuando cambie la ruta (en móvil)
+  useEffect(() => {
+    if (sidebarOpen) {
+      setSidebarOpen(false)
+    }
+  }, [location.pathname])
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  }
+
+  const handleNavigation = () => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false)
+    }
+  }
 
   return (
     <div>
+      {/* Mobile sidebar */}
       <Transition.Root show={sidebarOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
           <Transition.Child
@@ -61,9 +87,13 @@ export default function Layout() {
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
                     <img
-                      className="h-8 w-auto"
-                      src="../../public/logo-concepcion.svg"
-                      alt="Concepción en el Mapa"
+                      className="h-10 w-auto"
+                      src={LOGO_URL}
+                      alt="Concepción"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<span class="text-2xl">🏞️</span><span class="ml-2 text-xl font-semibold text-gray-900">Concepción</span>';
+                      }}
                     />
                     <span className="ml-2 text-xl font-semibold text-gray-900">Admin</span>
                   </div>
@@ -75,19 +105,20 @@ export default function Layout() {
                             <li key={item.name}>
                               <Link
                                 to={item.href}
+                                onClick={handleNavigation}
                                 className={classNames(
                                   location.pathname === item.href
-                                    ? 'bg-gray-50 text-primary-600'
-                                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
+                                    ? 'bg-green-50 text-green-600'
+                                    : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
                                   'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                                 )}
                               >
                                 <item.icon
                                   className={classNames(
                                     location.pathname === item.href
-                                      ? 'text-primary-600'
-                                      : 'text-gray-400 group-hover:text-primary-600',
-                                    'h-6 w-6 shrink-0'
+                                      ? 'text-green-600'
+                                      : 'text-gray-400 group-hover:text-green-600',
+                                    'h-5 w-5 shrink-0'
                                   )}
                                   aria-hidden="true"
                                 />
@@ -111,11 +142,15 @@ export default function Layout() {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
             <img
-              className="h-8 w-auto"
-              src="/logo-concepcion.png"
-              alt="Concepción en el Mapa"
+              className="h-10 w-auto"
+              src={LOGO_URL}
+              alt="Concepción"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span class="text-2xl">🏞️</span><span class="ml-2 text-xl font-semibold text-gray-900">Concepción Admin</span>';
+              }}
             />
-            <span className="ml-2 text-xl font-semibold text-gray-900">Panel Admin</span>
+            <span className="ml-2 text-xl font-semibold text-gray-900">Admin</span>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -127,17 +162,17 @@ export default function Layout() {
                         to={item.href}
                         className={classNames(
                           location.pathname === item.href
-                            ? 'bg-gray-50 text-primary-600'
-                            : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
+                            ? 'bg-green-50 text-green-600'
+                            : 'text-gray-700 hover:text-green-600 hover:bg-gray-50',
                           'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                         )}
                       >
                         <item.icon
                           className={classNames(
                             location.pathname === item.href
-                              ? 'text-primary-600'
-                              : 'text-gray-400 group-hover:text-primary-600',
-                            'h-6 w-6 shrink-0'
+                              ? 'text-green-600'
+                              : 'text-gray-400 group-hover:text-green-600',
+                            'h-5 w-5 shrink-0'
                           )}
                           aria-hidden="true"
                         />
@@ -146,21 +181,6 @@ export default function Layout() {
                     </li>
                   ))}
                 </ul>
-              </li>
-              <li className="mt-auto">
-                <button
-                  onClick={() => {
-                    logout();
-                    window.location.href = '/login';
-                  }}
-                  className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-700 hover:text-primary-600 hover:bg-gray-50 w-full"
-                >
-                  <ArrowRightOnRectangleIcon
-                    className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-primary-600"
-                    aria-hidden="true"
-                  />
-                  Cerrar sesión
-                </button>
               </li>
             </ul>
           </nav>
@@ -181,14 +201,51 @@ export default function Layout() {
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
             <div className="flex items-center gap-x-4 lg:gap-x-6">
+              {/* Menú de usuario con cerrar sesión */}
               <Menu as="div" className="relative">
-                <Menu.Button className="-m-1.5 flex items-center p-1.5">
-                  <span className="hidden lg:flex lg:items-center">
-                    <span className="ml-4 text-sm font-semibold leading-6 text-gray-900" aria-hidden="true">
-                      {user?.nombre}
-                    </span>
+                <Menu.Button className="flex items-center gap-2 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
+                    {user?.nombre?.charAt(0)?.toUpperCase() || 'A'}
+                  </div>
+                  <span className="hidden lg:block text-sm font-medium text-gray-700">
+                    {user?.nombre?.split(' ')[0] || 'Admin'}
                   </span>
+                  <ChevronDownIcon className="hidden lg:block h-4 w-4 text-gray-500" />
                 </Menu.Button>
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <div className="px-4 py-2 text-sm text-gray-500 border-b">
+                          <p className="font-medium text-gray-900">{user?.nombre}</p>
+                          <p className="text-xs">{user?.email}</p>
+                        </div>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={handleLogout}
+                          className={classNames(
+                            active ? 'bg-gray-100' : '',
+                            'flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600'
+                          )}
+                        >
+                          <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                          Cerrar sesión
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </Menu.Items>
+                </Transition>
               </Menu>
             </div>
           </div>

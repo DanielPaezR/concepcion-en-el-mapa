@@ -122,22 +122,14 @@ function SolicitarGuia() {
     
     try {
         const fechaHora = `${formData.fecha_encuentro}T${formData.hora_encuentro}:00`;
-        
-        // Obtener el ID del usuario desde el token
-        const token = localStorage.getItem('turista_token');
-        let turistaId = null;
-        if (token) {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            turistaId = payload.id;
-        }
-        
+
+        // El backend identifica al turista a partir del token de autenticación (header Authorization)
         const reservaData = {
             lugar_id: parseInt(lugarId),
             fecha_encuentro: fechaHora,
             numero_personas: parseInt(formData.numero_personas),
             intereses: formData.intereses.join(', '),
-            punto_encuentro: formData.punto_encuentro || lugar?.direccion,
-            turista_id: turistaId  // ← AGREGAR ESTA LÍNEA
+            punto_encuentro: formData.punto_encuentro || lugar?.direccion
         };
 
         const response = await api.post('/reservas', reservaData);
@@ -236,6 +228,7 @@ function SolicitarGuia() {
                 value={formData.fecha_encuentro}
                 onChange={handleInputChange}
                 min={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]}
                 required
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               />

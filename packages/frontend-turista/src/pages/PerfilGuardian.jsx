@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Crown, Camera, Edit2, Save, X, User, CheckCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { decodeJwtPayload } from '../services/api';
 import toast from 'react-hot-toast';
 
-// ─── Función para calcular sistema de EXP (misma que Mapa.jsx) ───
+// ─── Función para calcular sistema de EXP (consistente con Mapa.jsx) ───
 const calcularSistemaExp = (totalLugares) => {
   const pesosPorNivel = [1, 1.5, 2, 2.5, 3];
   const sumaPesos = pesosPorNivel.reduce((a, b) => a + b, 0);
   const expBase = 10;
   const expRequerida = pesosPorNivel.map(p => Math.round((p/sumaPesos)*totalLugares*expBase));
   const expAcumulada = [];
-  expRequerida.reduce((acc, curr, i) => { expAcumulada[i] = acc + curr; return expAcumulada[i]; }, 0);
+  let acc = 0;
+  expRequerida.forEach((curr) => { acc += curr; expAcumulada.push(acc); });
   return { expRequerida, expAcumulada, expBase };
 };
 
@@ -25,7 +26,6 @@ const levelColors = {
   5: { from: '#450a0a', to: '#1a0505', border: '#ef4444', text: '#fca5a5' },
 };
 
-// Etiquetas por nivel (mismas que Mapa.jsx)
 const getNivelEtiqueta = (nivel) => {
   const etiquetas = {
     1: 'Principiante',
@@ -37,7 +37,6 @@ const getNivelEtiqueta = (nivel) => {
   return etiquetas[nivel] || 'Principiante';
 };
 
-// Icono según nivel (mismos que Mapa.jsx)
 const getNivelIcon = (nivel) => {
   if (nivel >= 5) return Crown;
   if (nivel >= 3) return Zap;
@@ -63,107 +62,79 @@ export default function PerfilGuardian() {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [esMiPerfil, setEsMiPerfil] = useState(false);
+  
+  // ✅ Datos sincronizados desde el backend
+  const [nivelReal, setNivelReal] = useState(1);
+  const [xpReal, setXpReal] = useState(0);
+  const [totalLugaresSistema, setTotalLugaresSistema] = useState(0);
+
+  // ✅ Función para obtener el perfil y datos de progreso desde el backend
+  const cargarPerfilYProgreso = async (userId) => {
+    try {
+      // 1. Obtener perfil de usuario (nivel, XP, email, etc.)
+      const perfilRes = await api.get('/turista/progreso');
+      const usuario = perfilRes.data.usuario;
+      setNivelReal(usuario.nivel || 1);
+      setXpReal(usuario.xp_total || 0);
+      
+      // 2. Obtener lugares descubiertos del usuario
+      const descRes = await api.get('/descubrimientos/mis-descubrimientos');
+      const lugares = descRes.data || [];
+      setLugaresDescubiertos(lugares.length);
+      
+      // 3. Obtener total de lugares del sistema (para cálculo de barras de progreso)
+      const lugaresSys = await api.get('/lugares');
+      const total = lugaresSys.data?.data?.length || 8;
+      setTotalLugaresSistema(total);
+      
+      // 4. Obtener perfil de guardián (nombre público, biografía, etc.)
+      const perfilGuardianRes = await api.get(`/guardianes/perfil/${userId}`);
+      const perfilData = perfilGuardianRes.data.perfil;
+      setPerfil({
+        ...perfilData,
+        email: usuario.email,
+        nivel_real: usuario.nivel,
+        xp_total_real: usuario.xp_total
+      });
+      setInsignias(perfilGuardianRes.data.insignias || []);
+      
+      // 5. Estadísticas de eventos
+      try {
+        const eventosRes = await api.get('/eventos/mis-estadisticas');
+        setEstadisticasEventos(eventosRes.data.estadisticas);
+        setTitulo(eventosRes.data.titulo);
+      } catch (e) {
+        console.log('Estadísticas de eventos no disponibles');
+      }
+      
+    } catch (error) {
+      console.error('Error cargando perfil/progreso:', error);
+      toast.error('Error al cargar los datos del perfil');
+    }
+  };
 
   useEffect(() => {
-    cargarTodo();
-    obtenerUsuarioActual();
+    const init = async () => {
+      if (!id) return;
+      setLoading(true);
+      await cargarPerfilYProgreso(parseInt(id));
+      await obtenerUsuarioActual();
+      setLoading(false);
+    };
+    init();
   }, [id]);
 
   const obtenerUsuarioActual = async () => {
     try {
       let token = localStorage.getItem('token');
-      if (!token) {
-        token = localStorage.getItem('turista_token');
-      }
+      if (!token) token = localStorage.getItem('turista_token');
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = decodeJwtPayload(token);
         setUsuarioActual(payload);
-        if (payload.id === parseInt(id)) {
-          setEsMiPerfil(true);
-        }
+        if (payload.id === parseInt(id)) setEsMiPerfil(true);
       }
     } catch (error) {
       console.error('Error al obtener usuario actual:', error);
-    }
-  };
-
-  const cargarTodo = async () => {
-    try {
-      setLoading(true);
-      
-      // 1. Cargar perfil del guardián
-      const perfilResponse = await api.get(`/guardianes/perfil/${id}`);
-      setPerfil(perfilResponse.data.perfil);
-      setInsignias(perfilResponse.data.insignias || []);
-      
-      // 2. Cargar datos del usuario (email, etc.)
-      const usuarioRes = await api.get(`/usuarios/${id}`);
-      
-      // 3. 🔥 Calcular NIVEL usando la MISMA fórmula del mapa
-      let nivelCalculado = 1;
-      let xpActual = 0;
-      let sistemaExp = null;
-      
-      try {
-        // Obtener XP desde localStorage (misma fuente que el mapa)
-        xpActual = parseInt(localStorage.getItem('player_xp') || '0');
-        
-        // Obtener total de lugares para calcular sistema de EXP
-        const lugaresRes = await api.get('/lugares');
-        const totalLugares = lugaresRes.data.data?.length || 8;
-        
-        // Usar la MISMA función que el mapa
-        sistemaExp = calcularSistemaExp(totalLugares);
-        
-        // Calcular nivel igual que en el mapa
-        for (let i = 0; i < sistemaExp.expAcumulada.length; i++) {
-          if (xpActual < sistemaExp.expAcumulada[i]) {
-            nivelCalculado = i + 1;
-            break;
-          }
-        }
-        if (xpActual >= sistemaExp.expAcumulada[sistemaExp.expAcumulada.length - 1]) nivelCalculado = 5;
-        
-        console.log('✅ XP desde localStorage:', xpActual);
-        console.log('✅ Nivel calculado:', nivelCalculado);
-        console.log('✅ Sistema EXP:', sistemaExp);
-      } catch(e) {
-        console.error('Error calculando nivel:', e);
-      }
-      
-      // 4. Obtener lugares descubiertos desde localStorage
-      let lugaresCount = 0;
-      try {
-        const saved = localStorage.getItem('concepcion_descubiertos');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          lugaresCount = Array.isArray(parsed) ? parsed.length : 0;
-        }
-      } catch(e) {}
-      setLugaresDescubiertos(lugaresCount);
-      
-      // 5. Actualizar perfil con nivel calculado
-      setPerfil(prev => ({
-        ...prev,
-        nivel_real: nivelCalculado,
-        xp_total_real: xpActual,
-        email: usuarioRes.data?.email
-      }));
-      
-      // 6. Cargar estadísticas de eventos
-      try {
-        const eventosResponse = await api.get('/eventos/mis-estadisticas');
-        setEstadisticasEventos(eventosResponse.data.estadisticas);
-        setTitulo(eventosResponse.data.titulo);
-      } catch (error) {
-        console.log('Estadísticas de eventos no disponibles');
-      }
-      
-    } catch (error) {
-      console.error('Error al cargar perfil:', error);
-      toast.error('Error al cargar el perfil');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -184,7 +155,8 @@ export default function PerfilGuardian() {
       await api.put('/guardianes/perfil', formData);
       toast.success('Perfil actualizado');
       setEditando(false);
-      cargarTodo();
+      // Recargar datos
+      await cargarPerfilYProgreso(parseInt(id));
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al guardar perfil');
@@ -194,7 +166,6 @@ export default function PerfilGuardian() {
   const handleSubirFoto = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
       toast.error('Solo se permiten imágenes');
       return;
@@ -203,20 +174,15 @@ export default function PerfilGuardian() {
       toast.error('La imagen no debe superar 2MB');
       return;
     }
-    
     setSubiendoFoto(true);
     const formDataFile = new FormData();
-    formDataFile.append('foto', file);  // 🔥 El nombre debe ser 'foto'
-    
+    formDataFile.append('foto', file);
     try {
-      // 🔥 NO establecer Content-Type manualmente
       const response = await api.post('/guardianes/subir-foto', formDataFile);
-      
       if (response.data.success) {
         setFormData(prev => ({ ...prev, foto_perfil_url: response.data.url }));
         toast.success('Foto subida correctamente');
-        // Recargar perfil para mostrar la nueva foto
-        setTimeout(() => cargarTodo(), 1000);
+        await cargarPerfilYProgreso(parseInt(id));
       }
     } catch (error) {
       console.error('Error:', error);
@@ -263,7 +229,14 @@ export default function PerfilGuardian() {
     );
   }
 
-  const nivelData = getNivelTitulo(perfil.nivel_real || 1);
+  const nivelData = getNivelTitulo(nivelReal);
+  const sistemaExp = calcularSistemaExp(totalLugaresSistema);
+  const xpParaSiguiente = sistemaExp.expAcumulada?.[nivelReal - 1] ?? (nivelReal * 10);
+  const xpAnterior = nivelReal > 1 ? (sistemaExp.expAcumulada?.[nivelReal - 2] ?? 0) : 0;
+  const progreso = xpParaSiguiente > xpAnterior 
+    ? Math.min(((xpReal - xpAnterior) / (xpParaSiguiente - xpAnterior)) * 100, 100)
+    : 100;
+  const lc = levelColors[Math.min(nivelReal, 5)];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -275,7 +248,7 @@ export default function PerfilGuardian() {
         <div className="flex items-center gap-4">
           <div className="relative group">
             <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center overflow-hidden border-3 border-white">
-              {formData.foto_perfil_url || perfil.foto_perfil_url ? (
+              {(formData.foto_perfil_url || perfil.foto_perfil_url) ? (
                 <img 
                   src={formData.foto_perfil_url || perfil.foto_perfil_url} 
                   alt="Perfil"
@@ -285,7 +258,6 @@ export default function PerfilGuardian() {
                 <Shield className="w-12 h-12 text-white" />
               )}
             </div>
-            
             {esMiPerfil && editando && (
               <label className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 cursor-pointer shadow-lg hover:bg-gray-100 transition">
                 <Camera className="w-4 h-4 text-purple-600" />
@@ -379,7 +351,7 @@ export default function PerfilGuardian() {
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold" style={{ color: levelColors[Math.min(perfil.nivel_real || 1, 5)].text }}>{perfil.nivel_real || 1}</div>
+            <div className="text-2xl font-bold" style={{ color: lc.text }}>{nivelReal}</div>
             <div className="text-xs text-gray-500">Nivel</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
@@ -387,7 +359,7 @@ export default function PerfilGuardian() {
             <div className="text-xs text-gray-500">Lugares</div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow">
-            <div className="text-2xl font-bold text-amber-500">{perfil.xp_total_real || 0}</div>
+            <div className="text-2xl font-bold text-amber-500">{xpReal}</div>
             <div className="text-xs text-gray-500">XP</div>
           </div>
         </div>
@@ -399,53 +371,29 @@ export default function PerfilGuardian() {
         </div>
 
         {/* Barra de progreso consistente con el mapa */}
-        {(() => {
-          const nivel = perfil.nivel_real || 1;
-          const xp = perfil.xp_total_real || 0;
-          const totalLugares = 8; // Valor por defecto, se puede obtener de la API
-          const sistema = calcularSistemaExp(totalLugares);
-          const xpParaSiguiente = sistema?.expAcumulada?.[nivel - 1] ?? (nivel * 10);
-          const xpAnterior = nivel > 1 ? (sistema?.expAcumulada?.[nivel - 2] ?? 0) : 0;
-          const progreso = xpParaSiguiente > xpAnterior 
-            ? Math.min(((xp - xpAnterior) / (xpParaSiguiente - xpAnterior)) * 100, 100)
-            : 100;
-          const lc = levelColors[Math.min(nivel, 5)];
-          
-          return (
+        <div 
+          className="rounded-xl p-3 shadow mb-4"
+          style={{
+            background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
+            border: `1px solid ${lc.border}`,
+          }}
+        >
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {React.createElement(getNivelIcon(nivelReal), { size: 16, color: lc.text })}
+            <span className="font-bold text-sm" style={{ color: lc.text, letterSpacing: '.05em' }}>
+              NV. {nivelReal} · {getNivelEtiqueta(nivelReal)}
+            </span>
+          </div>
+          <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1">
             <div 
-              className="rounded-xl p-3 shadow mb-4"
-              style={{
-                background: `linear-gradient(135deg, ${lc.from}, ${lc.to})`,
-                border: `1px solid ${lc.border}`,
-              }}
-            >
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {React.createElement(getNivelIcon(nivel), { 
-                  size: 16, 
-                  color: lc.text 
-                })}
-                <span 
-                  className="font-bold text-sm"
-                  style={{ color: lc.text, letterSpacing: '.05em' }}
-                >
-                  NV. {nivel} · {getNivelEtiqueta(nivel)}
-                </span>
-              </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1">
-                <div 
-                  className="h-full rounded-full transition-all"
-                  style={{ 
-                    width: `${progreso}%`,
-                    background: lc.border
-                  }}
-                />
-              </div>
-              <div className="text-center text-xs text-white/60">
-                {xp} / {xpParaSiguiente} XP
-              </div>
-            </div>
-          );
-        })()}
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progreso}%`, background: lc.border }}
+            />
+          </div>
+          <div className="text-center text-xs text-white/60">
+            {xpReal} / {xpParaSiguiente} XP
+          </div>
+        </div>
 
         {estadisticasEventos && (
           <div className="bg-white rounded-xl p-4 shadow mb-4">

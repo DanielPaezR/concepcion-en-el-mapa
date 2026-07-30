@@ -1,3 +1,4 @@
+// routes/escaneoRoutes.js
 const express = require('express');
 const router = express.Router();
 const escaneoController = require('../controllers/escaneoController');
@@ -8,5 +9,6 @@ router.post('/', escaneoController.registrar);
 
 // Rutas protegidas (solo admin)
 router.get('/estadisticas', authMiddleware, escaneoController.getEstadisticas);
+router.get('/visitantes-unicos', authMiddleware, escaneoController.getVisitantesUnicos); // ← NUEVA
 
 module.exports = router;

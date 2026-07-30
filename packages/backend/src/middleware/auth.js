@@ -9,7 +9,7 @@ const authMiddleware = (req, res, next) => {
             return res.status(401).json({ error: 'No token provided' });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tu_secreto_jwt');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         // Agregar el usuario al request
         req.user = decoded;

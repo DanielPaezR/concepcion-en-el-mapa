@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -69,11 +69,17 @@ export default function Encuesta() {
   )
 
   const usuario = getTuristaActual();
+  const puedeCalificar = !!usuario && !usuario.anonimo;
 
-  if (!usuario || usuario.anonimo) {
-      alert('Debes registrarte para calificar tu experiencia');
+  useEffect(() => {
+    if (!puedeCalificar) {
+      toast.error('Debes registrarte para calificar tu experiencia');
       navigate('/registro');
-      return;
+    }
+  }, [puedeCalificar, navigate]);
+
+  if (!puedeCalificar) {
+    return null;
   }
 
   return (

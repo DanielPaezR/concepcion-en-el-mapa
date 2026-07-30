@@ -171,6 +171,23 @@ const metricasController = {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener actividad reciente' });
         }
+    },
+    async getVisitasPorDia(req, res) {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    TO_CHAR(fecha_escaneo, 'YYYY-MM-DD') as dia,
+                    COUNT(*) as visitas
+                FROM escaneos_qr
+                WHERE fecha_escaneo >= NOW() - INTERVAL '7 days'
+                GROUP BY TO_CHAR(fecha_escaneo, 'YYYY-MM-DD')
+                ORDER BY dia DESC
+            `);
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 
