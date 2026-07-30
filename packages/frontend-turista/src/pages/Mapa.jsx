@@ -511,7 +511,7 @@ const HUDHeader = ({
 };
 
 // 📍 Pin de lugar épico
-const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
+const LugarPin = React.memo(({ lugar, discovered, isMobile, onClick }) => {
   const td   = TIPO_DATA[lugar.tipo] || TIPO_DATA.historico;
   const SIZE = isMobile ? 38 : 46;
   return (
@@ -577,7 +577,7 @@ const LugarPin = ({ lugar, discovered, isMobile, onClick }) => {
       )}
     </motion.div>
   );
-};
+});
 
 // 📜 Quest Log holográfico
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar, isMobile }) => (
@@ -706,7 +706,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, onVerD
   const desc       = lugar.descripcion?.length > 85 ? lugar.descripcion.substring(0, 85) + '…' : lugar.descripcion || 'Un lugar increíble por descubrir.';
 
   return (
-    <div style={{ padding: '16px 16px 14px', minWidth: 210, maxWidth: 248 }}>
+    <div style={{ padding: '16px 16px 14px', minWidth: 210, maxWidth: 'min(240px, 78vw)', boxSizing: 'border-box' }}>
       <div style={{ width: '100%', height: 116, borderRadius: 14, marginBottom: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
         {lugar.imagen_url
           ? <img src={lugar.imagen_url} alt={lugar.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = `<span style="font-size:46px">${td.emoji}</span>`; }} />
@@ -860,7 +860,16 @@ function Mapa() {
   const [selectedGuia, setSelectedGuia]             = useState(null);
   const [showLevelUp, setShowLevelUp]               = useState(false);
   const [xpBurst, setXpBurst]                       = useState(null);
-  const [viewState, setViewState]                   = useState({ longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 });
+  // Antes: viewState completo vivía en el estado de React y se actualizaba
+  // en cada frame de "onMove" — eso re-renderizaba todo el componente Mapa()
+  // (pines, HUD, menús) 30-60 veces por segundo mientras arrastrabas el
+  // mapa, causando el "trabado". Ahora el mapa es NO controlado
+  // (initialViewState): Mapbox maneja su propia cámara internamente durante
+  // el pan/zoom, sin tocar React. Solo mantenemos en estado el "bearing"
+  // porque la brújula lo necesita para rotar su ícono, actualizado con un
+  // umbral para no disparar renders de más.
+  const INITIAL_VIEW_STATE = { longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 };
+  const [bearing, setBearing] = useState(INITIAL_VIEW_STATE.bearing);
 
   // PWA
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -1182,7 +1191,14 @@ function Mapa() {
         showQuestLog={showQuestLog} isMobile={isMobile} userAvatar={userAvatar}
       />
 
-      <BrujulaFuncional bearing={viewState.bearing} onRotate={(b) => setViewState(p => ({ ...p, bearing: b }))} isMobile={isMobile} />
+      <BrujulaFuncional
+        bearing={bearing}
+        onRotate={() => {
+          setBearing(0);
+          mapRef.current?.easeTo?.({ bearing: 0, duration: 300 });
+        }}
+        isMobile={isMobile}
+      />
 
       <RadarMini userPosition={userPosition} lugares={lugares} discoveredPlaces={discoveredPlaces} isMobile={isMobile} />
 
@@ -1217,7 +1233,7 @@ function Mapa() {
         isOpen={mostrarMenuExplorador} onClose={() => setMostrarMenuExplorador(false)} />
 
       {userPosition && (
-        <motion.button onClick={() => setViewState(p => ({ ...p, longitude: userPosition.lng, latitude: userPosition.lat, zoom: 17 }))}
+        <motion.button onClick={() => mapRef.current?.flyTo?.({ center: [userPosition.lng, userPosition.lat], zoom: 17, duration: 800 })}
           whileHover={{ scale: 1.1, y: -1 }} whileTap={{ scale: 0.92 }}
           title="Centrar en mi ubicación"
           className="hud-btn hud-btn-blue"
@@ -1257,8 +1273,15 @@ function Mapa() {
 
       <Map
         ref={mapRef}
-        {...viewState}
-        onMove={evt => setViewState(evt.viewState)}
+        initialViewState={INITIAL_VIEW_STATE}
+        onMove={(evt) => {
+          // Solo nos interesa el bearing (para la brújula). Solo actualizamos
+          // si cambió de verdad (>=1°) — durante un pan normal el bearing no
+          // cambia, así que esto ya no dispara ningún render mientras
+          // arrastras el mapa.
+          const nuevoBearing = evt.viewState.bearing;
+          setBearing(prev => (Math.abs(prev - nuevoBearing) >= 1 ? nuevoBearing : prev));
+        }}
         style={{ width: '100%', height: '100%' }}
         mapStyle={MAP_STYLE}
         mapboxAccessToken={MAPBOX_TOKEN}
@@ -1338,7 +1361,7 @@ function Mapa() {
           <Popup
             longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
             onClose={() => setSelectedGuia(null)} closeButton={true} closeOnClick={false}
-            anchor="bottom" offset={20}
+            anchor="auto" offset={20} maxWidth="260px"
             style={{ zIndex: 2000 }}
           >
             <div style={{ padding: '14px', width: isMobile ? 220 : 240, color: '#f8fafc' }}>
@@ -1366,7 +1389,7 @@ function Mapa() {
           <Popup
             longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)}
             onClose={() => setSelectedLugar(null)} closeButton={true} closeOnClick={false}
-            anchor="bottom" offset={20}
+            anchor="auto" offset={20} maxWidth="260px"
             style={{ zIndex: 3000 }}
           >
             <LugarPopupContent
