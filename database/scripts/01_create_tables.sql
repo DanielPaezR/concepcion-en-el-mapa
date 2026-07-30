@@ -118,14 +118,19 @@ CREATE TRIGGER trigger_update_lugares
 
 -- Insertar datos de ejemplo (seed data)
 INSERT INTO usuarios (email, nombre, rol, disponible) VALUES
-    ('admin@concepcion.cl', 'Administrador Municipal', 'admin', true),
-    ('guia1@concepcion.cl', 'Juan Pérez', 'guia', true),
-    ('guia2@concepcion.cl', 'María González', 'guia', true);
+    ('admin@concepcionenelmapa.co', 'Administrador Municipal', 'admin', true),
+    ('guia1@concepcionenelmapa.co', 'Guía Local 1', 'guia', true),
+    ('guia2@concepcionenelmapa.co', 'Guía Local 2', 'guia', true);
 
+-- NOTA: nombres, descripciones y coordenadas exactas de "lugares" son
+-- PLACEHOLDERS de ejemplo para levantar una base de datos de desarrollo
+-- vacía. Deben reemplazarse por los lugares reales y curados de Concepción,
+-- Antioquia (los que ya existen o se cargan vía el panel admin en
+-- producción) antes de usarse como semilla real.
 INSERT INTO lugares (nombre, descripcion, tipo, latitud, longitud, direccion) VALUES
-    ('Plaza de la Independencia', 'Corazón de Concepción, lugar histórico', 'historico', -36.8269, -73.0502, 'Plaza de Armas'),
-    ('Catedral de Concepción', 'Imponente catedral metropolitana', 'cultural', -36.8265, -73.0505, 'Calle Barros Arana'),
-    ('Parque Ecuador', 'Pulmón verde de la ciudad', 'natural', -36.8247, -73.0528, 'Av. Simón Bolívar'),
-    ('Mercado Central', 'Gastronomía típica penquista', 'gastronomico', -36.8273, -73.0489, 'Calle Caupolicán');
+    ('Parque Principal de Concepción', 'Corazón del municipio, punto de encuentro histórico', 'historico', 6.3953494, -75.2592802, 'Parque Principal'),
+    ('Casa de la Cultura', 'Lugar de nacimiento del General José María Córdova', 'historico', 6.3956000, -75.2590000, 'Centro histórico'),
+    ('Mirador de Concepción', 'Vista panorámica del municipio y sus alrededores', 'natural', 6.3960000, -75.2585000, 'Zona alta del pueblo'),
+    ('Plaza Gastronómica', 'Comida típica antioqueña', 'gastronomico', 6.3950000, -75.2595000, 'Centro del pueblo');
 
 COMMIT;
