@@ -71,15 +71,9 @@ const Insignia = {
         // de otra; ahora corren en paralelo con Promise.all, lo que reduce
         // el tiempo total de esta función a el de la consulta más lenta en
         // vez de la suma de las 7.
-        const [
-            insigniasNivel,
-            insigniasLugares,
-            insigniasEventos,
-            insigniasFotos,
-            insigniasGuardianes,
-            insigniasRacha,
-            insigniasTemporales
-        ] = await Promise.all([
+        const nombresCategorias = ['nivel', 'lugares', 'eventos', 'fotos', 'guardianes', 'racha', 'temporales'];
+
+        const resultados = await Promise.allSettled([
             pool.query(`
                 SELECT * FROM insignias
                 WHERE tipo = 'nivel'
@@ -154,6 +148,27 @@ const Insignia = {
                     )
             `, [eventosTemporalesCompletados || 0, usuarioId])
         ]);
+
+        // Con allSettled, si una categoría falla (ej. por drift de esquema)
+        // las demás igual se otorgan — antes con Promise.all, una sola
+        // consulta fallida hacía que NINGUNA de las 7 categorías se
+        // otorgara esa vez. Los rechazos se loguean para poder detectarlos,
+        // pero no interrumpen el resto.
+        const [
+            insigniasNivel,
+            insigniasLugares,
+            insigniasEventos,
+            insigniasFotos,
+            insigniasGuardianes,
+            insigniasRacha,
+            insigniasTemporales
+        ] = resultados.map((r, i) => {
+            if (r.status === 'rejected') {
+                console.error(`⚠️ Falló la consulta de insignias de categoría "${nombresCategorias[i]}":`, r.reason?.message || r.reason);
+                return { rows: [] };
+            }
+            return r.value;
+        });
 
         const insigniasObtenidas = [];
 
