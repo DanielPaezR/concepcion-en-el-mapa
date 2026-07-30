@@ -39,13 +39,26 @@ const authController = {
                 });
             }
 
+            // Si es un comercio, el token lleva también su comercio_id, para
+            // que cada endpoint de "mi negocio" sepa cuál es sin tener que
+            // buscarlo aparte en cada petición.
+            let comercioId = null;
+            if (usuario.rol === 'comercio') {
+                const comercioResult = await pool.query(
+                    'SELECT id FROM comercios WHERE usuario_id = $1',
+                    [usuario.id]
+                );
+                comercioId = comercioResult.rows[0]?.id || null;
+            }
+
             // Crear token JWT
             const token = jwt.sign(
-                { 
-                    id: usuario.id, 
-                    email: usuario.email, 
+                {
+                    id: usuario.id,
+                    email: usuario.email,
                     rol: usuario.rol,
-                    nombre: usuario.nombre
+                    nombre: usuario.nombre,
+                    comercio_id: comercioId
                 },
                 process.env.JWT_SECRET,
                 { expiresIn: '7d' } // Aumentado a 7 días para mayor persistencia
