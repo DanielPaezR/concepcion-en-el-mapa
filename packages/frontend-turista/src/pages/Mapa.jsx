@@ -21,6 +21,7 @@ import AnclarGuardian from '../components/AnclarGuardian';
 import EstadoReserva from '../components/EstadoReserva';
 import MenuExplorador from '../components/MenuExplorador';
 import LocationPrompt from '../components/LocationPrompt';
+import TomarRecuerdo from '../components/TomarRecuerdo';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -842,6 +843,8 @@ function Mapa() {
   const [locationPermission, setLocationPermission] = useState('pending');
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [lastVisitedPlace, setLastVisitedPlace]     = useState(null);
+  const [recuerdoLugar, setRecuerdoLugar]           = useState(null); // lugar recién descubierto, para el prompt de "toma tu recuerdo"
+  const [mostrarCamaraRecuerdo, setMostrarCamaraRecuerdo] = useState(false);
   const [isMobile, setIsMobile]                     = useState(window.innerWidth < 640);
   const [shouldLocate, setShouldLocate]             = useState(false);
   const [userResponded, setUserResponded]           = useState(false);
@@ -950,6 +953,7 @@ function Mapa() {
         setLastVisitedPlace(lugar);
         setTimeout(() => setLastVisitedPlace(null), 3000);
         setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 10 });
+        setRecuerdoLugar(lugar); // este NO se limpia solo con un timeout — se queda hasta que el turista lo cierre o tome su foto
         return true;
       }
     } catch (e) {
@@ -1180,6 +1184,48 @@ function Mapa() {
 
       {xpBurst && (
         <XPBurst x={xpBurst.x} y={xpBurst.y} xp={xpBurst.xp} onDone={() => setXpBurst(null)} />
+      )}
+
+      <AnimatePresence>
+        {recuerdoLugar && !mostrarCamaraRecuerdo && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+            style={{
+              position: 'fixed', bottom: 100, left: 16, right: 16, zIndex: 1800,
+              background: 'rgba(26,46,26,0.95)', backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(232,199,117,0.4)', borderRadius: 16,
+              padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
+            }}
+          >
+            <div style={{ fontSize: 28 }}>🎉</div>
+            <div style={{ flex: 1, color: '#fdf6e3' }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>¡Descubriste {recuerdoLugar.nombre}!</div>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>Toma tu recuerdo antes de seguir explorando</div>
+            </div>
+            <button
+              onClick={() => setMostrarCamaraRecuerdo(true)}
+              style={{ background: '#e8c775', color: '#1a2e1a', border: 'none', borderRadius: 10, padding: '10px 14px', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}
+            >
+              📸 Recuerdo
+            </button>
+            <button
+              onClick={() => setRecuerdoLugar(null)}
+              style={{ background: 'transparent', border: 'none', color: 'rgba(253,246,227,0.6)', fontSize: 20, padding: 4 }}
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {mostrarCamaraRecuerdo && recuerdoLugar && (
+        <TomarRecuerdo
+          lugar={recuerdoLugar}
+          nivelActual={playerLevel}
+          onClose={() => { setMostrarCamaraRecuerdo(false); setRecuerdoLugar(null); }}
+          onSubido={() => {}}
+        />
       )}
 
       <HUDHeader
