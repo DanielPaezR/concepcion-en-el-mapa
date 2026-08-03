@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import { initAnonymousUser } from './services/auth';
@@ -15,6 +17,19 @@ const queryClient = new QueryClient({
         },
     },
 });
+
+// Persistimos el caché en localStorage — así, al reabrir la app, los
+// datos que casi no cambian (lugares, comercios, eventos) aparecen al
+// instante en vez de esperar la red, mientras se refrescan por detrás.
+// OJO: solo persistimos esas listas — datos propios del turista
+// (descubrimientos, perfil, si puede calificar, etc.) se excluyen a
+// propósito, para que esos siempre se pidan frescos.
+const localStoragePersister = createSyncStoragePersister({
+    storage: window.localStorage,
+    key: 'CEM_QUERY_CACHE',
+});
+
+const CLAVES_PERSISTIBLES = ['lugares', 'comercios', 'eventos-activos', 'lugar'];
 
 // 🔥 REGISTRO DEL SW - INDEPENDIENTE DEL LOGIN (se ejecuta inmediatamente)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -53,12 +68,21 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 initAnonymousUser().then(() => {
     ReactDOM.createRoot(document.getElementById('root')).render(
         <React.StrictMode>
-            <QueryClientProvider client={queryClient}>
+            <PersistQueryClientProvider
+                client={queryClient}
+                persistOptions={{
+                    persister: localStoragePersister,
+                    maxAge: 1000 * 60 * 60 * 24, // 24h — pasado eso, el caché guardado se descarta y se pide de cero
+                    dehydrateOptions: {
+                        shouldDehydrateQuery: (query) => CLAVES_PERSISTIBLES.includes(query.queryKey[0]),
+                    },
+                }}
+            >
                 <BrowserRouter>
                     <App />
                     <Toaster position="top-center" />
                 </BrowserRouter>
-            </QueryClientProvider>
+            </PersistQueryClientProvider>
         </React.StrictMode>
     );
 });

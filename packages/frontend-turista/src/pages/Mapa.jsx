@@ -9,6 +9,7 @@ import {
   MapPin, Users, Landmark, TreePine, Utensils, UserCircle,
 } from 'lucide-react';
 import api from '../services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPublicGuideAvatars } from '../services/guias';
 import { SOCKET_URL } from '../config/runtime';
 import io from 'socket.io-client';
@@ -878,7 +879,15 @@ const LoadingScreen = () => (
 // 🎮 COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════
 function Mapa() {
-  const [lugares, setLugares]                       = useState([]);
+  const queryClient = useQueryClient();
+  const { data: lugares = [], isLoading: cargandoLugares } = useQuery({
+    queryKey: ['lugares'],
+    queryFn: async () => {
+      const r = await api.get('/lugares');
+      return (r.data?.success && Array.isArray(r.data.data)) ? r.data.data : [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 min — los lugares casi no cambian
+  });
   const [loading, setLoading]                       = useState(true);
   const [selectedLugar, setSelectedLugar]           = useState(null);
   const [showQuestLog, setShowQuestLog]             = useState(false);
@@ -900,10 +909,24 @@ function Mapa() {
   const [sistemaExp, setSistemaExp]                 = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria]         = useState(false);
   const [lugarEspecial, setLugarEspecial]           = useState(null);
-  const [comercios, setComercios]                   = useState([]);
+  const { data: comercios = [] } = useQuery({
+    queryKey: ['comercios'],
+    queryFn: async () => {
+      const r = await api.get('/comercios');
+      return Array.isArray(r.data) ? r.data : [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
   const [selectedComercio, setSelectedComercio]      = useState(null);
   const [mostrarAnclar, setMostrarAnclar]           = useState(false);
-  const [eventos, setEventos]                       = useState([]);
+  const { data: eventos = [] } = useQuery({
+    queryKey: ['eventos-activos'],
+    queryFn: async () => {
+      const r = await api.get('/eventos/activos');
+      return r.data.eventos || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento]       = useState('');
   const [userAvatar, setUserAvatar]                 = useState(null);
@@ -1117,11 +1140,14 @@ function Mapa() {
   }, [navigate, mostrarMensajeGuia]);
 
   useEffect(() => {
-    if (!loading && lugares.length > 0) {
+    setLoading(cargandoLugares);
+  }, [cargandoLugares]);
+
+  useEffect(() => {
+    if (!cargandoLugares && lugares.length > 0) {
       mostrarMensajeGuia('¡Bienvenido a Concepción! Descubre sus secretos.', 'bienvenida', 6000);
-      cargarEventos();
     }
-  }, [loading, lugares.length]);
+  }, [cargandoLugares, lugares.length]);
 
   useEffect(() => {
     if (lugares.length > 0) {
@@ -1130,30 +1156,6 @@ function Mapa() {
     }
   }, [lugares]);
 
-  const cargarLugares = async () => {
-    try {
-      const r = await api.get('/lugares');
-      if (r.data?.success && Array.isArray(r.data.data)) setLugares(r.data.data);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cargarComercios = async () => {
-    try {
-      const r = await api.get('/comercios');
-      if (Array.isArray(r.data)) setComercios(r.data);
-    } catch {}
-  };
-
-  const cargarEventos = async () => {
-    try {
-      const r = await api.get('/eventos/activos');
-      setEventos(r.data.eventos || []);
-    } catch {}
-  };
-
   const handleCompletarEvento = async (eventoId, respuesta) => {
     try {
       const r = await api.post('/eventos/completar', { eventoId, respuesta });
@@ -1161,17 +1163,12 @@ function Mapa() {
         mostrarMensajeGuia(`🎉 ¡Reto completado! +${r.data.xp_ganada} XP`, 'celebrando', 4000);
         setEventoSeleccionado(null);
         setRespuestaEvento('');
-        cargarEventos();
+        queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
       }
     } catch {
       mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
     }
   };
-
-  useEffect(() => {
-    cargarLugares();
-    cargarComercios();
-  }, []);
 
   // Manejo de ubicación
   useEffect(() => {
