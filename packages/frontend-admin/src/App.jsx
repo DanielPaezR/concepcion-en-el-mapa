@@ -9,6 +9,7 @@ import LugarForm from './pages/lugares/LugarForm';
 import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
+import PanelComercio from './pages/comercio/PanelComercio';
 import Layout from './components/Layout';
 import Ubicaciones from './pages/Ubicaciones';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
@@ -77,6 +78,12 @@ function App() {
       <Route
         path="/guia"
         element={user?.rol === 'guia' ? <PanelGuia /> : <Navigate to="/login" />}
+      />
+
+      {/* Ruta protegida - Comercio */}
+      <Route
+        path="/comercio"
+        element={user?.rol === 'comercio' ? <PanelComercio /> : <Navigate to="/login" />}
       />
 
       {/* Redirección por defecto */}
