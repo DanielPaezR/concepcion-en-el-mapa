@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Crown, Camera, Edit2, Save, X, User, CheckCircle } from 'lucide-react';
+import { Shield, MapPin, Calendar, Trophy, Award, Star, Zap, Crown, Camera, Edit2, Save, X, User, CheckCircle, Image, Download } from 'lucide-react';
 import api, { decodeJwtPayload } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -62,6 +62,8 @@ export default function PerfilGuardian() {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [esMiPerfil, setEsMiPerfil] = useState(false);
+  const [misRecuerdos, setMisRecuerdos] = useState([]);
+  const [recuerdoAmpliado, setRecuerdoAmpliado] = useState(null);
   
   // ✅ Datos sincronizados desde el backend
   const [nivelReal, setNivelReal] = useState(1);
@@ -131,11 +133,31 @@ export default function PerfilGuardian() {
       if (token) {
         const payload = decodeJwtPayload(token);
         setUsuarioActual(payload);
-        if (payload.id === parseInt(id)) setEsMiPerfil(true);
+        if (payload.id === parseInt(id)) {
+          setEsMiPerfil(true);
+          cargarMisRecuerdos();
+        }
       }
     } catch (error) {
       console.error('Error al obtener usuario actual:', error);
     }
+  };
+
+  const cargarMisRecuerdos = async () => {
+    try {
+      const res = await api.get('/recuerdos/mis-recuerdos');
+      setMisRecuerdos(res.data || []);
+    } catch (error) {
+      console.error('Error cargando recuerdos:', error);
+    }
+  };
+
+  const descargarRecuerdo = (recuerdo) => {
+    const a = document.createElement('a');
+    a.href = recuerdo.imagen_url;
+    a.download = `recuerdo-${recuerdo.lugar_nombre.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+    a.target = '_blank';
+    a.click();
   };
 
   const handleEditar = () => {
@@ -440,7 +462,68 @@ export default function PerfilGuardian() {
             </div>
           )}
         </div>
+
+        {esMiPerfil && (
+          <div className="bg-white rounded-xl p-4 shadow mt-4">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <Image className="w-5 h-5 text-emerald-500" />
+              Mis recuerdos {misRecuerdos.length > 0 && `(${misRecuerdos.length}/10)`}
+            </h3>
+
+            {misRecuerdos.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {misRecuerdos.map((recuerdo) => (
+                  <button
+                    key={recuerdo.id}
+                    onClick={() => setRecuerdoAmpliado(recuerdo)}
+                    className="relative aspect-[4/5] rounded-lg overflow-hidden shadow-sm group"
+                  >
+                    <img src={recuerdo.imagen_url} alt={recuerdo.lugar_nombre} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-1 truncate">
+                      {recuerdo.lugar_nombre}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Camera className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">Descubre lugares y toma tu recuerdo en cada uno</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      <AnimatePresence>
+        {recuerdoAmpliado && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setRecuerdoAmpliado(null)}
+            className="fixed inset-0 bg-black/85 z-[3000] flex flex-col items-center justify-center p-4"
+          >
+            <button
+              onClick={() => setRecuerdoAmpliado(null)}
+              className="absolute top-4 right-4 bg-white/10 rounded-full p-2"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+            <img
+              src={recuerdoAmpliado.imagen_url}
+              alt={recuerdoAmpliado.lugar_nombre}
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[75vh] max-w-full rounded-xl shadow-2xl"
+            />
+            <button
+              onClick={(e) => { e.stopPropagation(); descargarRecuerdo(recuerdoAmpliado); }}
+              className="mt-4 bg-amber-400 text-gray-900 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" /> Descargar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
