@@ -144,6 +144,33 @@ const comercioController = {
         }
     },
 
+    // GET /api/comercios/mi-negocio/recuerdos — cola de fotos-recuerdo
+    // asignadas a este comercio para imprimir. Hoy siempre devolverá una
+    // lista vacía (todavía no existe el mecanismo que asigna un recuerdo a
+    // un comercio específico), pero el endpoint queda listo para cuando
+    // se construya esa asignación en la fase 2 (impresora física).
+    async misRecuerdosPendientes(req, res) {
+        try {
+            const comercioId = req.user.comercio_id;
+            if (!comercioId) {
+                return res.status(403).json({ error: 'Esta cuenta no tiene un comercio asociado' });
+            }
+
+            const result = await pool.query(`
+                SELECT ar.id, ar.imagen_url, ar.estado, ar.fecha_creacion, l.nombre AS lugar_nombre
+                FROM archivos_recuerdo ar
+                LEFT JOIN lugares l ON ar.lugar_id = l.id
+                WHERE ar.comercio_id = $1
+                ORDER BY ar.fecha_creacion DESC
+            `, [comercioId]);
+
+            res.json(result.rows);
+        } catch (error) {
+            console.error('Error al listar recuerdos pendientes:', error);
+            res.status(500).json({ error: 'Error al listar recuerdos pendientes' });
+        }
+    },
+
     // PUT /api/comercios/mi-negocio — el dueño edita su propio perfil
     // (nombre, descripción, beneficio, foto de portada). Nunca puede
     // editar el de otro: el id sale del token, no del body.

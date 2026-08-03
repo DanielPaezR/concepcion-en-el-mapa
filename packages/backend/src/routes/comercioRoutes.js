@@ -17,6 +17,7 @@ router.post('/admin', authMiddleware, requireRole('admin'), comercioController.c
 
 // Solo el dueño del comercio logueado
 router.get('/mi-negocio', authMiddleware, requireRole('comercio'), comercioController.miNegocio);
+router.get('/mi-negocio/recuerdos', authMiddleware, requireRole('comercio'), comercioController.misRecuerdosPendientes);
 router.put('/mi-negocio', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.actualizarMiNegocio);
 router.post('/mi-negocio/fotos', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.subirFoto);
 router.delete('/mi-negocio/fotos/:fotoId', authMiddleware, requireRole('comercio'), comercioController.eliminarFoto);
