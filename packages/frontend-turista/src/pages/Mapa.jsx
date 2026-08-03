@@ -580,6 +580,52 @@ const LugarPin = React.memo(({ lugar, discovered, isMobile, onClick }) => {
   );
 });
 
+// 🏪 Pin de comercio aliado en el mapa — distinto de los pines de lugares
+// (color ámbar en vez de rojo/dorado, ícono de tienda) para que se
+// distingan de un vistazo.
+const ComercioPin = React.memo(({ comercio, isMobile }) => {
+  const tamano = isMobile ? 36 : 42;
+  return (
+    <div
+      style={{
+        width: tamano, height: tamano,
+        background: 'linear-gradient(135deg, #d97706, #92400e)',
+        border: '2px solid #fde68a',
+        borderRadius: '50% 50% 50% 0',
+        transform: 'rotate(-45deg)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{ transform: 'rotate(45deg)', fontSize: isMobile ? 16 : 19 }}>🏪</span>
+    </div>
+  );
+});
+
+const ComercioPopupContent = ({ comercio, onVerFicha }) => (
+  <div style={{ padding: '12px 14px', minWidth: 180, maxWidth: 'min(230px, 78vw)', boxSizing: 'border-box' }}>
+    <div style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', marginBottom: 2 }}>{comercio.nombre}</div>
+    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
+      {comercio.categoria}
+    </div>
+    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#78350f', marginBottom: 8 }}>
+      🎁 {comercio.beneficio}
+    </div>
+    {Number(comercio.total_resenas) > 0 && (
+      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+        ⭐ {Number(comercio.calificacion_promedio).toFixed(1)} · {comercio.total_resenas} reseña{comercio.total_resenas != 1 ? 's' : ''}
+      </div>
+    )}
+    <button
+      onClick={onVerFicha}
+      style={{ width: '100%', background: '#d97706', color: 'white', border: 'none', borderRadius: 8, padding: '8px 10px', fontWeight: 700, fontSize: 12.5 }}
+    >
+      Ver ficha completa
+    </button>
+  </div>
+);
+
 // 📜 Quest Log holográfico
 const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar, isMobile }) => (
   <AnimatePresence>
@@ -854,6 +900,8 @@ function Mapa() {
   const [sistemaExp, setSistemaExp]                 = useState({ expRequerida: [], expAcumulada: [], expBase: 10 });
   const [mostrarGaleria, setMostrarGaleria]         = useState(false);
   const [lugarEspecial, setLugarEspecial]           = useState(null);
+  const [comercios, setComercios]                   = useState([]);
+  const [selectedComercio, setSelectedComercio]      = useState(null);
   const [mostrarAnclar, setMostrarAnclar]           = useState(false);
   const [eventos, setEventos]                       = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
@@ -1092,6 +1140,13 @@ function Mapa() {
     }
   };
 
+  const cargarComercios = async () => {
+    try {
+      const r = await api.get('/comercios');
+      if (Array.isArray(r.data)) setComercios(r.data);
+    } catch {}
+  };
+
   const cargarEventos = async () => {
     try {
       const r = await api.get('/eventos/activos');
@@ -1115,6 +1170,7 @@ function Mapa() {
 
   useEffect(() => {
     cargarLugares();
+    cargarComercios();
   }, []);
 
   // Manejo de ubicación
@@ -1191,7 +1247,7 @@ function Mapa() {
           <motion.div
             initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
             style={{
-              position: 'fixed', bottom: 100, left: 16, right: 16, zIndex: 1800,
+              position: 'fixed', bottom: 100, left: 16, right: 16, zIndex: 2100,
               background: 'rgba(26,46,26,0.95)', backdropFilter: 'blur(8px)',
               border: '1px solid rgba(232,199,117,0.4)', borderRadius: 16,
               padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
@@ -1358,6 +1414,16 @@ function Mapa() {
           </Marker>
         ))}
 
+        {comercios.map((comercio) => (
+          <Marker key={`comercio_${comercio.id}`}
+            longitude={parseFloat(comercio.longitud)} latitude={parseFloat(comercio.latitud)}
+            anchor="bottom"
+            onClick={(e) => { e.originalEvent.stopPropagation(); setSelectedComercio(comercio); }}
+          >
+            <ComercioPin comercio={comercio} isMobile={isMobile} />
+          </Marker>
+        ))}
+
         {lugarEspecial && (
           <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 1500 }}>
             <motion.div
@@ -1446,6 +1512,24 @@ function Mapa() {
               onVerDetalles={() => handleVerDetalles(selectedLugar)}
               onAbrirMapa={() => handleAbrirMapa(selectedLugar)}
               calcularDistancia={calcularDistancia}
+            />
+          </Popup>
+        )}
+
+        {selectedComercio && (
+          <Popup
+            longitude={parseFloat(selectedComercio.longitud)}
+            latitude={parseFloat(selectedComercio.latitud)}
+            onClose={() => setSelectedComercio(null)}
+            closeButton={true}
+            closeOnClick={false}
+            anchor="auto"
+            maxWidth="250px"
+            offset={16}
+          >
+            <ComercioPopupContent
+              comercio={selectedComercio}
+              onVerFicha={() => navigate(`/comercio/${selectedComercio.id}`)}
             />
           </Popup>
         )}

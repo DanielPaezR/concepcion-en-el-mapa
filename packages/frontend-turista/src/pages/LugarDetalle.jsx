@@ -8,6 +8,7 @@ import {
   Coffee, Landmark, TreePine, Utensils
 } from 'lucide-react';
 import api from '../services/api';
+import TomarRecuerdo from '../components/TomarRecuerdo';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import { useState, useEffect } from 'react';
 import { getTuristaActual } from '../services/auth';
@@ -20,6 +21,7 @@ export default function LugarDetalle() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [mensajeCompanero, setMensajeCompanero] = useState('');
+  const [mostrarCamaraRecuerdo, setMostrarCamaraRecuerdo] = useState(false);
   const queryClient = useQueryClient();
   const usuario = getTuristaActual();
   const esAnonimo = !usuario || usuario.anonimo;
@@ -57,6 +59,19 @@ export default function LugarDetalle() {
       return response.data;
     },
   });
+
+  const { data: misDescubrimientos } = useQuery({
+    queryKey: ['mis-descubrimientos'],
+    queryFn: async () => (await api.get('/descubrimientos/mis-descubrimientos')).data || [],
+  });
+
+  const { data: progreso } = useQuery({
+    queryKey: ['turista-progreso'],
+    queryFn: async () => (await api.get('/turista/progreso')).data,
+  });
+
+  const estaDescubierto = misDescubrimientos?.some((d) => d.lugar_id === parseInt(id));
+  const nivelActual = progreso?.usuario?.nivel || 1;
 
   // Mutación para toggle favorito
   const toggleFavoritoMutation = useMutation({
@@ -370,6 +385,29 @@ export default function LugarDetalle() {
           Solicitar un Guía
         </motion.button>
       </div>
+
+      {estaDescubierto && !mostrarCamaraRecuerdo && lugar && (
+        <button
+          onClick={() => setMostrarCamaraRecuerdo(true)}
+          style={{
+            position: 'fixed', bottom: 100, right: 16, zIndex: 1900,
+            background: '#e8c775', color: '#1a2e1a', border: 'none',
+            borderRadius: 999, padding: '12px 18px', fontWeight: 700, fontSize: 14,
+            display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 18px rgba(0,0,0,0.3)'
+          }}
+        >
+          📸 Tomar recuerdo
+        </button>
+      )}
+
+      {mostrarCamaraRecuerdo && lugar && (
+        <TomarRecuerdo
+          lugar={lugar}
+          nivelActual={nivelActual}
+          onClose={() => setMostrarCamaraRecuerdo(false)}
+          onSubido={() => {}}
+        />
+      )}
     </div>
   );
 }

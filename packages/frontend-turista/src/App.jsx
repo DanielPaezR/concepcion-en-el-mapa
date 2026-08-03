@@ -20,6 +20,7 @@ const MisReservas      = lazy(() => import('./pages/MisReservas'));
 const PerfilGuardian    = lazy(() => import('./pages/PerfilGuardian'));
 const MisFavoritos      = lazy(() => import('./pages/MisFavoritos'));
 const LandingPage       = lazy(() => import('./pages/LandingPage'));
+const FichaComercio     = lazy(() => import('./pages/FichaComercio'));
 
 function App() {
   const location = useLocation();
@@ -78,6 +79,7 @@ function App() {
           <Route path="/mis-reservas" element={<MisReservas />} />
           <Route path="/perfil/:id" element={<PerfilGuardian />} />
           <Route path="/mis-favoritos" element={<MisFavoritos />} />
+          <Route path="/comercio/:id" element={<FichaComercio />} />
         </Routes>
       </Suspense>
     </>
