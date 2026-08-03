@@ -1,7 +1,7 @@
 // components/TomarRecuerdo.jsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, Download, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { X, Camera, Download, RotateCcw, Check, Loader2, SwitchCamera } from 'lucide-react';
 import api from '../services/api';
 
 const NIVEL_INFO = {
@@ -127,21 +127,35 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
   const [errorCamara, setErrorCamara] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let activo = true;
-    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'environment' }, audio: false })
+  const [facingMode, setFacingMode] = useState('environment');
+
+  const iniciarCamara = useCallback((modo) => {
+    // Siempre corta cualquier stream anterior y limpia la referencia antes
+    // de pedir uno nuevo — el bug de "queda en negro" pasaba porque
+    // streamRef.current seguía apuntando al stream viejo (ya detenido) en
+    // vez de quedar en null, así que el código de "Repetir" pensaba que ya
+    // había cámara activa y nunca pedía una nueva.
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setErrorCamara(false);
+
+    return navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: modo }, audio: false })
       .then(stream => {
-        if (!activo) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(() => setErrorCamara(true));
+  }, []);
 
+  useEffect(() => {
+    let activo = true;
+    iniciarCamara(facingMode);
     return () => {
       activo = false;
       streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     };
-  }, []);
+  }, []); // solo al montar — cambios de facingMode los maneja voltearCamara directamente
 
   const componerDesdeFuente = useCallback((dibujarFuente, anchoFuente, altoFuente) => {
     const canvas = canvasRef.current;
@@ -162,7 +176,14 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
     streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
     componerDesdeFuente((ctx) => ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight), video.videoWidth, video.videoHeight);
+  };
+
+  const voltearCamara = () => {
+    const nuevoModo = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nuevoModo);
+    iniciarCamara(nuevoModo);
   };
 
   const capturarDeArchivo = (e) => {
@@ -180,14 +201,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     setFotoUrl(null);
     setError('');
     setModo('camara');
-    if (!streamRef.current) {
-      navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'environment' }, audio: false })
-        .then(stream => {
-          streamRef.current = stream;
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        })
-        .catch(() => setErrorCamara(true));
-    }
+    iniciarCamara(facingMode);
   };
 
   const descargar = () => {
@@ -246,16 +260,29 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
           </div>
 
           {!errorCamara && (
-            <button
-              onClick={capturarDeCamera}
-              style={{
-                position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-                width: 72, height: 72, borderRadius: '50%', background: '#fdf6e3',
-                border: '4px solid #e8c775', display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >
-              <Camera size={28} color="#1a2e1a" />
-            </button>
+            <>
+              <button
+                onClick={capturarDeCamera}
+                style={{
+                  position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                  width: 72, height: 72, borderRadius: '50%', background: '#fdf6e3',
+                  border: '4px solid #e8c775', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                <Camera size={28} color="#1a2e1a" />
+              </button>
+              <button
+                onClick={voltearCamara}
+                title="Voltear cámara"
+                style={{
+                  position: 'absolute', bottom: 36, right: 24,
+                  width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.5)',
+                  border: '1.5px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                <SwitchCamera size={22} color="white" />
+              </button>
+            </>
           )}
         </div>
       )}
