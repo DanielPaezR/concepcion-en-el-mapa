@@ -24,6 +24,8 @@ export default function Login() {
           navigate('/admin');
         } else if (rol === 'guia') {
           navigate('/guia');
+        } else if (rol === 'comercio') {
+          navigate('/comercio');
         } else {
           navigate('/');
         }
