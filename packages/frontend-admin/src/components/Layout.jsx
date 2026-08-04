@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   UsersIcon,
   ClipboardDocumentListIcon,
+  BuildingStorefrontIcon,
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
@@ -22,6 +23,7 @@ const LOGO_URL = '/logo192.png';
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
   { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
+  { name: 'Comercios', href: '/admin/comercios', icon: BuildingStorefrontIcon },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },

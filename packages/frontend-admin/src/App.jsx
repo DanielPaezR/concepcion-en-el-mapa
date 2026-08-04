@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LugaresList from './pages/lugares/LugaresList';
 import LugarForm from './pages/lugares/LugarForm';
+import ComerciosList from './pages/comercios/ComerciosList';
 import ReservasList from './pages/reservas/ReservasList';
 import GuiasList from './pages/guias/GuiasList';
 import PanelGuia from './pages/guias/PanelGuia';
@@ -67,6 +68,7 @@ function App() {
         <Route path="lugares" element={<LugaresList />} />
         <Route path="lugares/nuevo" element={<LugarForm />} />
         <Route path="lugares/editar/:id" element={<LugarForm />} />
+        <Route path="comercios" element={<ComerciosList />} />
         <Route path="reservas" element={<ReservasList />} />
         <Route path="guias" element={<GuiasList />} />
         <Route path="eventos" element={<BancoPreguntas />} />
