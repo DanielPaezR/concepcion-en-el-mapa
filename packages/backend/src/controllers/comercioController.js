@@ -324,8 +324,8 @@ const comercioController = {
                 'SELECT COUNT(*) AS total FROM comercio_fotos WHERE comercio_id = $1',
                 [comercioId]
             );
-            if (parseInt(conteo.rows[0].total) >= 8) {
-                return res.status(400).json({ error: 'Ya alcanzaste el máximo de 8 fotos. Elimina alguna antes de subir otra.' });
+            if (parseInt(conteo.rows[0].total) >= 4) {
+                return res.status(400).json({ error: 'Ya alcanzaste el máximo de 4 fotos. Elimina alguna antes de subir otra.' });
             }
 
             const resultadoSubida = await new Promise((resolve, reject) => {
