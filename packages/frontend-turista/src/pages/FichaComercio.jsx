@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Star, MapPin, Store } from 'lucide-react';
+import { ChevronLeft, Star, MapPin, Store, Clock } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -13,6 +13,16 @@ const CATEGORIA_LABEL = {
   hospedaje: 'Hospedaje',
   otro: 'Comercio',
 };
+
+const DIAS = [
+  { clave: 'lunes', etiqueta: 'Lunes' },
+  { clave: 'martes', etiqueta: 'Martes' },
+  { clave: 'miercoles', etiqueta: 'Miércoles' },
+  { clave: 'jueves', etiqueta: 'Jueves' },
+  { clave: 'viernes', etiqueta: 'Viernes' },
+  { clave: 'sabado', etiqueta: 'Sábado' },
+  { clave: 'domingo', etiqueta: 'Domingo' },
+];
 
 function EstrellasSelector({ valor, onChange }) {
   return (
@@ -124,6 +134,51 @@ export default function FichaComercio() {
             <div className="flex gap-2 overflow-x-auto pb-1">
               {comercio.fotos.map((foto) => (
                 <img key={foto.id} src={foto.imagen_url} alt="" className="w-28 h-28 rounded-lg object-cover flex-shrink-0" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {comercio.horario_atencion && (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-2 text-sm flex items-center gap-1.5">
+              <Clock className="w-4 h-4" /> Horario de atención
+            </h3>
+            <div className="space-y-1">
+              {DIAS.map((dia) => {
+                const info = comercio.horario_atencion[dia.clave];
+                if (!info) return null;
+                return (
+                  <div key={dia.clave} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{dia.etiqueta}</span>
+                    <span className={info.abierto ? 'text-gray-700 font-medium' : 'text-gray-400'}>
+                      {info.abierto ? `${info.apertura || '--'} - ${info.cierre || '--'}` : 'Cerrado'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {comercio.productos?.length > 0 && (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-3 text-sm">Menú</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {comercio.productos.map((producto) => (
+                <div key={producto.id} className="rounded-lg overflow-hidden border border-gray-100">
+                  {producto.imagen_url && (
+                    <img src={producto.imagen_url} alt={producto.nombre} className="w-full h-24 object-cover" />
+                  )}
+                  <div className="p-2">
+                    <div className="text-xs font-semibold text-gray-800 truncate">{producto.nombre}</div>
+                    {producto.precio && (
+                      <div className="text-xs text-amber-600 font-bold mt-0.5">
+                        ${Number(producto.precio).toLocaleString('es-CO')}
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
