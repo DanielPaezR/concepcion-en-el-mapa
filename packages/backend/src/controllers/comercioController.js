@@ -56,6 +56,11 @@ const comercioController = {
                 [id]
             );
 
+            const productosResult = await pool.query(
+                'SELECT id, nombre, precio, imagen_url, orden FROM comercio_productos WHERE comercio_id = $1 ORDER BY orden, id',
+                [id]
+            );
+
             const resenasResult = await pool.query(`
                 SELECT r.id, r.calificacion, r.comentario, r.fecha_creacion, u.nombre AS turista_nombre
                 FROM resenas_comercio r
@@ -68,6 +73,7 @@ const comercioController = {
             res.json({
                 ...comercioResult.rows[0],
                 fotos: fotosResult.rows,
+                productos: productosResult.rows,
                 resenas: resenasResult.rows
             });
         } catch (error) {
@@ -194,7 +200,12 @@ const comercioController = {
                 [comercioId]
             );
 
-            res.json({ ...result.rows[0], fotos: fotos.rows });
+            const productos = await pool.query(
+                'SELECT id, nombre, precio, imagen_url, orden FROM comercio_productos WHERE comercio_id = $1 ORDER BY orden, id',
+                [comercioId]
+            );
+
+            res.json({ ...result.rows[0], fotos: fotos.rows, productos: productos.rows });
         } catch (error) {
             console.error('Error al obtener mi negocio:', error);
             res.status(500).json({ error: 'Error al obtener mi negocio' });
@@ -240,6 +251,15 @@ const comercioController = {
 
             const { nombre, descripcion, beneficio, direccion } = req.body;
 
+            let horarioAtencion;
+            if (req.body.horario_atencion) {
+                try {
+                    horarioAtencion = JSON.stringify(JSON.parse(req.body.horario_atencion));
+                } catch (e) {
+                    return res.status(400).json({ error: 'horario_atencion debe ser JSON válido' });
+                }
+            }
+
             let imagenPortadaUrl = null;
             if (req.file) {
                 const result = await new Promise((resolve, reject) => {
@@ -262,10 +282,11 @@ const comercioController = {
                     beneficio = COALESCE($3, beneficio),
                     direccion = COALESCE($4, direccion),
                     imagen_portada_url = COALESCE($5, imagen_portada_url),
+                    horario_atencion = COALESCE($6, horario_atencion),
                     fecha_actualizacion = NOW()
-                WHERE id = $6
+                WHERE id = $7
                 RETURNING *
-            `, [nombre, descripcion, beneficio, direccion, imagenPortadaUrl, comercioId]);
+            `, [nombre, descripcion, beneficio, direccion, imagenPortadaUrl, horarioAtencion, comercioId]);
 
             res.json({ success: true, comercio: result.rows[0] });
         } catch (error) {
@@ -388,6 +409,145 @@ const comercioController = {
         } catch (error) {
             console.error('Error eliminando foto de comercio:', error);
             res.status(500).json({ error: 'Error eliminando foto' });
+        }
+    },
+
+    // POST /api/comercios/mi-negocio/productos — agrega un producto al menú
+    // (máximo 12). La foto es opcional.
+    async crearProducto(req, res) {
+        try {
+            const comercioId = req.user.comercio_id;
+            if (!comercioId) {
+                return res.status(403).json({ error: 'Esta cuenta no tiene un comercio asociado' });
+            }
+
+            const { nombre, precio } = req.body;
+            if (!nombre) {
+                return res.status(400).json({ error: 'El nombre del producto es requerido' });
+            }
+
+            const conteo = await pool.query(
+                'SELECT COUNT(*) AS total FROM comercio_productos WHERE comercio_id = $1',
+                [comercioId]
+            );
+            if (parseInt(conteo.rows[0].total) >= 12) {
+                return res.status(400).json({ error: 'Ya alcanzaste el máximo de 12 productos. Elimina alguno antes de agregar otro.' });
+            }
+
+            let imagenUrl = null;
+            let publicId = null;
+            if (req.file) {
+                const resultadoSubida = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { folder: 'concepcion_comercios_productos', transformation: [{ width: 600, height: 600, crop: 'limit' }] },
+                        (error, result) => { if (error) reject(error); else resolve(result); }
+                    );
+                    uploadStream.end(req.file.buffer);
+                });
+                imagenUrl = resultadoSubida.secure_url;
+                publicId = resultadoSubida.public_id;
+            }
+
+            const result = await pool.query(`
+                INSERT INTO comercio_productos (comercio_id, nombre, precio, imagen_url, cloudinary_public_id, orden)
+                VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(orden), 0) + 1 FROM comercio_productos WHERE comercio_id = $1))
+                RETURNING *
+            `, [comercioId, nombre, precio || null, imagenUrl, publicId]);
+
+            res.status(201).json({ success: true, producto: result.rows[0] });
+        } catch (error) {
+            console.error('Error creando producto:', error);
+            res.status(500).json({ error: 'Error creando producto' });
+        }
+    },
+
+    // PUT /api/comercios/mi-negocio/productos/:productoId — edita
+    // nombre/precio, y opcionalmente reemplaza la foto (borrando la
+    // anterior de Cloudinary si la reemplaza).
+    async actualizarProducto(req, res) {
+        try {
+            const comercioId = req.user.comercio_id;
+            const { productoId } = req.params;
+            const { nombre, precio } = req.body;
+
+            if (!comercioId) {
+                return res.status(403).json({ error: 'Esta cuenta no tiene un comercio asociado' });
+            }
+
+            const existente = await pool.query(
+                'SELECT cloudinary_public_id FROM comercio_productos WHERE id = $1 AND comercio_id = $2',
+                [productoId, comercioId]
+            );
+            if (existente.rows.length === 0) {
+                return res.status(404).json({ error: 'Producto no encontrado o no te pertenece' });
+            }
+
+            let imagenUrl, publicId;
+            if (req.file) {
+                const resultadoSubida = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { folder: 'concepcion_comercios_productos', transformation: [{ width: 600, height: 600, crop: 'limit' }] },
+                        (error, result) => { if (error) reject(error); else resolve(result); }
+                    );
+                    uploadStream.end(req.file.buffer);
+                });
+                imagenUrl = resultadoSubida.secure_url;
+                publicId = resultadoSubida.public_id;
+
+                const publicIdAnterior = existente.rows[0].cloudinary_public_id;
+                if (publicIdAnterior) {
+                    cloudinary.uploader.destroy(publicIdAnterior).catch(err =>
+                        console.error(`⚠️ No se pudo borrar de Cloudinary el archivo ${publicIdAnterior}:`, err.message)
+                    );
+                }
+            }
+
+            const result = await pool.query(`
+                UPDATE comercio_productos
+                SET nombre = COALESCE($1, nombre),
+                    precio = COALESCE($2, precio),
+                    imagen_url = COALESCE($3, imagen_url),
+                    cloudinary_public_id = COALESCE($4, cloudinary_public_id)
+                WHERE id = $5 AND comercio_id = $6
+                RETURNING *
+            `, [nombre, precio, imagenUrl, publicId, productoId, comercioId]);
+
+            res.json({ success: true, producto: result.rows[0] });
+        } catch (error) {
+            console.error('Error actualizando producto:', error);
+            res.status(500).json({ error: 'Error actualizando producto' });
+        }
+    },
+
+    // DELETE /api/comercios/mi-negocio/productos/:productoId
+    async eliminarProducto(req, res) {
+        try {
+            const comercioId = req.user.comercio_id;
+            const { productoId } = req.params;
+            if (!comercioId) {
+                return res.status(403).json({ error: 'Esta cuenta no tiene un comercio asociado' });
+            }
+
+            const result = await pool.query(
+                'DELETE FROM comercio_productos WHERE id = $1 AND comercio_id = $2 RETURNING id, cloudinary_public_id',
+                [productoId, comercioId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Producto no encontrado o no te pertenece' });
+            }
+
+            const publicId = result.rows[0].cloudinary_public_id;
+            if (publicId) {
+                cloudinary.uploader.destroy(publicId).catch(err =>
+                    console.error(`⚠️ No se pudo borrar de Cloudinary el archivo ${publicId}:`, err.message)
+                );
+            }
+
+            res.json({ success: true, message: 'Producto eliminado' });
+        } catch (error) {
+            console.error('Error eliminando producto:', error);
+            res.status(500).json({ error: 'Error eliminando producto' });
         }
     },
 

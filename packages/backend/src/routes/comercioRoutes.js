@@ -23,6 +23,9 @@ router.get('/mi-negocio/recuerdos', authMiddleware, requireRole('comercio'), com
 router.put('/mi-negocio', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.actualizarMiNegocio);
 router.post('/mi-negocio/fotos', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.subirFoto);
 router.delete('/mi-negocio/fotos/:fotoId', authMiddleware, requireRole('comercio'), comercioController.eliminarFoto);
+router.post('/mi-negocio/productos', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.crearProducto);
+router.put('/mi-negocio/productos/:productoId', authMiddleware, requireRole('comercio'), upload.single('imagen'), comercioController.actualizarProducto);
+router.delete('/mi-negocio/productos/:productoId', authMiddleware, requireRole('comercio'), comercioController.eliminarProducto);
 router.get('/codigos/:codigo', authMiddleware, requireRole('comercio'), comercioController.validarCodigo);
 router.post('/codigos/:codigo/canjear', authMiddleware, requireRole('comercio'), comercioController.canjearCodigo);
 
