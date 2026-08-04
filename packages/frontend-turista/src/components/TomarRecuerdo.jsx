@@ -128,6 +128,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
   const [error, setError] = useState('');
 
   const [facingMode, setFacingMode] = useState('environment');
+  const [camaraLista, setCamaraLista] = useState(false);
 
   const iniciarCamara = useCallback((modo) => {
     // Siempre corta cualquier stream anterior y limpia la referencia antes
@@ -138,6 +139,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     setErrorCamara(false);
+    setCamaraLista(false); // se pone en true solo cuando el <video> confirma que ya tiene frames reales (onLoadedMetadata)
 
     return navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: modo }, audio: false })
       .then(stream => {
@@ -163,6 +165,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     canvas.height = altoFuente;
     const ctx = canvas.getContext('2d');
     dibujarFuente(ctx);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset — si dibujarFuente aplicó espejo, el marco/texto no debe salir espejado
     dibujarMarco(ctx, anchoFuente, altoFuente, { lugarNombre: lugar.nombre, nivelActual });
 
     canvas.toBlob((blob) => {
@@ -174,10 +177,17 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
 
   const capturarDeCamera = () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth) return;
+    if (!video || !video.videoWidth || !camaraLista) return;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    componerDesdeFuente((ctx) => ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight), video.videoWidth, video.videoHeight);
+    componerDesdeFuente((ctx) => {
+      if (facingMode === 'user') {
+        // Espejo, para que la foto guardada coincida con lo que se vio en vivo
+        ctx.translate(video.videoWidth, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    }, video.videoWidth, video.videoHeight);
   };
 
   const voltearCamara = () => {
@@ -240,7 +250,15 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
       {modo === 'camara' && (
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
           {!errorCamara ? (
-            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <video
+              ref={videoRef}
+              autoPlay playsInline muted
+              onLoadedMetadata={() => setCamaraLista(true)}
+              style={{
+                width: '100%', height: '100%', objectFit: 'cover',
+                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
+              }}
+            />
           ) : (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: 24, textAlign: 'center', gap: 16 }}>
               <Camera size={40} color="#e8c775" />
@@ -263,13 +281,15 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
             <>
               <button
                 onClick={capturarDeCamera}
+                disabled={!camaraLista}
                 style={{
                   position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
                   width: 72, height: 72, borderRadius: '50%', background: '#fdf6e3',
-                  border: '4px solid #e8c775', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  border: '4px solid #e8c775', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: camaraLista ? 1 : 0.4
                 }}
               >
-                <Camera size={28} color="#1a2e1a" />
+                {camaraLista ? <Camera size={28} color="#1a2e1a" /> : <Loader2 size={24} color="#1a2e1a" className="animate-spin" />}
               </button>
               <button
                 onClick={voltearCamara}
