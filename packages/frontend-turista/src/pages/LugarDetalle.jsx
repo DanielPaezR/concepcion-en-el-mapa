@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,6 +16,8 @@ import toast from 'react-hot-toast';
 
 export default function LugarDetalle() {
   const { id } = useParams();
+  const location = useLocation();
+  const [mostrarBannerDescubierto, setMostrarBannerDescubierto] = useState(!!location.state?.recienDescubierto);
   const navigate = useNavigate();
   const [showAvatar, setShowAvatar] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -386,11 +388,44 @@ export default function LugarDetalle() {
         </motion.button>
       </div>
 
+      <AnimatePresence>
+        {mostrarBannerDescubierto && lugar && (
+          <motion.div
+            initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
+            style={{
+              position: 'fixed', top: 16, left: 16, right: 16, zIndex: 2200,
+              background: 'rgba(26,46,26,0.95)', backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(232,199,117,0.4)', borderRadius: 16,
+              padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
+            }}
+          >
+            <div style={{ fontSize: 28 }}>🎉</div>
+            <div style={{ flex: 1, color: '#fdf6e3' }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>¡Descubriste {lugar.nombre}!</div>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>Toma tu recuerdo antes de seguir explorando</div>
+            </div>
+            <button
+              onClick={() => { setMostrarBannerDescubierto(false); setMostrarCamaraRecuerdo(true); }}
+              style={{ background: '#e8c775', color: '#1a2e1a', border: 'none', borderRadius: 10, padding: '10px 14px', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}
+            >
+              📸 Recuerdo
+            </button>
+            <button
+              onClick={() => setMostrarBannerDescubierto(false)}
+              style={{ background: 'transparent', border: 'none', color: 'rgba(253,246,227,0.6)', fontSize: 20, padding: 4 }}
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {estaDescubierto && !mostrarCamaraRecuerdo && lugar && (
         <button
           onClick={() => setMostrarCamaraRecuerdo(true)}
           style={{
-            position: 'fixed', bottom: 100, right: 16, zIndex: 1900,
+            position: 'fixed', bottom: 100, left: 16, zIndex: 1900,
             background: '#e8c775', color: '#1a2e1a', border: 'none',
             borderRadius: 999, padding: '12px 18px', fontWeight: 700, fontSize: 14,
             display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 18px rgba(0,0,0,0.3)'
