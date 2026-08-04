@@ -119,6 +119,63 @@ const comercioController = {
         }
     },
 
+    // GET /api/comercios/admin/todos — solo admin. A diferencia de getAll
+    // (pública), esta trae TODOS los comercios sin importar si están
+    // activos, más el email del dueño, para gestión.
+    async listarTodosAdmin(req, res) {
+        try {
+            const result = await pool.query(`
+                SELECT c.*, u.email AS dueno_email,
+                       COUNT(DISTINCT r.id) AS total_resenas,
+                       COALESCE(AVG(r.calificacion), 0)::numeric(3,2) AS calificacion_promedio
+                FROM comercios c
+                JOIN usuarios u ON c.usuario_id = u.id
+                LEFT JOIN resenas_comercio r ON r.comercio_id = c.id
+                GROUP BY c.id, u.email
+                ORDER BY c.nombre
+            `);
+            res.json(result.rows);
+        } catch (error) {
+            console.error('Error al listar comercios (admin):', error);
+            res.status(500).json({ error: 'Error al listar comercios' });
+        }
+    },
+
+    // PUT /api/comercios/admin/:id — solo admin. Puede editar cualquier
+    // comercio por su id (a diferencia de actualizarMiNegocio, que solo
+    // deja editar el propio), incluyendo activo/inactivo y su ubicación
+    // en el mapa — dos cosas que el propio dueño no puede tocar.
+    async actualizarAdmin(req, res) {
+        try {
+            const { id } = req.params;
+            const { nombre, categoria, descripcion, beneficio, direccion, latitud, longitud, activo } = req.body;
+
+            const result = await pool.query(`
+                UPDATE comercios
+                SET nombre = COALESCE($1, nombre),
+                    categoria = COALESCE($2, categoria),
+                    descripcion = COALESCE($3, descripcion),
+                    beneficio = COALESCE($4, beneficio),
+                    direccion = COALESCE($5, direccion),
+                    latitud = COALESCE($6, latitud),
+                    longitud = COALESCE($7, longitud),
+                    activo = COALESCE($8, activo),
+                    fecha_actualizacion = NOW()
+                WHERE id = $9
+                RETURNING *
+            `, [nombre, categoria, descripcion, beneficio, direccion, latitud, longitud, activo, id]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Comercio no encontrado' });
+            }
+
+            res.json({ success: true, comercio: result.rows[0] });
+        } catch (error) {
+            console.error('Error al actualizar comercio (admin):', error);
+            res.status(500).json({ error: 'Error al actualizar comercio' });
+        }
+    },
+
     // GET /api/comercios/mi-negocio — el dueño ve su propio perfil completo
     async miNegocio(req, res) {
         try {

@@ -14,6 +14,8 @@ router.post('/:id(\\d+)/resenas', authMiddleware, requireRole('turista'), comerc
 
 // Solo admin: crear un comercio nuevo (cuenta + perfil)
 router.post('/admin', authMiddleware, requireRole('admin'), comercioController.crearComercioAdmin);
+router.get('/admin/todos', authMiddleware, requireRole('admin'), comercioController.listarTodosAdmin);
+router.put('/admin/:id', authMiddleware, requireRole('admin'), comercioController.actualizarAdmin);
 
 // Solo el dueño del comercio logueado
 router.get('/mi-negocio', authMiddleware, requireRole('comercio'), comercioController.miNegocio);
