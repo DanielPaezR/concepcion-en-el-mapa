@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
@@ -7,7 +6,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -20,19 +18,27 @@ export default function Login() {
 
       if (result.success) {
         const rol = result.user?.rol;
+        // Navegación con recarga completa (no navigate() de react-router):
+        // useAuth() no comparte estado entre componentes (no hay Context/
+        // Provider), así que un navigate() del lado del cliente deja a App
+        // con su propio "user" todavía en null y el guard de ruta rebota
+        // de vuelta a /login. Forzar una recarga hace que App se remonte
+        // y lea el token recién guardado en localStorage.
         if (rol === 'admin') {
-          navigate('/admin');
+          window.location.href = '/admin';
         } else if (rol === 'guia') {
-          navigate('/guia');
+          window.location.href = '/guia';
         } else if (rol === 'comercio') {
-          navigate('/comercio');
+          window.location.href = '/comercio';
         } else {
-          navigate('/');
+          window.location.href = '/';
         }
       } else {
         setError(result.error);
+        setIsLoading(false);
       }
-    } finally {
+    } catch (err) {
+      setError('Error al iniciar sesión');
       setIsLoading(false);
     }
   };
