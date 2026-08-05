@@ -42,6 +42,17 @@ const GLOBAL_STYLES = `
   .quest-scroll::-webkit-scrollbar-track { background: transparent; }
   .quest-scroll::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.5); border-radius: 4px; }
 
+  /* Forzamos esto porque el contenedor a veces queda en position: static
+     con altura 0 (parece un problema de timing con el CSS de mapbox-gl
+     cargando en un chunk separado por el lazy-loading de rutas) — eso
+     rompe el cálculo interno de mapbox-gl-js para posicionar popups,
+     haciendo que aparezcan siempre en la esquina superior izquierda en
+     vez de junto al marcador. */
+  .mapboxgl-canvas-container {
+    position: relative !important;
+    height: 100% !important;
+  }
+
   /* Mapbox popup override */
   .mapboxgl-popup-content {
     background: rgba(4,10,30,0.98) !important;
@@ -855,7 +866,7 @@ const LoadingScreen = () => (
     <div className="crt-overlay" />
     <div className="crt-vignette" />
     <div className="crt-scanline" />
-    <motion.div animate={{ y: ['-100%', '200vh'] }} transition={{ duration: 4, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
+    <motion.div animate={{ y: ['-10vh', '110vh'] }} transition={{ duration: 4, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
       style={{ position: 'absolute', left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.3), transparent)', pointerEvents: 'none' }} />
     <div style={{ position: 'relative', marginBottom: 36 }}>
       <motion.div animate={{ rotate: 360 }} transition={{ duration: 3.5, repeat: Infinity, ease: 'linear' }}
@@ -1356,7 +1367,7 @@ function Mapa() {
           </Marker>
         )}
 
-        {lugares.map((lugar) => (
+        {lugares.filter(l => !isNaN(parseFloat(l.latitud)) && !isNaN(parseFloat(l.longitud))).map((lugar) => (
           <Marker key={lugar.id}
             longitude={parseFloat(lugar.longitud)} latitude={parseFloat(lugar.latitud)}
             anchor="bottom"
@@ -1427,7 +1438,7 @@ function Mapa() {
           <Popup
             longitude={parseFloat(selectedGuia.longitud)} latitude={parseFloat(selectedGuia.latitud)}
             onClose={() => setSelectedGuia(null)} closeButton={true} closeOnClick={false}
-            anchor="auto" offset={20} maxWidth="260px"
+            offset={20} maxWidth="260px"
             style={{ zIndex: 2000 }}
           >
             <div style={{ padding: '14px', width: isMobile ? 220 : 240, color: '#f8fafc' }}>
@@ -1455,7 +1466,7 @@ function Mapa() {
           <Popup
             longitude={parseFloat(selectedLugar.longitud)} latitude={parseFloat(selectedLugar.latitud)}
             onClose={() => setSelectedLugar(null)} closeButton={true} closeOnClick={false}
-            anchor="auto" offset={20} maxWidth="260px"
+            offset={20} maxWidth="260px"
             style={{ zIndex: 3000 }}
           >
             <LugarPopupContent
@@ -1477,7 +1488,6 @@ function Mapa() {
             onClose={() => setSelectedComercio(null)}
             closeButton={true}
             closeOnClick={false}
-            anchor="auto"
             maxWidth="250px"
             offset={16}
           >
