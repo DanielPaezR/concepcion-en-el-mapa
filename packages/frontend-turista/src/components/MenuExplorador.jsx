@@ -103,7 +103,7 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
             desc: 'Accede a tu cuenta',
             color: 'text-green-600',
             bg: 'bg-green-50',
-            onClick: () => navigate('/registro')
+            onClick: () => navigate('/login-turista')
         }
     ] : [
         { 

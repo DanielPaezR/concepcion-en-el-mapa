@@ -1329,7 +1329,7 @@ function Mapa() {
   }, [updateGuideInState]);
 
   useEffect(() => {
-    const h = (e) => { mostrarMensajeGuia(e.detail?.message || 'Sesión expirada.', 'error', 3000); setTimeout(() => navigate('/login'), 2500); };
+    const h = (e) => { mostrarMensajeGuia(e.detail?.message || 'Sesión expirada.', 'error', 3000); setTimeout(() => navigate('/login-turista'), 2500); };
     window.addEventListener('sessionExpired', h);
     return () => window.removeEventListener('sessionExpired', h);
   }, [navigate, mostrarMensajeGuia]);

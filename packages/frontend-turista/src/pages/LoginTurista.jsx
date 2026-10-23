@@ -121,12 +121,15 @@ export default function LoginTurista() {
                     </button>
                 </form>
 
-                <p className="text-center text-sm text-gray-600 mt-6">
-                    ¿No tienes cuenta?{' '}
-                    <Link to="/registro" className="text-green-600 font-medium hover:underline">
-                        Regístrate
+                <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+                    <p className="text-sm text-gray-600 mb-3">¿No tienes cuenta?</p>
+                    <Link
+                        to="/registro"
+                        className="block w-full border-2 border-green-600 text-green-700 py-2 rounded-lg font-semibold hover:bg-green-50 transition"
+                    >
+                        Registrarse
                     </Link>
-                </p>
+                </div>
             </motion.div>
         </div>
     );
