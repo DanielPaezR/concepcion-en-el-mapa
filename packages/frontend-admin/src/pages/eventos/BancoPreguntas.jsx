@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import MapaCoordenadas from '../../components/MapaCoordenadas';
+import RetosVigentes from '../../components/RetosVigentes';
 
 export default function BancoPreguntas() {
   const [preguntas, setPreguntas] = useState([]);
@@ -425,6 +426,8 @@ export default function BancoPreguntas() {
                 type="text"
                 value={nuevaPregunta.respuesta}
                 onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, respuesta: e.target.value })}
+                placeholder="Ej: José María Córdova|Córdova|Cordoba"
+                title="No importan mayúsculas ni tildes. Separa respuestas alternativas con |"
                 className="w-full p-2 border rounded"
                 required
               />
@@ -741,8 +744,8 @@ export default function BancoPreguntas() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Banco de Eventos</h1>
-          <p className="text-sm text-gray-500 mt-1">Crea preguntas, retos, puntos de encuentro y eventos temporales especiales</p>
+          <h1 className="text-2xl font-bold">Retos del mapa</h1>
+          <p className="text-sm text-gray-500 mt-1">Banco de preguntas, retos, puntos de encuentro y eventos temporales especiales</p>
         </div>
         <button
           onClick={() => setMostrarForm(!mostrarForm)}
@@ -751,6 +754,8 @@ export default function BancoPreguntas() {
           + Nuevo Evento
         </button>
       </div>
+
+      <RetosVigentes recargar={preguntas.length + ubicaciones.length} />
 
       {/* Formulario de creación */}
       {mostrarForm && (

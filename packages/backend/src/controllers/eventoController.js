@@ -1,23 +1,71 @@
 const pool = require('../config/database');
+const jwt = require('jsonwebtoken');
 const { verificarYOtorgarInsignias } = require('../services/insigniaService');
+
+// Compara respuestas sin importar mayúsculas, tildes, signos ni espacios extra:
+// "Córdova" = "cordova" = " CORDOVA. "
+const normalizar = (texto) => String(texto || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9ñ\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Holgura (m) sobre el radio del punto de encuentro por la imprecisión del GPS
+const HOLGURA_GPS_M = 20;
+
+const distanciaMetros = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000;
+    const rad = (g) => (g * Math.PI) / 180;
+    const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 +
+        Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+};
+
+// La respuesta correcta puede traer alternativas separadas por "|":
+// "José María Córdova|Córdova|Cordoba"
+const esRespuestaCorrecta = (respuesta, correcta) => String(correcta || "")
+    .split("|")
+    .map(normalizar)
+    .filter(Boolean)
+    .includes(normalizar(respuesta));
+
+// Ruta pública: si viene un token válido se marca qué retos ya completó el usuario
+const usuarioOpcional = (req) => {
+    try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        return token ? jwt.verify(token, process.env.JWT_SECRET) : null;
+    } catch {
+        return null;
+    }
+};
 
 const eventoController = {
     async getEventosActivos(req, res) {
         try {
+            const usuario = usuarioOpcional(req);
+            // La respuesta NO se envía: antes cualquiera la veía en la red
             const result = await pool.query(`
                 SELECT
-                    e.*,
-                    p.pregunta,
-                    p.respuesta,
+                    e.id, e.titulo, e.xp_recompensa, e.fecha_expiracion, e.es_temporal,
+                    e.fecha_inicio, e.fecha_fin,
+                    COALESCE(p.tipo, 'pregunta') AS tipo,
+                    p.pregunta, p.pistas, p.evento_temporal_tipo,
                     u.nombre as ubicacion_nombre,
                     u.latitud,
-                    u.longitud
+                    u.longitud,
+                    COALESCE(u.radio, 50) AS radio,
+                    ${usuario ? `EXISTS (
+                        SELECT 1 FROM progreso_eventos pe
+                        WHERE pe.evento_id = e.id AND pe.usuario_id = $1 AND pe.completado = true
+                    )` : 'false'} AS completado
                 FROM eventos_diarios e
                 JOIN bancos_preguntas p ON e.pregunta_id = p.id
                 JOIN bancos_ubicaciones u ON e.ubicacion_id = u.id
                 WHERE e.activo = true
                 AND e.fecha_expiracion > NOW()
-            `);
+                ORDER BY e.es_temporal DESC, e.id
+            `, usuario ? [usuario.id] : []);
             res.json({ success: true, eventos: result.rows });
         } catch (error) {
             console.error('Error:', error);
@@ -54,7 +102,7 @@ const eventoController = {
 
     async completarEvento(req, res) {
         try {
-            const { eventoId, respuesta } = req.body;
+            const { eventoId, respuesta, latitud, longitud } = req.body;
             const usuarioId = req.user.id;
 
             const yaCompleto = await pool.query(
@@ -63,48 +111,46 @@ const eventoController = {
             );
 
             if (yaCompleto.rows.length > 0) {
-                return res.status(400).json({ error: 'Ya completaste este evento' });
+                return res.status(400).json({ error: 'Ya completaste este reto' });
             }
 
-            const evento = await pool.query(
-                'SELECT * FROM eventos_diarios WHERE id = $1 AND activo = true AND fecha_expiracion > NOW()',
-                [eventoId]
-            );
+            const evento = await pool.query(`
+                SELECT e.*, COALESCE(p.tipo, 'pregunta') AS tipo, p.respuesta AS respuesta_correcta,
+                       u.latitud AS ubicacion_lat, u.longitud AS ubicacion_lng, COALESCE(u.radio, 50) AS radio
+                FROM eventos_diarios e
+                JOIN bancos_preguntas p ON p.id = e.pregunta_id
+                LEFT JOIN bancos_ubicaciones u ON u.id = e.ubicacion_id
+                WHERE e.id = $1 AND e.activo = true AND e.fecha_expiracion > NOW()
+            `, [eventoId]);
 
             if (evento.rows.length === 0) {
-                return res.status(404).json({ error: 'Evento no disponible' });
+                return res.status(404).json({ error: 'Este reto ya no está disponible' });
             }
 
             const eventoData = evento.rows[0];
 
-            if (eventoData.es_temporal === true) {
-                const fechaActual = new Date();
-                const fechaInicio = new Date(eventoData.fecha_inicio);
-                const fechaFin = new Date(eventoData.fecha_fin);
-
-                if (fechaActual < fechaInicio) {
-                    return res.status(400).json({
-                        error: `⏰ Este evento comienza el ${fechaInicio.toLocaleDateString()}. ¡Vuelve pronto!`
-                    });
+            // Los retos de pregunta se responden desde cualquier parte del
+            // pueblo. Los puntos de encuentro ("reunion") consisten justamente
+            // en llegar al lugar, así que esos sí verifican la distancia.
+            if (eventoData.tipo === 'reunion' && eventoData.ubicacion_lat != null) {
+                const lat = parseFloat(latitud);
+                const lng = parseFloat(longitud);
+                if (isNaN(lat) || isNaN(lng)) {
+                    return res.status(400).json({ error: '📍 Activa tu ubicación para marcar tu llegada' });
                 }
-
-                if (fechaActual > fechaFin) {
-                    return res.status(400).json({
-                        error: `📅 Este evento terminó el ${fechaFin.toLocaleDateString()}. ¡Espera la próxima temporada!`
-                    });
+                const distancia = distanciaMetros(lat, lng, parseFloat(eventoData.ubicacion_lat), parseFloat(eventoData.ubicacion_lng));
+                if (distancia > eventoData.radio + HOLGURA_GPS_M) {
+                    return res.status(400).json({ error: `🚶 Llega al punto de encuentro (estás a ${Math.round(distancia)} m)` });
                 }
             }
 
-            if (respuesta && eventoData.pregunta_id) {
-                const pregunta = await pool.query(
-                    'SELECT respuesta FROM bancos_preguntas WHERE id = $1',
-                    [eventoData.pregunta_id]
-                );
-
-                const esCorrecto = pregunta.rows[0]?.respuesta === respuesta;
-
-                if (!esCorrecto) {
-                    return res.status(400).json({ error: '❌ Respuesta incorrecta' });
+            // El resto exige la respuesta (antes una respuesta vacía completaba el reto)
+            if (eventoData.tipo !== 'reunion') {
+                if (!normalizar(respuesta)) {
+                    return res.status(400).json({ error: 'Escribe una respuesta', codigo: 'SIN_RESPUESTA' });
+                }
+                if (!esRespuestaCorrecta(respuesta, eventoData.respuesta_correcta)) {
+                    return res.status(400).json({ error: '❌ Respuesta incorrecta', codigo: 'INCORRECTA' });
                 }
             }
 

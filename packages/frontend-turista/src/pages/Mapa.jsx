@@ -27,6 +27,7 @@ import {
 import EstadoReserva from '../components/EstadoReserva';
 import MenuExplorador from '../components/MenuExplorador';
 import LocationPrompt from '../components/LocationPrompt';
+import { dialogos } from '../data/dialogosMascota';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -389,9 +390,12 @@ const HUDHeader = ({
   lugarEspecial, onOpenGaleria, onOpenAnclar,
   onToggleQuestLog, onToggleMenuExplorador, showQuestLog, isMobile, sistemaExp, userAvatar,
 }) => {
-  const xpParaSiguiente = sistemaExp?.expAcumulada?.[playerLevel - 1] ?? 0;
-  const xpAnterior  = playerLevel > 1 ? (sistemaExp?.expAcumulada?.[playerLevel - 2] ?? 0) : 0;
-  const progreso    = xpParaSiguiente > 0 ? Math.min(((xp - xpAnterior) / (xpParaSiguiente - xpAnterior)) * 100, 100) : 100;
+  // Misma escala que el backend: un nivel cada 100 XP, máximo nivel 5.
+  // (Antes se usaba otra escala y el HUD mostraba cosas como "350/56 XP".)
+  const nivelMaximo = playerLevel >= 5;
+  const xpAnterior  = (playerLevel - 1) * 100;
+  const xpParaSiguiente = nivelMaximo ? xpAnterior : playerLevel * 100;
+  const progreso    = nivelMaximo ? 100 : Math.max(0, Math.min(((xp - xpAnterior) / 100) * 100, 100));
 
   const LC = {
     1: { from: '#041a04', to: '#0d2e0d', border: '#22c55e', text: '#4ade80', glow: 'rgba(34,197,94,0.4)' },
@@ -447,7 +451,7 @@ const HUDHeader = ({
             />
           </div>
           <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.28)', letterSpacing: '.06em', fontFamily: "'Orbitron',monospace" }}>
-            {xp}/{xpParaSiguiente} XP
+            {nivelMaximo ? `${xp} XP · MÁX` : `${xp}/${xpParaSiguiente} XP`}
           </span>
         </div>
 
@@ -725,7 +729,25 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
 );
 
 // 🎯 Modal Evento
-const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) => (
+const ETIQUETA_RETO = {
+  pregunta: 'RETO DIARIO',
+  pistas: 'BÚSQUEDA CON PISTAS',
+  reto: 'RETO DIARIO',
+  reunion: 'PUNTO DE ENCUENTRO',
+};
+
+// distancia: metros hasta el lugar del reto (null sin ubicación)
+const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, distancia, enviando }) => {
+  const esReunion = evento.tipo === 'reunion';
+  const radio = (evento.radio || 50) + 20;
+  // Las preguntas se responden desde cualquier parte del pueblo; solo los
+  // puntos de encuentro exigen estar en el lugar.
+  const enRango = !esReunion || (distancia !== null && distancia <= radio);
+  const pistas = Array.isArray(evento.pistas) ? evento.pistas.filter(p => p?.texto) : [];
+  const puedeResponder = !evento.completado && enRango && !enviando && (esReunion || respuesta.trim());
+  const etiqueta = evento.es_temporal ? 'EVENTO ESPECIAL' : (ETIQUETA_RETO[evento.tipo] || 'RETO DIARIO');
+
+  return (
   <motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: 16 }}
@@ -735,31 +757,72 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose }) 
       initial={{ scale: 0.85, y: 28 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.85, y: 28 }}
       transition={{ type: 'spring', damping: 22 }}
       className="hud-font"
-      style={{ background: 'rgba(4,10,30,0.99)', border: '1px solid rgba(251,191,36,0.22)', borderTop: '1px solid rgba(251,191,36,0.5)', borderRadius: 24, maxWidth: 380, width: '100%', padding: 26, boxShadow: '0 0 80px rgba(0,0,0,0.9), 0 0 40px rgba(251,191,36,0.05)', position: 'relative', overflow: 'hidden' }}
+      style={{ background: 'rgba(4,10,30,0.99)', border: '1px solid rgba(251,191,36,0.22)', borderTop: '1px solid rgba(251,191,36,0.5)', borderRadius: 24, maxWidth: 380, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26, boxShadow: '0 0 80px rgba(0,0,0,0.9), 0 0 40px rgba(251,191,36,0.05)', position: 'relative' }}
     >
       <div style={{ position: 'absolute', top: 0, left: 30, right: 30, height: 1, background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.7), transparent)' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #b45309, #78350f)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 0 16px rgba(245,158,11,0.25)' }}>🎯</div>
-        <div>
-          <div className="orb-font" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 8, letterSpacing: '.15em', marginBottom: 3 }}>RETO DIARIO</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 44, height: 44, flexShrink: 0, background: evento.completado ? 'linear-gradient(135deg, #16a34a, #14532d)' : 'linear-gradient(135deg, #b45309, #78350f)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 0 16px rgba(245,158,11,0.25)' }}>
+          {evento.completado ? '✅' : esReunion ? '📍' : evento.es_temporal ? '🎪' : '🎯'}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="orb-font" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 8, letterSpacing: '.15em', marginBottom: 3 }}>{etiqueta} · +{evento.xp_recompensa || 50} XP</div>
           <h3 style={{ color: '#fcd34d', fontWeight: 700, fontSize: 15, margin: 0 }}>{evento.titulo}</h3>
         </div>
-        <button onClick={onClose} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        <button onClick={onClose} style={{ marginLeft: 'auto', flexShrink: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
       </div>
-      <p style={{ color: 'rgba(255,255,255,0.58)', fontSize: 14, marginBottom: 18, lineHeight: 1.65, borderLeft: '2px solid rgba(251,191,36,0.25)', paddingLeft: 12 }}>{evento.pregunta}</p>
-      <input type="text" value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
-        placeholder="Tu respuesta..." onKeyPress={(e) => e.key === 'Enter' && onResponder()}
-        style={{ width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, marginBottom: 14, color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-      />
-      <div style={{ display: 'flex', gap: 10 }}>
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onResponder}
-          style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '12px 0', borderRadius: 13, fontWeight: 700, fontSize: 13, border: '1px solid rgba(34,197,94,0.4)', cursor: 'pointer', letterSpacing: '.07em', fontFamily: "'Orbitron',monospace", boxShadow: '0 0 18px rgba(34,197,94,0.18)' }}>RESPONDER</motion.button>
+
+      <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 14, marginBottom: 14, lineHeight: 1.65, borderLeft: '2px solid rgba(251,191,36,0.25)', paddingLeft: 12 }}>{evento.pregunta}</p>
+
+      {pistas.length > 0 && !evento.completado && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, letterSpacing: '.14em', marginBottom: 6 }}>PISTAS</div>
+          {pistas.map((p, i) => (
+            <div key={i} style={{ color: 'rgba(226,232,240,0.75)', fontSize: 12.5, lineHeight: 1.5, marginBottom: 4 }}>
+              🔎 {p.lugar ? <strong style={{ color: '#fcd34d' }}>{p.lugar}: </strong> : null}{p.texto}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {evento.completado ? (
+        <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 12, padding: '12px 14px', color: '#86efac', fontSize: 13, textAlign: 'center', marginBottom: 4 }}>
+          ✅ ¡Ya completaste este reto! Vuelve mañana por uno nuevo.
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, marginBottom: 12, color: enRango ? '#86efac' : '#fcd34d' }}>
+            {!esReunion
+              ? `📍 ${evento.ubicacion_nombre || 'Concepción'}${distancia !== null ? ` · a ${Math.round(distancia)} m` : ''}. Puedes responder desde cualquier parte del pueblo.`
+              : distancia === null
+                ? '📍 Activa tu ubicación para marcar tu llegada.'
+                : enRango
+                  ? `📍 ¡Llegaste al punto de encuentro! (${Math.round(distancia)} m)`
+                  : `🚶 Llega a ${evento.ubicacion_nombre || 'el punto de encuentro'} (estás a ${Math.round(distancia)} m).`}
+          </div>
+          {!esReunion && (
+            <input type="text" value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
+              placeholder="Tu respuesta..." onKeyDown={(e) => e.key === 'Enter' && puedeResponder && onResponder()}
+              disabled={!enRango}
+              style={{ width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, marginBottom: 14, color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', opacity: enRango ? 1 : 0.5 }}
+            />
+          )}
+        </>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: evento.completado ? 12 : 0 }}>
+        {!evento.completado && (
+          <motion.button whileHover={puedeResponder ? { scale: 1.03 } : {}} whileTap={puedeResponder ? { scale: 0.97 } : {}} onClick={onResponder} disabled={!puedeResponder}
+            style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '12px 0', borderRadius: 13, fontWeight: 700, fontSize: 13, border: '1px solid rgba(34,197,94,0.4)', cursor: puedeResponder ? 'pointer' : 'not-allowed', letterSpacing: '.07em', fontFamily: "'Orbitron',monospace", boxShadow: '0 0 18px rgba(34,197,94,0.18)', opacity: puedeResponder ? 1 : 0.45 }}>
+            {enviando ? '...' : esReunion ? 'ESTOY AQUÍ' : 'RESPONDER'}
+          </motion.button>
+        )}
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClose}
-          style={{ flex: 1, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.38)', padding: '12px 0', borderRadius: 13, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>CANCELAR</motion.button>
+          style={{ flex: 1, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', padding: '12px 0', borderRadius: 13, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>{evento.completado ? 'CERRAR' : 'CANCELAR'}</motion.button>
       </div>
     </motion.div>
   </motion.div>
-);
+  );
+};
 
 // 🏆 Popup del lugar (NUEVA VERSIÓN CON DOS BOTONES)
 const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, onVerDetalles, onAbrirMapa, calcularDistancia }) => {
@@ -942,6 +1005,7 @@ function Mapa() {
   });
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento]       = useState('');
+  const [enviandoReto, setEnviandoReto]             = useState(false);
   const [userAvatar, setUserAvatar]                 = useState(null);
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
@@ -1055,7 +1119,7 @@ function Mapa() {
     const nueva = curiosidadesCercanas.find(c => !curiosidadesAvisadas.current.has(c.id) && !curiosidadesVistas.includes(c.id));
     curiosidadesCercanas.forEach(c => curiosidadesAvisadas.current.add(c.id));
     if (nueva && filtros.curiosidades) {
-      mostrarMensajeGuia('💡 ¡Hay una curiosidad cerca! Toca el foco para descubrirla.', 'descubrimiento', 5000);
+      mostrarMensajeGuia(dialogos.curiosidadCerca(), 'descubrimiento', 5000);
     }
   }, [idsCuriosidadesCercanas]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1080,7 +1144,7 @@ function Mapa() {
     try {
       const r = await api.post(`/guardianes/visitar/${guardian.id}`);
       mostrarMensajeGuia(
-        r.data.ya_visitado ? '👋 Ya saludaste a este guardián hoy' : `👋 ¡Saludaste al guardián de ${guardian.nombre_publico || guardian.usuario_nombre}!`,
+        r.data.ya_visitado ? dialogos.guardianYaSaludado() : dialogos.guardianSaludado(guardian.nombre_publico || guardian.usuario_nombre),
         'celebrando', 3500
       );
     } catch (error) {
@@ -1095,7 +1159,7 @@ function Mapa() {
       setSelectedGuardian(null);
       queryClient.invalidateQueries({ queryKey: ['mi-guardian'] });
       queryClient.invalidateQueries({ queryKey: ['guardianes-cercanos'] });
-      mostrarMensajeGuia('🛡️ Guardián retirado. Puedes anclarlo en otro lugar.', 'normal', 3500);
+      mostrarMensajeGuia(dialogos.guardianRetirado(), 'normal', 4000);
     } catch (error) {
       mostrarMensajeGuia(error.response?.data?.error || 'No se pudo retirar el guardián', 'pensativo', 3000);
     }
@@ -1105,7 +1169,7 @@ function Mapa() {
     setMostrarAnclar(false);
     queryClient.invalidateQueries({ queryKey: ['mi-guardian'] });
     queryClient.invalidateQueries({ queryKey: ['guardianes-cercanos'] });
-    mostrarMensajeGuia('🛡️ ¡Tu guardián quedó anclado aquí! Otros exploradores lo verán al pasar cerca.', 'celebrando', 5000);
+    mostrarMensajeGuia(dialogos.guardianAnclado(), 'celebrando', 5000);
   };
 
   // ✅ Sincronización con backend: perfil y lugares descubiertos
@@ -1134,18 +1198,28 @@ function Mapa() {
   }, [cargarPerfilYDescubrimientos]);
 
   const registrarDescubrimiento = async (lugar) => {
-    if (!userPosition) { mostrarMensajeGuia('📍 Activa tu ubicación para explorar', 'pensativo', 3000); return false; }
+    if (!userPosition) { mostrarMensajeGuia(dialogos.sinUbicacion(), 'pensativo', 4000); return false; }
     const dist = calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(lugar.latitud), parseFloat(lugar.longitud));
-    if (dist > 100) { mostrarMensajeGuia(`❌ Acércate más (${Math.round(dist)} m)`, 'pensativo', 3000); return false; }
-    if (discoveredPlaces.includes(lugar.id)) { mostrarMensajeGuia(`📖 Ya hallaste ${lugar.nombre}`, 'normal', 2000); return false; }
+    if (dist > 100) { mostrarMensajeGuia(dialogos.lejos(lugar.nombre, Math.round(dist)), 'pensativo', 4000); return false; }
+    if (discoveredPlaces.includes(lugar.id)) { mostrarMensajeGuia(dialogos.yaDescubierto(lugar.nombre), 'normal', 3500); return false; }
     try {
       const res = await api.post('/descubrimientos/registrar', { lugar_id: lugar.id, latitud: userPosition.lat, longitud: userPosition.lng });
       if (res.data.success) {
+        // El banner de subida de nivel existía pero nunca se mostraba
+        const nivelNuevo = res.data.nivel_actual || playerLevel;
+        const subioNivel = nivelNuevo > playerLevel;
         await cargarPerfilYDescubrimientos();
         setLastVisitedPlace(lugar);
         setTimeout(() => setLastVisitedPlace(null), 3000);
         setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 10 });
-        setTimeout(() => navigate(`/lugar/${lugar.id}`, { state: { recienDescubierto: true } }), 900);
+        if (subioNivel) {
+          setShowLevelUp(true);
+          setTimeout(() => setShowLevelUp(false), 2500);
+        }
+        setTimeout(
+          () => navigate(`/lugar/${lugar.id}`, { state: { recienDescubierto: true, nivelNuevo: subioNivel ? nivelNuevo : null } }),
+          subioNivel ? 2600 : 900
+        );
         return true;
       }
     } catch (e) {
@@ -1266,7 +1340,9 @@ function Mapa() {
 
   useEffect(() => {
     if (!cargandoLugares && lugares.length > 0) {
-      mostrarMensajeGuia('¡Bienvenido a Concepción! Descubre sus secretos.', 'bienvenida', 6000);
+      let nombre = null;
+      try { nombre = JSON.parse(localStorage.getItem('turista_user') || 'null')?.nombre; } catch { /* sin usuario */ }
+      mostrarMensajeGuia(dialogos.bienvenida(nombre), 'bienvenida', 7000);
     }
   }, [cargandoLugares, lugares.length]);
 
@@ -1277,17 +1353,39 @@ function Mapa() {
     }
   }, [lugares]);
 
-  const handleCompletarEvento = async (eventoId, respuesta) => {
+  const handleCompletarEvento = async (evento, respuesta) => {
+    if (evento.tipo === 'reunion' && !userPosition) { mostrarMensajeGuia(dialogos.sinUbicacion(), 'pensativo', 4000); return; }
+    setEnviandoReto(true);
     try {
-      const r = await api.post('/eventos/completar', { eventoId, respuesta });
+      const r = await api.post('/eventos/completar', {
+        eventoId: evento.id, respuesta, latitud: userPosition?.lat, longitud: userPosition?.lng,
+      });
       if (r.data.success) {
-        mostrarMensajeGuia(`🎉 ¡Reto completado! +${r.data.xp_ganada} XP`, 'celebrando', 4000);
         setEventoSeleccionado(null);
         setRespuestaEvento('');
         queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
+        // Antes el XP y el nivel del HUD no se actualizaban tras ganar un reto
+        const subioNivel = (r.data.nivel_actual || playerLevel) > playerLevel;
+        await cargarPerfilYDescubrimientos();
+        if (subioNivel) {
+          setShowLevelUp(true);
+          setTimeout(() => setShowLevelUp(false), 2500);
+          mostrarMensajeGuia(dialogos.subirNivel(r.data.nivel_actual), 'nivel', 8000);
+        } else {
+          mostrarMensajeGuia(dialogos.retoCorrecto(r.data.xp_ganada), 'celebrando', 5000);
+        }
       }
-    } catch {
-      mostrarMensajeGuia('❌ Respuesta incorrecta. ¡Sigue intentando!', 'pensativo', 3000);
+    } catch (error) {
+      // Antes cualquier error se mostraba como "respuesta incorrecta"
+      const datos = error.response?.data;
+      if (datos?.codigo === 'INCORRECTA') mostrarMensajeGuia(dialogos.retoIncorrecto(), 'pensativo', 5000);
+      else mostrarMensajeGuia(datos?.error || dialogos.errorGenerico(), 'pensativo', 5000);
+      if (error.response?.status === 404) {
+        setEventoSeleccionado(null);
+        queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
+      }
+    } finally {
+      setEnviandoReto(false);
     }
   };
 
@@ -1383,6 +1481,7 @@ function Mapa() {
       <CompaneroVirtual
         mensaje={mensajeGuia} nivel={playerLevel} tipo={tipoGuia}
         emocion={lastVisitedPlace ? 'celebrando' : locationPermission === 'granted' ? 'feliz' : 'pensativo'}
+        onTocar={() => mostrarMensajeGuia(dialogos.dato(), 'consejo', 9000)}
       />
 
       {mostrarGaleria && <GaleriaFotos nivelUsuario={playerLevel} onCerrar={() => setMostrarGaleria(false)} />}
@@ -1513,7 +1612,7 @@ function Mapa() {
               animate={{ y: [0, -7, 0] }} transition={{ duration: 2.2, repeat: Infinity }}
               onClick={() => {
                 setMostrarGaleria(true);
-                mostrarMensajeGuia(playerLevel >= 5 ? '📸 ¡Galería de Recuerdos!' : '🔒 Nivel 5 necesario para subir fotos.', playerLevel >= 5 ? 'celebrando' : 'pensativo', 4000);
+                mostrarMensajeGuia(dialogos.galeria(playerLevel), playerLevel >= 5 ? 'celebrando' : 'pensativo', 4500);
               }}
               style={{
                 width: isMobile ? 60 : 72, height: isMobile ? 60 : 72,
@@ -1619,9 +1718,18 @@ function Mapa() {
         )}
 
         {filtros.retos && eventos.map((evento) => (
-          <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)} onClick={() => setEventoSeleccionado(evento)}>
-            <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}
-              style={{ width: 44, height: 44, background: 'radial-gradient(circle at 35% 35%, #fbbf24, #b45309)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 24px rgba(251,191,36,0.55), 0 4px 14px rgba(0,0,0,0.5)' }}>❓</motion.div>
+          <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)}
+            onClick={(e) => { e.originalEvent.stopPropagation(); setRespuestaEvento(''); setEventoSeleccionado(evento); }}>
+            {evento.completado ? (
+              <div title="Reto completado"
+                style={{ width: 38, height: 38, background: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, cursor: 'pointer', opacity: 0.75, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>✅</div>
+            ) : (
+              <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}
+                title={evento.titulo}
+                style={{ width: 44, height: 44, background: 'radial-gradient(circle at 35% 35%, #fbbf24, #b45309)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 24px rgba(251,191,36,0.55), 0 4px 14px rgba(0,0,0,0.5)' }}>
+                {evento.es_temporal ? '🎪' : evento.tipo === 'reunion' ? '📍' : '❓'}
+              </motion.div>
+            )}
           </Marker>
         ))}
 
@@ -1707,8 +1815,12 @@ function Mapa() {
       <AnimatePresence>
         {eventoSeleccionado && (
           <EventoModal evento={eventoSeleccionado} respuesta={respuestaEvento} setRespuesta={setRespuestaEvento}
-            onResponder={() => handleCompletarEvento(eventoSeleccionado.id, respuestaEvento)}
-            onClose={() => setEventoSeleccionado(null)} />
+            onResponder={() => handleCompletarEvento(eventoSeleccionado, respuestaEvento)}
+            onClose={() => { setEventoSeleccionado(null); setRespuestaEvento(''); }}
+            enviando={enviandoReto}
+            distancia={userPosition
+              ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(eventoSeleccionado.latitud), parseFloat(eventoSeleccionado.longitud))
+              : null} />
         )}
       </AnimatePresence>
 

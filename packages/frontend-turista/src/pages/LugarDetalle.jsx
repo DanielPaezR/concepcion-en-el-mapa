@@ -10,6 +10,7 @@ import {
 import api from '../services/api';
 import TomarRecuerdo from '../components/TomarRecuerdo';
 import CompaneroVirtual from '../components/CompaneroVirtual';
+import { dialogos } from '../data/dialogosMascota';
 import { useState, useEffect } from 'react';
 import { getTuristaActual } from '../services/auth';
 import toast from 'react-hot-toast';
@@ -54,7 +55,12 @@ export default function LugarDetalle() {
       
       if (response.data?.success && response.data?.data) {
         console.log('✅ Usando response.data.data');
-        setMensajeCompanero(`¡${response.data.data.nombre} es un lugar increíble! Aquí puedes aprender más sobre su historia y belleza.`);
+        const datosLugar = response.data.data;
+        setMensajeCompanero(
+          location.state?.nivelNuevo ? dialogos.subirNivel(location.state.nivelNuevo)
+            : location.state?.recienDescubierto ? dialogos.descubierto(datosLugar.nombre)
+            : dialogos.lugar(datosLugar)
+        );
         return response.data.data;
       }
       
@@ -139,7 +145,7 @@ export default function LugarDetalle() {
 
   const handleSolicitarGuia = () => {
     if (esAnonimo) {
-        setMensajeCompanero('📝 Para solicitar un guía, primero debes registrarte.');
+        setMensajeCompanero(dialogos.necesitaRegistro());
         setTimeout(() => {
             navigate('/registro');
         }, 2000);
@@ -147,7 +153,7 @@ export default function LugarDetalle() {
     }
     
     if (lugar?.id) {
-        setMensajeCompanero(`¡Excelente elección! Te ayudaré a encontrar el guía perfecto para ${lugar.nombre}.`);
+        setMensajeCompanero(dialogos.buscandoGuia(lugar.nombre));
         setTimeout(() => {
             navigate(`/solicitar-guia/${lugar.id}`);
         }, 1500);
@@ -163,7 +169,7 @@ export default function LugarDetalle() {
       });
     } else {
       navigator.clipboard.writeText(window.location.href);
-      setMensajeCompanero('¡Enlace copiado al portapapeles!');
+      setMensajeCompanero(dialogos.enlaceCopiado());
       toast.success('Enlace copiado');
     }
   };
@@ -214,8 +220,9 @@ export default function LugarDetalle() {
       {/* Compañero Virtual */}
       <CompaneroVirtual 
         mensaje={mensajeCompanero}
-        nivel={1}
-        emocion="feliz"
+        nivel={nivelActual}
+        emocion={location.state?.recienDescubierto ? 'celebrando' : 'feliz'}
+        onTocar={() => setMensajeCompanero(dialogos.dato())}
       />
 
       {/* Header con imagen de fondo y navegación */}

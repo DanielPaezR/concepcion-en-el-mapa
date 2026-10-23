@@ -1,6 +1,7 @@
 const app = require('./src/app');
 const http = require('http');
 const { initializeSocket } = require('./src/socket');
+const { iniciarCronRetos } = require('./src/jobs/generarEventos');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
@@ -22,4 +23,6 @@ server.listen(PORT, () => {
   🔌 WebSocket server ready
   ⚡ Entorno: ${process.env.NODE_ENV || 'development'}
   `);
+  // Retos diarios: antes este cron nunca se cargaba y no se generaban retos
+  iniciarCronRetos();
 });

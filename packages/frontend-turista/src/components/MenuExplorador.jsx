@@ -150,7 +150,8 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
 
     const nivelInfo = getNivelTitulo();
     const porcentajeProgreso = (lugaresDescubiertos / totalLugares) * 100;
-    const xpParaSiguiente = nivel * 100;
+    // Misma escala que el backend: un nivel cada 100 XP, máximo nivel 5
+    const xpParaSiguiente = nivel >= 5 ? Math.max(xp, 400) : nivel * 100;
     const xpActual = xp;
 
     return (

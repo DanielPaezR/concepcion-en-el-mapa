@@ -14,7 +14,8 @@ import {
   UserCircleIcon,
   ChevronDownIcon,
   CalendarDaysIcon,
-  LightBulbIcon
+  LightBulbIcon,
+  PuzzlePieceIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Comercios', href: '/admin/comercios', icon: BuildingStorefrontIcon },
   { name: 'Eventos del pueblo', href: '/admin/agenda', icon: CalendarDaysIcon },
   { name: 'Curiosidades', href: '/admin/curiosidades', icon: LightBulbIcon },
+  { name: 'Retos', href: '/admin/eventos', icon: PuzzlePieceIcon },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },

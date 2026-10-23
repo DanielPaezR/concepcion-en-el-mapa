@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Users, MapPin, MessageCircle } from 'lucide-react';
 import Avatar from '../components/AvatarJugador';
+import { dialogos } from '../data/dialogosMascota';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
 import RegistroModal from '../components/RegistroModal';
@@ -47,7 +48,7 @@ function SolicitarGuia() {
         setHorarioLugar(response.data.horario || '9:00-17:00');
     } catch (error) {
       console.error('Error al cargar lugar:', error);
-      setMensajeAvatar('Hubo un error al cargar la información del lugar');
+      setMensajeAvatar(dialogos.errorGenerico());
     } finally {
       setCargando(false);
     }
@@ -125,7 +126,7 @@ function SolicitarGuia() {
     e.preventDefault();
     
     if (esAnonimo) {
-        setMensajeAvatar('¡Casi listo, Explorador! Regístrate para que el Pato de Torrentes te encuentre un guía.');
+        setMensajeAvatar(dialogos.registroParaGuia());
         setMostrarRegistro(true);
         return;
     }
@@ -166,13 +167,13 @@ function SolicitarGuia() {
             fecha: fechaHora
         }));
         
-        setMensajeAvatar('¡Solicitud enviada! Un guía te contactará pronto.');
+        setMensajeAvatar(dialogos.solicitudEnviada());
         setTimeout(() => {
             navigate(`/lugar/${lugarId}`);
         }, 3000);
     } catch (error) {
         console.error('Error al crear reserva:', error);
-        setMensajeAvatar('Hubo un error. Por favor, intenta de nuevo.');
+        setMensajeAvatar(dialogos.errorGenerico());
         setEnviando(false);
     }
   };

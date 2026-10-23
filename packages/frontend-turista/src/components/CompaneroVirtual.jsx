@@ -181,7 +181,9 @@ const BURBUJA_CONFIG = {
 // ─────────────────────────────────────────────
 // Componente principal
 // ─────────────────────────────────────────────
-const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'normal' }) => {
+// onTocar: si se pasa, tocar el pato con la burbuja cerrada pide un mensaje
+// nuevo (ej. un dato del pueblo) en vez de reabrir el último.
+const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'normal', onTocar }) => {
   const [mostrarBurbuja, setMostrarBurbuja] = useState(false);
   const [mensajeActual, setMensajeActual] = useState('');
   const [textoVisible, setTextoVisible] = useState('');
@@ -237,6 +239,10 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
 
   const handleClickPato = (e) => {
     e.stopPropagation();
+    if (onTocar && !mostrarBurbuja) {
+      onTocar();
+      return;
+    }
     setMostrarBurbuja(prev => !prev);
   };
 

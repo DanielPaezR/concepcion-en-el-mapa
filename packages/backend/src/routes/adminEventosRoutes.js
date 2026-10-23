@@ -24,6 +24,10 @@ router.use(authMiddleware);
 router.use(requireRole('admin', 'guia'));
 router.use(requireGestorEventos);
 
+// Retos vigentes y generación manual
+router.get('/activos', adminEventosController.getRetosActivos);
+router.post('/generar', adminEventosController.generarRetos);
+
 // Preguntas
 router.get('/preguntas', adminEventosController.getPreguntas);
 router.post('/preguntas', adminEventosController.crearPregunta);
