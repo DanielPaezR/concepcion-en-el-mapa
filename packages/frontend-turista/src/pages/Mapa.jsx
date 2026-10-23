@@ -18,6 +18,8 @@ import AvatarJugador from '../components/AvatarJugador';
 import AvatarGuia from '../components/AvatarGuia';
 import GaleriaFotos from '../components/GaleriaFotos';
 import Map3DEffect from '../components/Map3DEffect';
+import MapaAmbiente from '../components/MapaAmbiente';
+import { ESTILOS_MAPA, ESTILO_POR_DEFECTO } from '../config/estilosMapa';
 import AnclarGuardian from '../components/AnclarGuardian';
 import { GuardianPin, GuardianPopupContent, GuardianesPanel } from '../components/GuardianesMapa';
 import {
@@ -33,7 +35,6 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
 
 // ─── Mapa oscuro de aventura (dark adventure Mapbox style) ─────
-const MAP_STYLE = 'mapbox://styles/mapbox/dark-v11';
 
 // ─── Estilos globales ──────────────────────────────────────────
 const GLOBAL_STYLES = `
@@ -1036,6 +1037,23 @@ function Mapa() {
 
   // Eventos del pueblo y curiosidades (no cuentan en el juego)
   const [filtros, alternarFiltro] = useFiltrosMapa();
+  // Estilo del mapa (aventura, noche, satélite o el propio de Studio), recordado entre visitas
+  const [estiloMapa, setEstiloMapa] = useState(() => {
+    try {
+      const guardado = localStorage.getItem('estilo_mapa');
+      return ESTILOS_MAPA[guardado] ? guardado : ESTILO_POR_DEFECTO;
+    } catch { return ESTILO_POR_DEFECTO; }
+  });
+  const estiloActual = ESTILOS_MAPA[estiloMapa] || ESTILOS_MAPA.aventura;
+  // Los marcadores se montan cuando el mapa terminó de cargar: los estilos v12
+  // traen niebla y, si un marcador se dibuja antes del primer cuadro, mapbox-gl
+  // 2.x falla consultándola ("Cannot read properties of undefined (reading 'get')")
+  const [mapaListo, setMapaListo] = useState(false);
+  const cambiarEstiloMapa = (clave) => {
+    if (clave !== estiloMapa) setMapaListo(false);
+    setEstiloMapa(clave);
+    try { localStorage.setItem('estilo_mapa', clave); } catch { /* sin almacenamiento */ }
+  };
   const { data: eventosComunidad = [] } = useQuery({
     queryKey: ['eventos-comunidad'],
     queryFn: async () => (await api.get('/eventos-comunidad')).data.eventos || [],
@@ -1065,6 +1083,9 @@ function Mapa() {
   // umbral para no disparar renders de más.
   const INITIAL_VIEW_STATE = { longitude: -75.2592802, latitude: 6.3953494, zoom: 18, pitch: 55, bearing: 12 };
   const [bearing, setBearing] = useState(INITIAL_VIEW_STATE.bearing);
+  // Última posición de la cámara: al cambiar de estilo el mapa se recrea
+  // (ver key del <Map>) y arranca donde estaba, sin saltos
+  const vistaRef = useRef(INITIAL_VIEW_STATE);
 
   // PWA
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -1521,7 +1542,8 @@ function Mapa() {
         </motion.button>
       )}
 
-      <FiltroMarcadores filtros={filtros} onAlternar={alternarFiltro} isMobile={isMobile} />
+      <FiltroMarcadores filtros={filtros} onAlternar={alternarFiltro} isMobile={isMobile}
+        estilos={ESTILOS_MAPA} estiloActual={estiloMapa} onCambiarEstilo={cambiarEstiloMapa} />
 
       <CuriosidadModal curiosidad={curiosidadAbierta} onClose={() => setCuriosidadAbierta(null)} />
 
@@ -1555,23 +1577,50 @@ function Mapa() {
       )}
 
       <Map
+        // Cambiar de estilo recrea el mapa en vez de usar setStyle: en
+        // mapbox-gl 2.x, setStyle con niebla + marcadores dispara un error en
+        // cada cuadro (la niebla del estilo anterior queda a medio desmontar)
+        key={estiloMapa}
         ref={mapRef}
-        initialViewState={INITIAL_VIEW_STATE}
+        initialViewState={vistaRef.current}
         onMove={(evt) => {
           // Solo nos interesa el bearing (para la brújula). Solo actualizamos
           // si cambió de verdad (>=1°) — durante un pan normal el bearing no
           // cambia, así que esto ya no dispara ningún render mientras
           // arrastras el mapa.
+          vistaRef.current = evt.viewState;
           const nuevoBearing = evt.viewState.bearing;
           setBearing(prev => (Math.abs(prev - nuevoBearing) >= 1 ? nuevoBearing : prev));
         }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle={MAP_STYLE}
+        mapStyle={estiloActual.url}
+        onRender={(evt) => {
+          // Primer cuadro con el estilo cargado y su niebla ya inicializada
+          // (el evento "load" no sirve: con relieve 3D tarda mucho en llegar)
+          if (mapaListo) return;
+          const mapa = evt.target;
+          if (!mapa.isStyleLoaded()) return;
+          const niebla = mapa.style?.fog;
+          if (niebla && !niebla.properties) return;
+          setMapaListo(true);
+        }}
+        onError={(evt) => {
+          // Si el estilo propio de Studio no carga (otra cuenta, no publicado,
+          // URL mal copiada), se vuelve al estilo de aventura en vez de quedar en blanco
+          const estado = evt?.error?.status;
+          if (estiloMapa === 'propio' && [401, 403, 404].includes(estado)) {
+            console.warn('No se pudo cargar el estilo propio de Mapbox (VITE_MAPBOX_STYLE). Revisa que esté publicado y sea de la misma cuenta que el token.');
+            cambiarEstiloMapa('aventura');
+          }
+        }}
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
         onClick={() => { setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null); setSelectedComercio(null); }}
       >
-        <Map3DEffect />
+        <MapaAmbiente estilo={estiloActual} />
+        <Map3DEffect color={estiloActual.colorEdificios3d || '#d4c9a6'} />
+
+        {mapaListo && (<>
 
         {/* Avatar jugador sin bloquear clics */}
         {userPosition && (
@@ -1803,6 +1852,7 @@ function Mapa() {
             />
           </Popup>
         )}
+        </>)}
       </Map>
 
       {mostrarAnclar && <AnclarGuardian userPosition={userPosition} onClose={() => setMostrarAnclar(false)} onAnclado={handleGuardianAnclado} />}

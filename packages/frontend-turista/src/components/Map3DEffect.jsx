@@ -2,16 +2,25 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-map-gl';
 
-export default function Map3DEffect() {
-  const { map } = useMap();
+// Edificios en 3D. color: color de los volúmenes (depende del estilo del mapa).
+// Solo funciona con estilos que tengan la fuente "composite" de Mapbox.
+export default function Map3DEffect({ color = '#d4c9a6' }) {
+  // useMap().current es el mapa que contiene este componente (antes se
+  // buscaba un mapa con id "map" que no existe, y los edificios nunca salían)
+  const { current } = useMap();
 
   useEffect(() => {
+    const map = current?.getMap?.();
     if (!map) return;
 
     const add3D = () => {
       try {
         // Verificar si la capa ya existe
-        if (map.getLayer('3d-buildings')) return;
+        if (map.getLayer('3d-buildings')) {
+          map.setPaintProperty('3d-buildings', 'fill-extrusion-color', color);
+          return;
+        }
+        if (!map.getSource('composite')) return; // estilo sin datos de edificios
 
         map.addLayer({
           'id': '3d-buildings',
@@ -21,32 +30,27 @@ export default function Map3DEffect() {
           'type': 'fill-extrusion',
           'minzoom': 14,
           'paint': {
-            'fill-extrusion-color': '#d4c9a6',
+            'fill-extrusion-color': color,
             'fill-extrusion-height': ['get', 'height'],
             'fill-extrusion-base': ['get', 'min_height'],
             'fill-extrusion-opacity': 0.9
           }
         });
-        console.log('✅ Edificios 3D activados');
       } catch (err) {
         console.log('Error adding 3D:', err);
       }
     };
 
-    // Esperar a que el mapa esté listo
-    if (map.isStyleLoaded()) {
-      add3D();
-    } else {
-      map.on('load', add3D);
-      map.on('styledata', add3D);
-    }
+    // Esperar a que el mapa esté listo (y volver a agregarlos al cambiar de estilo)
+    if (map.isStyleLoaded()) add3D();
+    map.on('load', add3D);
+    map.on('styledata', add3D);
 
     return () => {
-      if (map && map.getLayer && map.getLayer('3d-buildings')) {
-        map.removeLayer('3d-buildings');
-      }
+      map.off('load', add3D);
+      map.off('styledata', add3D);
     };
-  }, [map]);
+  }, [current, color]);
 
   return null;
 }

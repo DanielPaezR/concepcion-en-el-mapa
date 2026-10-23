@@ -154,7 +154,7 @@ export const CuriosidadModal = ({ curiosidad, onClose }) => (
 );
 
 // ── Filtro por tipo de marcador ─────────────────────────────────────
-export const FiltroMarcadores = ({ filtros, onAlternar, isMobile }) => {
+export const FiltroMarcadores = ({ filtros, onAlternar, isMobile, estilos, estiloActual, onCambiarEstilo }) => {
   const [abierto, setAbierto] = useState(false);
   const ocultos = TIPOS_MARCADOR.filter((t) => !filtros[t.id]).length;
   const size = isMobile ? 42 : 46;
@@ -171,6 +171,24 @@ export const FiltroMarcadores = ({ filtros, onAlternar, isMobile }) => {
               padding: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
             }}
           >
+            {estilos && (
+              <>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: '.14em', margin: '2px 4px 8px' }}>ESTILO DEL MAPA</div>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Object.keys(estilos).length, 2)}, 1fr)`, gap: 6, marginBottom: 12 }}>
+                  {Object.entries(estilos).map(([clave, e]) => (
+                    <button key={clave} onClick={() => onCambiarEstilo(clave)}
+                      style={{
+                        padding: '7px 6px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        border: `1px solid ${estiloActual === clave ? '#60a5fa' : 'rgba(255,255,255,0.12)'}`,
+                        background: estiloActual === clave ? 'rgba(96,165,250,0.22)' : 'rgba(255,255,255,0.04)',
+                        color: estiloActual === clave ? '#f8fafc' : 'rgba(226,232,240,0.6)',
+                      }}>
+                      {e.emoji} {e.nombre}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: '.14em', margin: '2px 4px 8px' }}>MOSTRAR EN EL MAPA</div>
             {TIPOS_MARCADOR.map((tipo) => (
               <button
