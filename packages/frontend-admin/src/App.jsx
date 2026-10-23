@@ -15,6 +15,8 @@ import Layout from './components/Layout';
 import Ubicaciones from './pages/Ubicaciones';
 import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
+import CuriosidadesList from './pages/curiosidades/CuriosidadesList';
+import GestorEventosComunidad from './components/GestorEventosComunidad';
 import { connectSocket, getSocket } from './services/socket'; // 🆕 importar socket
 
 function App() {
@@ -74,6 +76,8 @@ function App() {
         <Route path="eventos" element={<BancoPreguntas />} />
         <Route path="ubicaciones" element={<Ubicaciones />} />
         <Route path="encuestas" element={<EncuestasList />} />
+        <Route path="agenda" element={<GestorEventosComunidad titulo="Eventos del pueblo" mostrarCreador />} />
+        <Route path="curiosidades" element={<CuriosidadesList />} />
       </Route>
 
       {/* Ruta protegida - Guía */}

@@ -209,11 +209,13 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
     }
   }, [mensaje]);
 
-  // Efecto de escritura
+  // Efecto de escritura. Se recorre por caracteres completos (Array.from) y no
+  // por unidades UTF-16, para no partir los emojis a la mitad ("�").
+  const caracteres = Array.from(mensajeActual);
   useEffect(() => {
-    if (charIndex < mensajeActual.length) {
+    if (charIndex < caracteres.length) {
       const t = setTimeout(() => {
-        setTextoVisible(prev => prev + mensajeActual[charIndex]);
+        setTextoVisible(prev => prev + caracteres[charIndex]);
         setCharIndex(prev => prev + 1);
       }, 22);
       return () => clearTimeout(t);
@@ -292,7 +294,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
                 margin: 0,
               }}>
                 {textoVisible}
-                {charIndex < mensajeActual.length && (
+                {charIndex < caracteres.length && (
                   <motion.span
                     animate={{ opacity: [1, 0] }}
                     transition={{ duration: 0.6, repeat: Infinity }}

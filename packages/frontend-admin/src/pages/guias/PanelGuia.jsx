@@ -14,6 +14,7 @@ import { SOCKET_URL } from '../../config/runtime';
 import { subscribeUser, unsubscribeUser } from '../../services/pushNotifications';
 import CambiarPasswordModal from '../../components/CambiarPasswordModal';
 import ChatModal from '../../components/ChatModal'; // 🆕
+import GestorEventosComunidad from '../../components/GestorEventosComunidad';
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -560,8 +561,17 @@ export default function PanelGuia() {
           {puedeGestionarEventos && (
             <button onClick={() => setActiveTab('eventos')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
           )}
+          {puedeGestionarEventos && (
+            <button onClick={() => setActiveTab('eventosPueblo')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventosPueblo' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>🎉 Eventos del pueblo</button>
+          )}
         </div>
       </div>
+
+      {activeTab === 'eventosPueblo' && puedeGestionarEventos && (
+        <div className="px-5 py-4">
+          <GestorEventosComunidad titulo="Eventos del pueblo" />
+        </div>
+      )}
 
       {activeTab === 'reservas' && (
         <>

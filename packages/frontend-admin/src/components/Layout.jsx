@@ -12,7 +12,9 @@ import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  CalendarDaysIcon,
+  LightBulbIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -24,6 +26,8 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
   { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
   { name: 'Comercios', href: '/admin/comercios', icon: BuildingStorefrontIcon },
+  { name: 'Eventos del pueblo', href: '/admin/agenda', icon: CalendarDaysIcon },
+  { name: 'Curiosidades', href: '/admin/curiosidades', icon: LightBulbIcon },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
   { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },

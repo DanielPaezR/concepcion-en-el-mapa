@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { getTuristaActual, logoutTurista } from '../services/auth';
 import api from '../services/api';
 
-export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLugares, fotoPerfil, isOpen, onClose }) {
+export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLugares, fotoPerfil, isOpen, onClose, onVerGuardianes }) {
     const [usuario, setUsuario] = useState(null);
     const [idioma, setIdioma] = useState(localStorage.getItem('idioma') || 'es');
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -132,11 +132,11 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
         },
         { 
             icon: <Shield className="w-5 h-5" />, 
-            label: 'Guardianes', 
-            desc: 'Lugares que proteges',
+            label: 'Guardianes',
+            desc: 'Tu guardián y los cercanos',
             color: 'text-indigo-600',
             bg: 'bg-indigo-50',
-            onClick: () => navigate(`/perfil/${usuario.id}`)
+            onClick: () => onVerGuardianes ? onVerGuardianes() : navigate(`/perfil/${usuario.id}`)
         },
     ];
 

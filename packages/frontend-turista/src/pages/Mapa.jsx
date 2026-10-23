@@ -19,6 +19,11 @@ import AvatarGuia from '../components/AvatarGuia';
 import GaleriaFotos from '../components/GaleriaFotos';
 import Map3DEffect from '../components/Map3DEffect';
 import AnclarGuardian from '../components/AnclarGuardian';
+import { GuardianPin, GuardianPopupContent, GuardianesPanel } from '../components/GuardianesMapa';
+import {
+  EventoComunidadPin, EventoComunidadPopupContent, CuriosidadPin, CuriosidadModal,
+  FiltroMarcadores, useFiltrosMapa, RADIO_CURIOSIDADES_M,
+} from '../components/MarcadoresExtra';
 import EstadoReserva from '../components/EstadoReserva';
 import MenuExplorador from '../components/MenuExplorador';
 import LocationPrompt from '../components/LocationPrompt';
@@ -940,6 +945,50 @@ function Mapa() {
   const [userAvatar, setUserAvatar]                 = useState(null);
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
+  const [selectedGuardian, setSelectedGuardian]     = useState(null); // { guardian, propio }
+  const [mostrarGuardianes, setMostrarGuardianes]   = useState(false);
+  const tieneSesion = !!(localStorage.getItem('token') || localStorage.getItem('turista_token'));
+  // Posición redondeada (~50 m) para no consultar los guardianes en cada
+  // actualización del GPS, solo cuando el explorador se mueve de verdad.
+  const posicionGuardianes = userPosition
+    ? [Math.round(userPosition.lat * 2000) / 2000, Math.round(userPosition.lng * 2000) / 2000]
+    : null;
+  const { data: guardianesCercanos = [] } = useQuery({
+    queryKey: ['guardianes-cercanos', posicionGuardianes],
+    queryFn: async () => {
+      const r = await api.get('/guardianes/cercanos', { params: { lat: userPosition.lat, lng: userPosition.lng } });
+      return r.data.guardianes || [];
+    },
+    enabled: !!userPosition,
+    refetchInterval: 60 * 1000,
+  });
+  const { data: miGuardian = null } = useQuery({
+    queryKey: ['mi-guardian'],
+    queryFn: async () => (await api.get('/guardianes/mi-guardian')).data.guardian || null,
+    enabled: tieneSesion,
+  });
+  // El propio guardián se dibuja aparte como "doble estático"
+  const guardianesDeOtros = guardianesCercanos.filter(g => g.id !== miGuardian?.id);
+
+  // Eventos del pueblo y curiosidades (no cuentan en el juego)
+  const [filtros, alternarFiltro] = useFiltrosMapa();
+  const { data: eventosComunidad = [] } = useQuery({
+    queryKey: ['eventos-comunidad'],
+    queryFn: async () => (await api.get('/eventos-comunidad')).data.eventos || [],
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const { data: curiosidades = [] } = useQuery({
+    queryKey: ['curiosidades'],
+    queryFn: async () => (await api.get('/curiosidades')).data.curiosidades || [],
+    staleTime: 10 * 60 * 1000,
+  });
+  const [eventoComunidadSel, setEventoComunidadSel] = useState(null);
+  const [curiosidadAbierta, setCuriosidadAbierta]   = useState(null);
+  const [curiosidadesVistas, setCuriosidadesVistas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('curiosidades_vistas') || '[]'); } catch { return []; }
+  });
+  const curiosidadesAvisadas = useRef(new Set());
   const [showLevelUp, setShowLevelUp]               = useState(false);
   const [xpBurst, setXpBurst]                       = useState(null);
   // Antes: viewState completo vivía en el estado de React y se actualizaba
@@ -993,6 +1042,70 @@ function Mapa() {
               Math.sin(Δλ/2) * Math.sin(Δλ/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
+  };
+
+  // ── Curiosidades: solo se ven al pasar cerca ─────────────────
+  const curiosidadesCercanas = userPosition
+    ? curiosidades.filter(c => calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(c.latitud), parseFloat(c.longitud)) <= RADIO_CURIOSIDADES_M)
+    : [];
+  const idsCuriosidadesCercanas = curiosidadesCercanas.map(c => c.id).join(',');
+
+  // Avisar (una vez por sesión) cuando aparece una curiosidad no vista
+  useEffect(() => {
+    const nueva = curiosidadesCercanas.find(c => !curiosidadesAvisadas.current.has(c.id) && !curiosidadesVistas.includes(c.id));
+    curiosidadesCercanas.forEach(c => curiosidadesAvisadas.current.add(c.id));
+    if (nueva && filtros.curiosidades) {
+      mostrarMensajeGuia('💡 ¡Hay una curiosidad cerca! Toca el foco para descubrirla.', 'descubrimiento', 5000);
+    }
+  }, [idsCuriosidadesCercanas]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const abrirCuriosidad = (curiosidad) => {
+    setCuriosidadAbierta(curiosidad);
+    if (!curiosidadesVistas.includes(curiosidad.id)) {
+      const vistas = [...curiosidadesVistas, curiosidad.id];
+      setCuriosidadesVistas(vistas);
+      try { localStorage.setItem('curiosidades_vistas', JSON.stringify(vistas)); } catch { /* sin almacenamiento */ }
+    }
+  };
+
+  // ── Guardianes ───────────────────────────────────────────────
+  const seleccionarGuardian = (guardian, propio = false) => {
+    setMostrarGuardianes(false);
+    setSelectedLugar(null); setSelectedGuia(null); setSelectedComercio(null);
+    setSelectedGuardian({ guardian, propio });
+    mapRef.current?.flyTo({ center: [parseFloat(guardian.longitud), parseFloat(guardian.latitud)], zoom: 18, duration: 1200 });
+  };
+
+  const saludarGuardian = async (guardian) => {
+    try {
+      const r = await api.post(`/guardianes/visitar/${guardian.id}`);
+      mostrarMensajeGuia(
+        r.data.ya_visitado ? '👋 Ya saludaste a este guardián hoy' : `👋 ¡Saludaste al guardián de ${guardian.nombre_publico || guardian.usuario_nombre}!`,
+        'celebrando', 3500
+      );
+    } catch (error) {
+      mostrarMensajeGuia(error.response?.data?.error || 'No se pudo saludar al guardián', 'pensativo', 3000);
+    }
+  };
+
+  const retirarGuardian = async () => {
+    if (!window.confirm('¿Retirar tu guardián? Podrás anclarlo de nuevo en otro lugar.')) return;
+    try {
+      await api.delete('/guardianes/mi-guardian');
+      setSelectedGuardian(null);
+      queryClient.invalidateQueries({ queryKey: ['mi-guardian'] });
+      queryClient.invalidateQueries({ queryKey: ['guardianes-cercanos'] });
+      mostrarMensajeGuia('🛡️ Guardián retirado. Puedes anclarlo en otro lugar.', 'normal', 3500);
+    } catch (error) {
+      mostrarMensajeGuia(error.response?.data?.error || 'No se pudo retirar el guardián', 'pensativo', 3000);
+    }
+  };
+
+  const handleGuardianAnclado = () => {
+    setMostrarAnclar(false);
+    queryClient.invalidateQueries({ queryKey: ['mi-guardian'] });
+    queryClient.invalidateQueries({ queryKey: ['guardianes-cercanos'] });
+    mostrarMensajeGuia('🛡️ ¡Tu guardián quedó anclado aquí! Otros exploradores lo verán al pasar cerca.', 'celebrando', 5000);
   };
 
   // ✅ Sincronización con backend: perfil y lugares descubiertos
@@ -1295,7 +1408,8 @@ function Mapa() {
 
       <MenuExplorador nivel={playerLevel} xp={xp} lugaresDescubiertos={discoveredPlaces.length}
         totalLugares={lugares.length} fotoPerfil={userAvatar}
-        isOpen={mostrarMenuExplorador} onClose={() => setMostrarMenuExplorador(false)} />
+        isOpen={mostrarMenuExplorador} onClose={() => setMostrarMenuExplorador(false)}
+        onVerGuardianes={() => setMostrarGuardianes(true)} />
 
       {userPosition && (
         <motion.button onClick={() => mapRef.current?.flyTo?.({ center: [userPosition.lng, userPosition.lat], zoom: 17, duration: 800 })}
@@ -1307,6 +1421,10 @@ function Mapa() {
         </motion.button>
       )}
 
+      <FiltroMarcadores filtros={filtros} onAlternar={alternarFiltro} isMobile={isMobile} />
+
+      <CuriosidadModal curiosidad={curiosidadAbierta} onClose={() => setCuriosidadAbierta(null)} />
+
       {showInstallButton && (
         <motion.button
           initial={{ opacity: 0, y: 20 }}
@@ -1316,7 +1434,7 @@ function Mapa() {
           className="hud-btn hud-btn-gold"
           style={{
             position: 'absolute',
-            bottom: isMobile ? 160 : 170,
+            bottom: isMobile ? 204 : 220,
             left: isMobile ? 12 : 16,
             width: isMobile ? 42 : 46,
             height: isMobile ? 42 : 46,
@@ -1351,7 +1469,7 @@ function Mapa() {
         mapStyle={MAP_STYLE}
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
-        onClick={() => { setSelectedLugar(null); setSelectedGuia(null); }}
+        onClick={() => { setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null); }}
       >
         <Map3DEffect />
 
@@ -1367,7 +1485,7 @@ function Mapa() {
           </Marker>
         )}
 
-        {lugares.filter(l => !isNaN(parseFloat(l.latitud)) && !isNaN(parseFloat(l.longitud))).map((lugar) => (
+        {filtros.lugares && lugares.filter(l => !isNaN(parseFloat(l.latitud)) && !isNaN(parseFloat(l.longitud))).map((lugar) => (
           <Marker key={lugar.id}
             longitude={parseFloat(lugar.longitud)} latitude={parseFloat(lugar.latitud)}
             anchor="bottom"
@@ -1378,7 +1496,7 @@ function Mapa() {
           </Marker>
         ))}
 
-        {comercios.filter(c => !isNaN(parseFloat(c.latitud)) && !isNaN(parseFloat(c.longitud))).map((comercio) => (
+        {filtros.comercios && comercios.filter(c => !isNaN(parseFloat(c.latitud)) && !isNaN(parseFloat(c.longitud))).map((comercio) => (
           <Marker key={`comercio_${comercio.id}`}
             longitude={parseFloat(comercio.longitud)} latitude={parseFloat(comercio.latitud)}
             anchor="bottom"
@@ -1413,7 +1531,7 @@ function Mapa() {
           </Marker>
         )}
 
-        {publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
+        {filtros.guias && publicGuides.filter(guia => guia.latitud && guia.longitud).map((guia) => (
           <Marker key={`guia_${guia.id}`} longitude={parseFloat(guia.longitud)} latitude={parseFloat(guia.latitud)} anchor="bottom" style={{ zIndex: 1400 }}>
             <div
               onClick={(e) => {
@@ -1427,7 +1545,80 @@ function Mapa() {
           </Marker>
         ))}
 
-        {eventos.map((evento) => (
+        {filtros.eventosPueblo && eventosComunidad.filter(e => !isNaN(parseFloat(e.latitud)) && !isNaN(parseFloat(e.longitud))).map((evento) => (
+          <Marker key={`evento_pueblo_${evento.id}`}
+            longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)}
+            anchor="bottom" style={{ zIndex: 1200 }}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null);
+              setEventoComunidadSel(evento);
+            }}
+          >
+            <EventoComunidadPin evento={evento} isMobile={isMobile} />
+          </Marker>
+        ))}
+
+        {eventoComunidadSel && (
+          <Popup
+            longitude={parseFloat(eventoComunidadSel.longitud)} latitude={parseFloat(eventoComunidadSel.latitud)}
+            onClose={() => setEventoComunidadSel(null)} closeButton={true} closeOnClick={false}
+            offset={20} maxWidth="270px"
+            style={{ zIndex: 2000 }}
+          >
+            <EventoComunidadPopupContent evento={eventoComunidadSel} />
+          </Popup>
+        )}
+
+        {filtros.curiosidades && curiosidadesCercanas.map((curiosidad) => (
+          <Marker key={`curiosidad_${curiosidad.id}`}
+            longitude={parseFloat(curiosidad.longitud)} latitude={parseFloat(curiosidad.latitud)}
+            anchor="center" style={{ zIndex: 1100 }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); abrirCuriosidad(curiosidad); }}
+          >
+            <CuriosidadPin curiosidad={curiosidad} vista={curiosidadesVistas.includes(curiosidad.id)} isMobile={isMobile} />
+          </Marker>
+        ))}
+
+        {filtros.guardianes && guardianesDeOtros.map((guardian) => (
+          <Marker key={`guardian_${guardian.id}`}
+            longitude={parseFloat(guardian.longitud)} latitude={parseFloat(guardian.latitud)}
+            anchor="bottom" style={{ zIndex: 1300 }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); seleccionarGuardian(guardian); }}
+          >
+            <GuardianPin guardian={guardian} isMobile={isMobile} />
+          </Marker>
+        ))}
+
+        {filtros.guardianes && miGuardian && (
+          <Marker key={`mi_guardian_${miGuardian.id}`}
+            longitude={parseFloat(miGuardian.longitud)} latitude={parseFloat(miGuardian.latitud)}
+            anchor="bottom" style={{ zIndex: 1300 }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); seleccionarGuardian(miGuardian, true); }}
+          >
+            <GuardianPin guardian={miGuardian} propio isMobile={isMobile} />
+          </Marker>
+        )}
+
+        {selectedGuardian && (
+          <Popup
+            longitude={parseFloat(selectedGuardian.guardian.longitud)} latitude={parseFloat(selectedGuardian.guardian.latitud)}
+            onClose={() => setSelectedGuardian(null)} closeButton={true} closeOnClick={false}
+            offset={20} maxWidth="260px"
+            style={{ zIndex: 2000 }}
+          >
+            <GuardianPopupContent
+              guardian={selectedGuardian.guardian}
+              propio={selectedGuardian.propio}
+              distancia={userPosition ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(selectedGuardian.guardian.latitud), parseFloat(selectedGuardian.guardian.longitud)) : null}
+              onVerPerfil={() => navigate(`/perfil/${selectedGuardian.guardian.usuario_id}`)}
+              onSaludar={tieneSesion ? () => saludarGuardian(selectedGuardian.guardian) : null}
+              onRetirar={retirarGuardian}
+            />
+          </Popup>
+        )}
+
+        {filtros.retos && eventos.map((evento) => (
           <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)} onClick={() => setEventoSeleccionado(evento)}>
             <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}
               style={{ width: 44, height: 44, background: 'radial-gradient(circle at 35% 35%, #fbbf24, #b45309)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 24px rgba(251,191,36,0.55), 0 4px 14px rgba(0,0,0,0.5)' }}>❓</motion.div>
@@ -1499,7 +1690,19 @@ function Mapa() {
         )}
       </Map>
 
-      {mostrarAnclar && <AnclarGuardian userPosition={userPosition} onClose={() => setMostrarAnclar(false)} onAnclado={() => setMostrarAnclar(false)} />}
+      {mostrarAnclar && <AnclarGuardian userPosition={userPosition} onClose={() => setMostrarAnclar(false)} onAnclado={handleGuardianAnclado} />}
+
+      <GuardianesPanel
+        show={mostrarGuardianes}
+        miGuardian={miGuardian}
+        cercanos={guardianesDeOtros}
+        userPosition={userPosition}
+        calcularDistancia={calcularDistancia}
+        nivel={playerLevel}
+        onSeleccionar={seleccionarGuardian}
+        onAnclar={() => { setMostrarGuardianes(false); setMostrarAnclar(true); }}
+        onClose={() => setMostrarGuardianes(false)}
+      />
 
       <AnimatePresence>
         {eventoSeleccionado && (

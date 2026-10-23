@@ -15,6 +15,8 @@ router.use(authMiddleware);
 router.get('/mis-insignias', guardianController.getInsignias);
 router.put('/perfil', guardianController.updatePerfil);
 router.post('/anclar', guardianController.anclarGuardian);
+router.get('/mi-guardian', guardianController.getMiGuardian);
+router.delete('/mi-guardian', guardianController.retirarGuardian);
 router.post('/visitar/:guardianId', guardianController.visitarGuardian);
 
 // Subir foto - multer debe estar ANTES del controlador

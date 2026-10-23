@@ -5,9 +5,10 @@ import api from '../../services/api';
 import {
   KeyIcon, CheckCircleIcon, XCircleIcon, PhotoIcon,
   TrashIcon, ArrowPathIcon, PowerIcon, PrinterIcon,
-  PencilIcon, PlusIcon, ClockIcon, XMarkIcon, CheckIcon
+  PencilIcon, PlusIcon, ClockIcon, XMarkIcon, CheckIcon, CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import GestorEventosComunidad from '../../components/GestorEventosComunidad';
 
 const CATEGORIAS = [
   { valor: 'tienda', etiqueta: 'Tienda' },
@@ -242,6 +243,7 @@ export default function PanelComercio() {
   const TABS = [
     { id: 'validar', label: 'Validar código', icon: KeyIcon },
     { id: 'perfil', label: 'Mi perfil', icon: PhotoIcon },
+    { id: 'eventos', label: 'Eventos', icon: CalendarDaysIcon },
     { id: 'recuerdos', label: 'Recuerdos', icon: PrinterIcon },
   ];
 
@@ -258,7 +260,7 @@ export default function PanelComercio() {
           </button>
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 mt-4">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -274,6 +276,8 @@ export default function PanelComercio() {
       </div>
 
       <div className="max-w-lg mx-auto p-4">
+        {tab === 'eventos' && <GestorEventosComunidad titulo="Eventos de mi negocio" />}
+
         {tab === 'validar' && (
           <div className="bg-white rounded-xl shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Validar código de descuento</h2>

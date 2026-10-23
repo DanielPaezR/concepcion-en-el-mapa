@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import toast from 'react-hot-toast';
 
 // Configurar iconos de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -20,7 +21,7 @@ function ClickHandler({ onMapClick }) {
   return null;
 }
 
-export default function MapaCoordenadas({ latitud, longitud, onCoordenadasChange }) {
+export default function MapaCoordenadas({ latitud, longitud, onCoordenadasChange, altura = 400 }) {
   const [position, setPosition] = useState(null);
   const [usarUbicacionActual, setUsarUbicacionActual] = useState(false);
 
@@ -79,7 +80,7 @@ export default function MapaCoordenadas({ latitud, longitud, onCoordenadasChange
         </button>
       </div>
       
-      <div className="border border-gray-300 rounded-lg overflow-hidden" style={{ height: '400px', width: '100%' }}>
+      <div className="border border-gray-300 rounded-lg overflow-hidden" style={{ height: altura, width: '100%' }}>
         <MapContainer
           center={[center.lat, center.lng]}
           zoom={15}

@@ -2,6 +2,9 @@
 const pool = require('../config/database');
 const { verificarYOtorgarInsignias } = require('../services/insigniaService');
 
+// Distancia máxima (en metros) a la que otros exploradores ven un guardián
+const RADIO_VISIBILIDAD_M = 300;
+
 const guardianController = {
     // Obtener perfil de guardián
     async getPerfil(req, res) {
@@ -162,49 +165,120 @@ const guardianController = {
         }
     },
     
-    // Obtener guardianes cercanos (visible en el mapa)
+    // Obtener guardianes cercanos (visible en el mapa).
+    // radio en metros (por defecto 300 m, máximo 1000 m); la distancia se
+    // calcula con la fórmula de Haversine sobre el radio terrestre.
     async getGuardianesCercanos(req, res) {
         try {
-            const { lat, lng, radio = 0.02 } = req.query;
-            
+            const lat = parseFloat(req.query.lat);
+            const lng = parseFloat(req.query.lng);
+            const radio = Math.min(parseFloat(req.query.radio) || RADIO_VISIBILIDAD_M, 1000);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                return res.status(400).json({ error: 'lat y lng son requeridos' });
+            }
+
             const result = await pool.query(`
-                SELECT 
-                    g.*,
-                    p.nombre_publico,
-                    p.foto_perfil_url,
-                    u.id as usuario_id,
-                    u.nombre as usuario_nombre,
-                    (SELECT COUNT(DISTINCT lugar_id) FROM descubrimientos WHERE usuario_id = u.id) as total_descubiertos
-                FROM guardianes_anclados g
-                JOIN perfiles_guardian p ON g.usuario_id = p.usuario_id
-                JOIN usuarios u ON g.usuario_id = u.id
-                WHERE g.activo = true 
-                    AND g.fecha_fin > NOW()
-                    AND ABS(g.latitud - $1) < $3
-                    AND ABS(g.longitud - $2) < $3
+                SELECT * FROM (
+                    SELECT
+                        g.id, g.usuario_id, g.latitud, g.longitud, g.mensaje,
+                        g.fecha_inicio, g.fecha_fin,
+                        p.nombre_publico,
+                        p.foto_perfil_url,
+                        u.nombre as usuario_nombre,
+                        COALESCE(u.nivel, 1) as nivel,
+                        6371000 * 2 * ASIN(SQRT(
+                            POWER(SIN(RADIANS(g.latitud - $1) / 2), 2) +
+                            COS(RADIANS($1)) * COS(RADIANS(g.latitud)) *
+                            POWER(SIN(RADIANS(g.longitud - $2) / 2), 2)
+                        )) as distancia_m
+                    FROM guardianes_anclados g
+                    JOIN usuarios u ON g.usuario_id = u.id
+                    LEFT JOIN perfiles_guardian p ON g.usuario_id = p.usuario_id
+                    WHERE g.activo = true
+                        AND g.fecha_fin > NOW()
+                        AND COALESCE(p.visible, true) = true
+                ) cercanos
+                WHERE distancia_m <= $3
+                ORDER BY distancia_m
             `, [lat, lng, radio]);
-            
-            const guardianesConNivel = result.rows.map(guardian => {
-                const nivel = Math.min(Math.floor((parseInt(guardian.total_descubiertos) || 0) / 3) + 1, 5);
-                return {
-                    ...guardian,
-                    nivel
-                };
-            });
-            
-            res.json({ success: true, guardianes: guardianesConNivel });
+
+            res.json({ success: true, guardianes: result.rows });
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener guardianes' });
         }
     },
-    
+
+    // Guardián activo del usuario autenticado (para mostrarlo siempre en su mapa)
+    async getMiGuardian(req, res) {
+        try {
+            const result = await pool.query(`
+                SELECT g.id, g.usuario_id, g.latitud, g.longitud, g.mensaje,
+                       g.fecha_inicio, g.fecha_fin,
+                       p.nombre_publico, p.foto_perfil_url,
+                       u.nombre as usuario_nombre, COALESCE(u.nivel, 1) as nivel,
+                       (SELECT COUNT(*) FROM notificaciones_guardian n WHERE n.guardian_id = g.id) as visitas
+                FROM guardianes_anclados g
+                JOIN usuarios u ON g.usuario_id = u.id
+                LEFT JOIN perfiles_guardian p ON g.usuario_id = p.usuario_id
+                WHERE g.usuario_id = $1 AND g.activo = true AND g.fecha_fin > NOW()
+                ORDER BY g.fecha_inicio DESC
+                LIMIT 1
+            `, [req.user.id]);
+
+            res.json({ success: true, guardian: result.rows[0] || null });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al obtener tu guardián' });
+        }
+    },
+
+    // Retirar el guardián activo (para poder anclarlo en otro lugar)
+    async retirarGuardian(req, res) {
+        try {
+            const result = await pool.query(`
+                UPDATE guardianes_anclados SET activo = false
+                WHERE usuario_id = $1 AND activo = true
+                RETURNING id
+            `, [req.user.id]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'No tienes un guardián activo' });
+            }
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({ error: 'Error al retirar el guardián' });
+        }
+    },
+
     // Registrar visita a un guardián
     async visitarGuardian(req, res) {
         try {
             const { guardianId } = req.params;
             const visitanteId = req.user.id;
-            
+
+            const guardian = await pool.query(
+                'SELECT usuario_id FROM guardianes_anclados WHERE id = $1 AND activo = true AND fecha_fin > NOW()',
+                [guardianId]
+            );
+            if (guardian.rows.length === 0) {
+                return res.status(404).json({ error: 'Guardián no encontrado' });
+            }
+            if (guardian.rows[0].usuario_id === visitanteId) {
+                return res.status(400).json({ error: 'No puedes visitar tu propio guardián' });
+            }
+
+            // Una visita por persona y día, para que no se infle el contador
+            const yaVisito = await pool.query(`
+                SELECT id FROM notificaciones_guardian
+                WHERE guardian_id = $1 AND visitante_id = $2 AND created_at::date = CURRENT_DATE
+            `, [guardianId, visitanteId]);
+            if (yaVisito.rows.length > 0) {
+                return res.json({ success: true, ya_visitado: true });
+            }
+
             // Registrar notificación para el guardián
             const result = await pool.query(`
                 INSERT INTO notificaciones_guardian (guardian_id, visitante_id, mensaje)
