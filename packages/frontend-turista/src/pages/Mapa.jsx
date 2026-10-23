@@ -625,15 +625,15 @@ const ComercioPin = React.memo(({ comercio, isMobile }) => {
 
 const ComercioPopupContent = ({ comercio, onVerFicha }) => (
   <div style={{ padding: '12px 14px', minWidth: 180, maxWidth: 'min(230px, 78vw)', boxSizing: 'border-box' }}>
-    <div style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', marginBottom: 2 }}>{comercio.nombre}</div>
-    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
+    <div style={{ fontWeight: 700, fontSize: 15, color: '#f8fafc', marginBottom: 2 }}>{comercio.nombre}</div>
+    <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
       {comercio.categoria}
     </div>
-    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#78350f', marginBottom: 8 }}>
+    <div style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(251,191,36,0.45)', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#fde68a', marginBottom: 8 }}>
       🎁 {comercio.beneficio}
     </div>
     {Number(comercio.total_resenas) > 0 && (
-      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: 'rgba(226,232,240,0.75)', marginBottom: 8 }}>
         ⭐ {Number(comercio.calificacion_promedio).toFixed(1)} · {comercio.total_resenas} reseña{comercio.total_resenas != 1 ? 's' : ''}
       </div>
     )}
@@ -1417,6 +1417,7 @@ function Mapa() {
 
   const handleLugarClick = (lugar) => {
     setSelectedGuia(null);
+    setSelectedComercio(null);
     setSelectedLugar(lugar);
   };
 
@@ -1568,7 +1569,7 @@ function Mapa() {
         mapStyle={MAP_STYLE}
         mapboxAccessToken={MAPBOX_TOKEN}
         attributionControl={false}
-        onClick={() => { setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null); }}
+        onClick={() => { setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null); setSelectedComercio(null); }}
       >
         <Map3DEffect />
 
@@ -1600,7 +1601,11 @@ function Mapa() {
             longitude={parseFloat(comercio.longitud)} latitude={parseFloat(comercio.latitud)}
             anchor="bottom"
             style={{ zIndex: 700 }}
-            onClick={(e) => { e.originalEvent.stopPropagation(); setSelectedComercio(comercio); }}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null);
+              setSelectedComercio(comercio);
+            }}
           >
             <ComercioPin comercio={comercio} isMobile={isMobile} />
           </Marker>
@@ -1789,6 +1794,8 @@ function Mapa() {
             closeOnClick={false}
             maxWidth="250px"
             offset={16}
+            // Por encima de los marcadores (llegan hasta zIndex 1500)
+            style={{ zIndex: 3000 }}
           >
             <ComercioPopupContent
               comercio={selectedComercio}
