@@ -26,6 +26,9 @@ const comercioRoutes = require('./routes/comercioRoutes');
 const archivoRecuerdoRoutes = require('./routes/archivoRecuerdoRoutes');
 const eventoComunidadRoutes = require('./routes/eventoComunidadRoutes');
 const curiosidadRoutes = require('./routes/curiosidadRoutes');
+const anuncioRoutes = require('./routes/anuncioRoutes');
+const superadminRoutes = require('./routes/superadminRoutes');
+const { middlewareMetricas } = require('./services/metricasServidor');
 
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET no está configurado. Define esta variable de entorno antes de iniciar el servidor.');
@@ -59,6 +62,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+// Tiempos de respuesta y códigos de estado para el panel del superadmin
+app.use(middlewareMetricas);
 
 // Rutas
 app.use('/api/lugares', lugarRoutes);
@@ -84,6 +89,8 @@ app.use('/api/push', pushNotificationRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 app.use('/api/eventos-comunidad', eventoComunidadRoutes);
 app.use('/api/curiosidades', curiosidadRoutes);
+app.use('/api/anuncios', anuncioRoutes);
+app.use('/api/super', superadminRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

@@ -15,7 +15,10 @@ const requireRole = (...rolesPermitidos) => {
             return res.status(401).json({ error: 'No autenticado' });
         }
 
-        if (!rolesPermitidos.includes(req.user.rol)) {
+        // rolReal distingue al superadmin (que en req.user.rol figura como
+        // 'admin'); el superadmin pasa cualquier requireRole.
+        const rolReal = req.user.rolReal || req.user.rol;
+        if (rolReal !== 'superadmin' && !rolesPermitidos.includes(req.user.rol)) {
             return res.status(403).json({
                 error: 'No tienes permisos para realizar esta acción',
                 rol_requerido: rolesPermitidos,

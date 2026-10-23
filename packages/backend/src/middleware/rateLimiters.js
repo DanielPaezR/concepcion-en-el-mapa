@@ -20,4 +20,22 @@ const registroLimiter = rateLimit({
     message: { error: 'Demasiadas solicitudes de registro. Intenta de nuevo en unos minutos.' }
 });
 
-module.exports = { loginLimiter, registroLimiter };
+// Intentos de código de verificación y de reenvío (evita adivinar el código)
+const codigoLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiados intentos con el código. Espera unos minutos.' }
+});
+
+// Registro de visitas de la app (una por apertura; esto solo frena abusos)
+const visitaLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiadas solicitudes' }
+});
+
+module.exports = { loginLimiter, registroLimiter, codigoLimiter, visitaLimiter };

@@ -4,7 +4,7 @@ import {
     User, Settings, Globe, LogOut, X, ChevronRight, LogIn,
     Award, MapPin, Calendar, Shield, Star, Zap, Crown,
     Wifi, WifiOff, RefreshCw, UserCircle, Medal, Camera,
-    Heart, MessageCircle, Share2, Bell, TrendingUp
+    Heart, MessageCircle, Share2, Bell, TrendingUp, Megaphone, ListChecks
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTuristaActual, logoutTurista } from '../services/auth';
@@ -98,6 +98,14 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
     
     const opciones = esAnonimo ? [
         {
+            icon: <Megaphone className="w-5 h-5" />,
+            label: 'Anuncios',
+            desc: 'Servicios, ventas y compras del pueblo',
+            color: 'text-orange-600',
+            bg: 'bg-orange-50',
+            onClick: () => navigate('/anuncios')
+        },
+        {
             icon: <LogIn className="w-5 h-5" />,
             label: 'Iniciar Sesión',
             desc: 'Accede a tu cuenta',
@@ -106,6 +114,22 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
             onClick: () => navigate('/login-turista')
         }
     ] : [
+        {
+            icon: <Megaphone className="w-5 h-5" />,
+            label: 'Anuncios',
+            desc: 'Servicios, ventas y compras del pueblo',
+            color: 'text-orange-600',
+            bg: 'bg-orange-50',
+            onClick: () => navigate('/anuncios')
+        },
+        {
+            icon: <ListChecks className="w-5 h-5" />,
+            label: 'Mis anuncios',
+            desc: 'Estado de tus publicaciones',
+            color: 'text-teal-600',
+            bg: 'bg-teal-50',
+            onClick: () => navigate('/mis-anuncios')
+        },
         { 
             icon: <User className="w-5 h-5" />, 
             label: 'Mi Perfil', 

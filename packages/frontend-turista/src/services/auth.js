@@ -103,18 +103,68 @@ export const autenticarTurista = async () => {
     }
 };
 
-// Registrar usuario (convertir anónimo a registrado)
-export const registerUser = async (email, nombre, password) => {
+// Guarda la sesión que devuelven login, registro y Google
+const guardarSesion = (data) => {
+    const usuario = { ...data.usuario, anonimo: false };
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(usuario));
+    api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    return usuario;
+};
+
+// Qué opciones de acceso tiene activas el servidor (Google, código por correo)
+let configAuth = null;
+export const getConfigAuth = async () => {
+    if (!configAuth) {
+        try {
+            configAuth = (await api.get('/turista/config-auth')).data;
+        } catch {
+            configAuth = { google_client_id: null, verificacion_correo: false };
+        }
+    }
+    return configAuth;
+};
+
+// Registrar usuario. Si el servidor tiene la verificación por correo activa,
+// devuelve { requiereVerificacion: true } y la cuenta se crea al confirmar el
+// código con verificarCodigo().
+export const registerUser = async (email, nombre, password, telefono) => {
     try {
-        const response = await api.post('/turista/register', { email, nombre, password });
-        const usuario = response.data.usuario;
-        usuario.anonimo = false; // Ya no es anónimo
-        localStorage.setItem(TOKEN_KEY, response.data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
-        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        return { success: true, usuario };
+        const response = await api.post('/turista/register', { email, nombre, password, telefono: telefono || undefined });
+        if (response.data.requiereVerificacion) {
+            return { success: true, requiereVerificacion: true, email: response.data.email };
+        }
+        return { success: true, usuario: guardarSesion(response.data) };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || 'Error al registrar' };
+    }
+};
+
+export const verificarCodigo = async (email, codigo) => {
+    try {
+        const response = await api.post('/turista/register/verificar', { email, codigo });
+        return { success: true, usuario: guardarSesion(response.data) };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || 'No se pudo verificar el código', codigo: error.response?.data?.codigo };
+    }
+};
+
+export const reenviarCodigo = async (email) => {
+    try {
+        await api.post('/turista/register/reenviar', { email });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || 'No se pudo reenviar el código' };
+    }
+};
+
+// "Continuar con Google": credential es el token que entrega Google Identity Services
+export const loginGoogle = async (credential) => {
+    try {
+        const response = await api.post('/turista/google', { credential });
+        return { success: true, usuario: guardarSesion(response.data) };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || 'No se pudo iniciar sesión con Google' };
     }
 };
 
@@ -122,12 +172,7 @@ export const registerUser = async (email, nombre, password) => {
 export const loginUser = async (email, password) => {
     try {
         const response = await api.post('/turista/login', { email, password });
-        const usuario = response.data.usuario;
-        usuario.anonimo = false;
-        localStorage.setItem(TOKEN_KEY, response.data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(usuario));
-        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        return { success: true, usuario };
+        return { success: true, usuario: guardarSesion(response.data) };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || 'Error al iniciar sesión' };
     }

@@ -21,6 +21,9 @@ const PerfilGuardian    = lazy(() => import('./pages/PerfilGuardian'));
 const MisFavoritos      = lazy(() => import('./pages/MisFavoritos'));
 const LandingPage       = lazy(() => import('./pages/LandingPage'));
 const FichaComercio     = lazy(() => import('./pages/FichaComercio'));
+const Anuncios          = lazy(() => import('./pages/Anuncios'));
+const NuevoAnuncio      = lazy(() => import('./pages/NuevoAnuncio'));
+const MisAnuncios       = lazy(() => import('./pages/MisAnuncios'));
 
 function App() {
   const location = useLocation();
@@ -80,6 +83,9 @@ function App() {
           <Route path="/perfil/:id" element={<PerfilGuardian />} />
           <Route path="/mis-favoritos" element={<MisFavoritos />} />
           <Route path="/comercio/:id" element={<FichaComercio />} />
+          <Route path="/anuncios" element={<Anuncios />} />
+          <Route path="/anuncios/nuevo" element={<NuevoAnuncio />} />
+          <Route path="/mis-anuncios" element={<MisAnuncios />} />
         </Routes>
       </Suspense>
     </>

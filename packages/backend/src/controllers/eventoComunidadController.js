@@ -4,6 +4,7 @@
 // (bancos_preguntas / eventos_diarios) de eventoController.
 const pool = require('../config/database');
 const cloudinary = require('cloudinary').v2;
+const { tienePermiso } = require('../services/permisosService');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -23,12 +24,11 @@ const subirImagen = (buffer) => new Promise((resolve, reject) => {
 //   admin → cualquier punto; guía → solo con puede_gestionar_eventos;
 //   comercio → solo en la ubicación de su negocio.
 async function obtenerPermiso(user) {
-    if (user.rol === 'admin') return { puede: true };
-    if (user.rol === 'guia') {
-        const r = await pool.query('SELECT COALESCE(puede_gestionar_eventos, false) AS puede FROM usuarios WHERE id = $1', [user.id]);
-        return r.rows[0]?.puede
+    // Admins y guías: permiso "eventos_pueblo" que da o quita el superadmin
+    if (user.rol === 'admin' || user.rol === 'guia') {
+        return (await tienePermiso(user, 'eventos_pueblo'))
             ? { puede: true }
-            : { puede: false, error: 'No tienes permiso para crear eventos. Pídeselo al administrador.' };
+            : { puede: false, error: 'No tienes permiso para publicar eventos. Pídeselo al superadministrador.' };
     }
     if (user.rol === 'comercio') {
         const r = await pool.query('SELECT id, latitud, longitud, direccion, nombre FROM comercios WHERE usuario_id = $1', [user.id]);

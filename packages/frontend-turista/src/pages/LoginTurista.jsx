@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { loginUser } from '../services/auth';
+import BotonGoogle from '../components/BotonGoogle';
 import toast from 'react-hot-toast';
 
 export default function LoginTurista() {
@@ -63,6 +64,11 @@ export default function LoginTurista() {
                         {error}
                     </div>
                 )}
+
+                <BotonGoogle
+                    onExito={() => { toast.success('¡Bienvenido!'); setTimeout(() => navigate('/'), 1200); }}
+                    onError={(msg) => setError(msg || 'No se pudo entrar con Google')}
+                />
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div>

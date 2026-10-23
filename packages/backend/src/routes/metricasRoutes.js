@@ -4,10 +4,12 @@ const router = express.Router();
 const metricasController = require('../controllers/metricasController');
 const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
+const { requirePermiso } = require('../services/permisosService');
 
 // Todas las rutas requieren autenticación (solo admin)
 router.use(authMiddleware);
 router.use(requireRole('admin'));
+router.use(requirePermiso('metricas'));
 
 router.get('/estadisticas', metricasController.getEstadisticas);
 router.get('/reservas-por-mes', metricasController.getReservasPorMes);

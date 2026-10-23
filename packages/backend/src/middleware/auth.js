@@ -11,9 +11,15 @@ const authMiddleware = (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Agregar el usuario al request
+        // Agregar el usuario al request.
+        // El superadmin es un admin con poderes extra: se expone como rol
+        // 'admin' para que pase todas las comprobaciones existentes de admin,
+        // y rolReal conserva 'superadmin' para las rutas exclusivas
+        // (requireRole('superadmin')) y para saltarse los permisos.
         req.user = decoded;
-        
+        req.user.rolReal = decoded.rol;
+        if (decoded.rol === 'superadmin') req.user.rol = 'admin';
+
         next();
     } catch (error) {
         console.error('Auth error:', error);

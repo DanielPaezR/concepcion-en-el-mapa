@@ -24,7 +24,9 @@ export default function Login() {
         // con su propio "user" todavía en null y el guard de ruta rebota
         // de vuelta a /login. Forzar una recarga hace que App se remonte
         // y lea el token recién guardado en localStorage.
-        if (rol === 'admin') {
+        if (rol === 'superadmin') {
+          window.location.href = '/admin/super';
+        } else if (rol === 'admin') {
           window.location.href = '/admin';
         } else if (rol === 'guia') {
           window.location.href = '/guia';

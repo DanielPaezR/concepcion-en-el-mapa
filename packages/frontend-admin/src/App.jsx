@@ -17,6 +17,7 @@ import BancoPreguntas from './pages/eventos/BancoPreguntas';
 import EncuestasList from './pages/encuestas/EncuestasList';
 import CuriosidadesList from './pages/curiosidades/CuriosidadesList';
 import GestorEventosComunidad from './components/GestorEventosComunidad';
+import SuperPanel from './pages/super/SuperPanel';
 import { connectSocket, getSocket } from './services/socket'; // 🆕 importar socket
 
 function App() {
@@ -64,9 +65,11 @@ function App() {
       {/* Rutas protegidas - Admin */}
       <Route
         path="/admin/*"
-        element={user?.rol === 'admin' ? <Layout /> : <Navigate to="/login" />}
+        element={['admin', 'superadmin'].includes(user?.rol) ? <Layout /> : <Navigate to="/login" />}
       >
-        <Route index element={<Dashboard />} />
+        <Route index element={user?.permisos?.metricas === false
+          ? <div className="bg-white rounded-xl p-6 text-gray-600">👋 Hola, {user?.nombre?.split(' ')[0]}. Elige una sección del menú.</div>
+          : <Dashboard />} />
         <Route path="lugares" element={<LugaresList />} />
         <Route path="lugares/nuevo" element={<LugarForm />} />
         <Route path="lugares/editar/:id" element={<LugarForm />} />
@@ -78,6 +81,7 @@ function App() {
         <Route path="encuestas" element={<EncuestasList />} />
         <Route path="agenda" element={<GestorEventosComunidad titulo="Eventos del pueblo" mostrarCreador />} />
         <Route path="curiosidades" element={<CuriosidadesList />} />
+        <Route path="super" element={user?.rol === 'superadmin' ? <SuperPanel /> : <Navigate to="/admin" />} />
       </Route>
 
       {/* Ruta protegida - Guía */}

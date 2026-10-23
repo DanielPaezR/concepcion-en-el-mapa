@@ -5,6 +5,7 @@ const comercioController = require('../controllers/comercioController');
 const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const upload = require('../middleware/upload');
+const { requirePermiso } = require('../services/permisosService');
 
 // Rutas públicas (turista viendo el mapa/ficha de un comercio)
 router.get('/', comercioController.getAll);
@@ -13,9 +14,9 @@ router.get('/:id(\\d+)/puedo-calificar', authMiddleware, requireRole('turista'),
 router.post('/:id(\\d+)/resenas', authMiddleware, requireRole('turista'), comercioController.crearResena);
 
 // Solo admin: crear un comercio nuevo (cuenta + perfil)
-router.post('/admin', authMiddleware, requireRole('admin'), comercioController.crearComercioAdmin);
-router.get('/admin/todos', authMiddleware, requireRole('admin'), comercioController.listarTodosAdmin);
-router.put('/admin/:id', authMiddleware, requireRole('admin'), comercioController.actualizarAdmin);
+router.post('/admin', authMiddleware, requireRole('admin'), requirePermiso('comercios'), comercioController.crearComercioAdmin);
+router.get('/admin/todos', authMiddleware, requireRole('admin'), requirePermiso('comercios'), comercioController.listarTodosAdmin);
+router.put('/admin/:id', authMiddleware, requireRole('admin'), requirePermiso('comercios'), comercioController.actualizarAdmin);
 
 // Solo el dueño del comercio logueado
 router.get('/mi-negocio', authMiddleware, requireRole('comercio'), comercioController.miNegocio);

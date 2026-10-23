@@ -2,6 +2,10 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { calcularPermisos } = require('../services/permisosService');
+
+// Solo el superadmin puede crear o editar admins; nadie puede crear superadmins por la API
+const esSuperadmin = (user) => (user.rolReal || user.rol) === 'superadmin';
 
 const authController = {
     // Login de usuarios
@@ -89,16 +93,17 @@ const authController = {
             const usuario = req.user;
             
             // Obtener datos actualizados del usuario (incluye flags de guía)
-            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico FROM usuarios WHERE id = $1';
+            const query = 'SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico, permisos FROM usuarios WHERE id = $1';
             const result = await pool.query(query, [usuario.id]);
             
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
 
+            const { permisos, ...datos } = result.rows[0];
             res.json({
                 message: 'Token válido',
-                usuario: result.rows[0]
+                usuario: { ...datos, permisos: calcularPermisos(result.rows[0]) }
             });
 
         } catch (error) {
@@ -115,6 +120,10 @@ const authController = {
             // Verificar permisos (solo admin)
             if (req.user.rol !== 'admin') {
                 return res.status(403).json({ error: 'No autorizado' });
+            }
+
+            if (rol === 'superadmin' || (rol === 'admin' && !esSuperadmin(req.user))) {
+                return res.status(403).json({ error: 'Solo el superadministrador puede crear administradores' });
             }
 
             // Validar datos requeridos
@@ -221,6 +230,13 @@ const authController = {
 
             const { id } = req.params;
             const { nombre, telefono, rol, disponible } = req.body;
+
+            const destino = await pool.query('SELECT rol FROM usuarios WHERE id = $1', [id]);
+            const rolDestino = destino.rows[0]?.rol;
+            if (rol === 'superadmin' || rolDestino === 'superadmin'
+                || ((rol === 'admin' || rolDestino === 'admin') && !esSuperadmin(req.user))) {
+                return res.status(403).json({ error: 'Solo el superadministrador puede modificar administradores' });
+            }
 
             const query = `
                 UPDATE usuarios

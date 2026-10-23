@@ -1,4 +1,5 @@
 // controllers/usuarioController.js
+const { calcularPermisos } = require('../services/permisosService');
 const pool = require('../config/database');
 const { getIo } = require('../socket');
 
@@ -42,6 +43,7 @@ const usuarioController = {
                     COALESCE(puede_gestionar_eventos, false) as puede_gestionar_eventos,
                     COALESCE(nivel, 1) as nivel,
                     COALESCE(xp_total, 0) as xp_total,
+                    permisos,
                     created_at 
                 FROM usuarios 
                 WHERE id = $1
@@ -52,7 +54,8 @@ const usuarioController = {
                 return res.status(404).json({ error: 'Usuario no encontrado' });
             }
             
-            res.json(result.rows[0]);
+            // permisos efectivos (los da y quita el superadmin)
+            res.json({ ...result.rows[0], permisos: calcularPermisos(result.rows[0]) });
         } catch (error) {
             console.error('Error al obtener usuario:', error);
             res.status(500).json({ error: 'Error al obtener usuario' });

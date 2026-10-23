@@ -15,7 +15,8 @@ import {
   ChevronDownIcon,
   CalendarDaysIcon,
   LightBulbIcon,
-  PuzzlePieceIcon
+  PuzzlePieceIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -23,17 +24,25 @@ import { useAuth } from '../hooks/useAuth'
 const LOGO_URL = '/logo192.png';
 
 // Solo mantener las secciones que realmente existen
-const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-  { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon },
-  { name: 'Comercios', href: '/admin/comercios', icon: BuildingStorefrontIcon },
-  { name: 'Eventos del pueblo', href: '/admin/agenda', icon: CalendarDaysIcon },
-  { name: 'Curiosidades', href: '/admin/curiosidades', icon: LightBulbIcon },
-  { name: 'Retos', href: '/admin/eventos', icon: PuzzlePieceIcon },
-  { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon },
-  { name: 'Guías', href: '/admin/guias', icon: UsersIcon },
-  { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon },
+// permiso: clave que el superadmin puede quitarle a cada admin
+const todasLasSecciones = [
+  { name: 'Dashboard', href: '/admin', icon: HomeIcon, permiso: 'metricas' },
+  { name: 'Lugares', href: '/admin/lugares', icon: MapPinIcon, permiso: 'lugares' },
+  { name: 'Comercios', href: '/admin/comercios', icon: BuildingStorefrontIcon, permiso: 'comercios' },
+  { name: 'Eventos del pueblo', href: '/admin/agenda', icon: CalendarDaysIcon, permiso: 'eventos_pueblo' },
+  { name: 'Curiosidades', href: '/admin/curiosidades', icon: LightBulbIcon, permiso: 'curiosidades' },
+  { name: 'Retos', href: '/admin/eventos', icon: PuzzlePieceIcon, permiso: 'retos' },
+  { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon, permiso: 'reservas' },
+  { name: 'Guías', href: '/admin/guias', icon: UsersIcon, permiso: 'guias' },
+  { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon, permiso: 'encuestas' },
 ];
+
+const seccionesPara = (user) => {
+  if (user?.rol === 'superadmin') {
+    return [{ name: 'Superadmin', href: '/admin/super', icon: ShieldCheckIcon }, ...todasLasSecciones];
+  }
+  return todasLasSecciones.filter((s) => user?.permisos?.[s.permiso] !== false);
+};
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
@@ -43,6 +52,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { user, logout } = useAuth()
+  const navigation = seccionesPara(user)
   const location = useLocation()
   const navigate = useNavigate()
 

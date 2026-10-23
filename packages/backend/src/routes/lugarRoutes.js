@@ -5,6 +5,7 @@ const lugarController = require('../controllers/lugarController');
 const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const upload = require('../middleware/upload');
+const { requirePermiso } = require('../services/permisosService');
 
 // Rutas públicas
 router.get('/', lugarController.getAll);
@@ -13,6 +14,7 @@ router.get('/:id', lugarController.getById);
 // Rutas protegidas (solo admin)
 router.use(authMiddleware);
 router.use(requireRole('admin'));
+router.use(requirePermiso('lugares'));
 router.post('/', upload.single('imagen'), lugarController.create);
 router.put('/:id', upload.single('imagen'), lugarController.update);
 router.delete('/:id', lugarController.delete);

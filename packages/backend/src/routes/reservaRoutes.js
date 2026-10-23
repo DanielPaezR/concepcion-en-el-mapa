@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const reservaController = require('../controllers/reservaController');
 const authMiddleware = require('../middleware/auth');
+const { requirePermiso } = require('../services/permisosService');
 
 // Ruta PÚBLICA - no requiere autenticación
 router.get('/disponibles', reservaController.getGuiasDisponibles);
@@ -11,8 +12,9 @@ router.get('/disponibles', reservaController.getGuiasDisponibles);
 router.use(authMiddleware);
 
 router.post('/', reservaController.create);
-router.get('/', reservaController.getAll);
+// El permiso "reservas" solo filtra a admins: guías y turistas ven las suyas
+router.get('/', requirePermiso('reservas'), reservaController.getAll);
 router.get('/:id', reservaController.getById);
-router.patch('/:id/estado', reservaController.updateEstado);
+router.patch('/:id/estado', requirePermiso('reservas'), reservaController.updateEstado);
 
 module.exports = router;
