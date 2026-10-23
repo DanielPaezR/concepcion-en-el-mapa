@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const { resumenPeticiones, inicioServidor } = require('../services/metricasServidor');
 const { PERMISOS_ADMIN, PERMISOS_GUIA, calcularPermisos } = require('../services/permisosService');
-const { smtpConfigurado } = require('../services/emailService');
 
 const pool = db; // { query, pool }
 const MB = (bytes) => Math.round((bytes / 1024 / 1024) * 10) / 10;
@@ -96,7 +95,6 @@ const superadminController = {
                 peticiones: resumenPeticiones(),
                 servicios: {
                     cloudinary: !!process.env.CLOUDINARY_API_KEY,
-                    correo_smtp: smtpConfigurado(),
                     google_login: !!process.env.GOOGLE_CLIENT_ID,
                     push: !!process.env.VAPID_PUBLIC_KEY,
                 },

@@ -6,7 +6,6 @@
 const db = require('../config/database');
 const cloudinary = require('cloudinary').v2;
 const pushNotificationService = require('../services/pushNotificationService');
-const { enviarCorreo, marco } = require('../services/emailService');
 
 const pool = db;
 const TIPOS = ['servicio', 'venta', 'compra'];
@@ -144,19 +143,6 @@ const anuncioController = {
                 INSERT INTO anuncios (usuario_id, tipo, titulo, descripcion, precio, imagen_url)
                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
             `, [usuario.id, tipo, titulo, descripcion, precio, imagenUrl]);
-
-            // Aviso al superadmin (correo si está configurado; siempre en su panel)
-            const supers = await pool.query(`SELECT email FROM usuarios WHERE rol = 'superadmin'`);
-            for (const s of supers.rows) {
-                enviarCorreo({
-                    para: s.email,
-                    asunto: `Nueva solicitud de anuncio: ${titulo}`,
-                    texto: `${usuario.nombre} pidió publicar "${titulo}" (${tipo}). Revísalo en el panel de superadmin.`,
-                    html: marco(`<p><strong>${usuario.nombre}</strong> pidió publicar un anuncio:</p>
-                        <p><strong>${titulo}</strong> (${tipo})</p><p>${descripcion}</p>
-                        <p>Revísalo en el panel de superadmin.</p>`),
-                });
-            }
 
             res.status(201).json({ success: true, anuncio: r.rows[0] });
         } catch (error) {

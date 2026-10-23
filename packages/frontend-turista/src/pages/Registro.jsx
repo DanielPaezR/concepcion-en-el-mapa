@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Phone, ShieldCheck } from 'lucide-react';
-import { registerUser, verificarCodigo, reenviarCodigo } from '../services/auth';
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Phone } from 'lucide-react';
+import { registerUser } from '../services/auth';
 import BotonGoogle from '../components/BotonGoogle';
 import toast from 'react-hot-toast';
-
-const ESPERA_REENVIO_S = 60;
 
 export default function Registro() {
     const navigate = useNavigate();
@@ -20,18 +18,6 @@ export default function Registro() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
-    // Paso 2: código de verificación enviado al correo
-    const [paso, setPaso] = useState('formulario');
-    const [codigo, setCodigo] = useState('');
-    const [errorCodigo, setErrorCodigo] = useState('');
-    const [espera, setEspera] = useState(0);
-
-    useEffect(() => {
-        if (espera <= 0) return;
-        const t = setTimeout(() => setEspera((s) => s - 1), 1000);
-        return () => clearTimeout(t);
-    }, [espera]);
-
     const entrar = (mensaje) => {
         toast.success(mensaje);
         setTimeout(() => navigate('/'), 1500);
@@ -91,46 +77,13 @@ export default function Registro() {
             formData.telefono.trim()
         );
 
-        if (result.success && result.requiereVerificacion) {
-            setPaso('codigo');
-            setEspera(ESPERA_REENVIO_S);
-            toast.success('Te enviamos un código a tu correo');
-        } else if (result.success) {
+        if (result.success) {
             entrar('¡Registro exitoso! Ahora puedes solicitar guías.');
         } else {
             toast.error(result.error || 'Error al registrarse');
         }
 
         setIsLoading(false);
-    };
-
-    const handleVerificar = async (e) => {
-        e.preventDefault();
-        if (codigo.length !== 6) {
-            setErrorCodigo('El código tiene 6 dígitos');
-            return;
-        }
-        setIsLoading(true);
-        const result = await verificarCodigo(formData.email.trim(), codigo);
-        setIsLoading(false);
-        if (result.success) {
-            entrar('¡Cuenta verificada! Bienvenido a Concepción.');
-        } else {
-            setErrorCodigo(result.error);
-            if (result.codigo === 'BLOQUEADO' || result.codigo === 'VENCIDO') setCodigo('');
-        }
-    };
-
-    const handleReenviar = async () => {
-        const result = await reenviarCodigo(formData.email.trim());
-        if (result.success) {
-            toast.success('Código reenviado');
-            setErrorCodigo('');
-            setCodigo('');
-            setEspera(ESPERA_REENVIO_S);
-        } else {
-            toast.error(result.error);
-        }
     };
 
     return (
@@ -140,54 +93,6 @@ export default function Registro() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8"
             >
-                {paso === 'codigo' ? (
-                    <div>
-                        <div className="text-center mb-6">
-                            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                                <ShieldCheck className="w-7 h-7 text-green-600" />
-                            </div>
-                            <h1 className="text-2xl font-bold text-gray-800">Verifica tu correo</h1>
-                            <p className="text-gray-500 text-sm mt-2">
-                                Escribe el código de 6 dígitos que enviamos a <strong className="text-gray-700">{formData.email}</strong>
-                            </p>
-                        </div>
-                        <form onSubmit={handleVerificar} className="space-y-4">
-                            <input
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                autoFocus
-                                maxLength={6}
-                                value={codigo}
-                                onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrorCodigo(''); }}
-                                className={`w-full text-center text-3xl tracking-[0.5em] font-bold py-3 border ${errorCodigo ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500`}
-                                placeholder="••••••"
-                                aria-label="Código de verificación"
-                            />
-                            {errorCodigo && <p className="text-red-500 text-sm text-center">{errorCodigo}</p>}
-                            <button
-                                type="submit"
-                                disabled={isLoading || codigo.length !== 6}
-                                className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
-                            >
-                                {isLoading ? 'Verificando...' : 'Verificar y crear cuenta'}
-                            </button>
-                        </form>
-                        <div className="text-center text-sm text-gray-600 mt-5 space-y-2">
-                            <p>
-                                ¿No te llegó? Revisa el correo no deseado o{' '}
-                                {espera > 0 ? (
-                                    <span className="text-gray-400">pide otro en {espera} s</span>
-                                ) : (
-                                    <button onClick={handleReenviar} className="text-green-600 font-medium hover:underline">reenvía el código</button>
-                                )}
-                            </p>
-                            <button onClick={() => { setPaso('formulario'); setCodigo(''); setErrorCodigo(''); }} className="text-gray-500 hover:underline">
-                                Cambiar mis datos
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                <>
                 {/* Header */}
                 <div className="text-center mb-8">
                     <Link to="/" className="inline-flex items-center text-green-600 text-sm mb-4">
@@ -340,8 +245,6 @@ export default function Registro() {
                         Inicia sesión
                     </Link>
                 </p>
-                </>
-                )}
             </motion.div>
         </div>
     );

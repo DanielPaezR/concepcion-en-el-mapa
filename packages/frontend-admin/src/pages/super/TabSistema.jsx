@@ -114,7 +114,7 @@ export default function TabSistema() {
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 text-sm">
           <h3 className="font-semibold text-gray-800 mb-2">Servicios externos</h3>
-          {[['cloudinary', 'Cloudinary (imágenes)'], ['correo_smtp', 'Correo (códigos de verificación)'], ['google_login', 'Inicio con Google'], ['push', 'Notificaciones push']].map(([k, t]) => (
+          {[['cloudinary', 'Cloudinary (imágenes)'], ['google_login', 'Inicio con Google'], ['push', 'Notificaciones push']].map(([k, t]) => (
             <p key={k} className="py-0.5">{sis.servicios[k] ? '🟢' : '⚪'} {t} {sis.servicios[k] ? '' : <span className="text-gray-400">— sin configurar</span>}</p>
           ))}
         </div>

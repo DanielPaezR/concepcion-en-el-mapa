@@ -2,21 +2,10 @@ const pool = require('../config/database');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
-const { verificacionActiva, enviarCodigoVerificacion } = require('../services/emailService');
 
-const MAX_INTENTOS_CODIGO = 5;
 let clienteGoogle = null;
 const googleClient = () => (clienteGoogle ||= new OAuth2Client(process.env.GOOGLE_CLIENT_ID));
-
-const generarCodigo = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-
-// En desarrollo (VERIFICACION_DEV=1, sin SMTP) el código se ve en la consola
-const enviarCodigo = async (email, codigo, nombre) => {
-    if (process.env.VERIFICACION_DEV === '1') console.log(`🔑 Código de verificación para ${email}: ${codigo}`);
-    await enviarCodigoVerificacion(email, codigo, nombre);
-};
 
 // Crea un turista registrado con su perfil de guardián y estadísticas
 async function crearTurista({ email, nombre, passwordHash = null, telefono = null, googleId = null }) {
@@ -131,14 +120,10 @@ const turistaController = {
     configAuth(req, res) {
         res.json({
             google_client_id: process.env.GOOGLE_CLIENT_ID || null,
-            verificacion_correo: verificacionActiva(),
         });
     },
 
     // POST /api/turista/register
-    // Con la verificación activa (correo configurado) solo guarda el registro
-    // pendiente y envía un código al correo; la cuenta se crea al confirmarlo
-    // en /register/verificar. Sin correo configurado, crea la cuenta directo.
     async register(req, res) {
         try {
             const email = String(req.body.email || '').trim().toLowerCase();
@@ -163,19 +148,6 @@ const turistaController = {
 
             const passwordHash = await bcrypt.hash(password, 10);
 
-            if (verificacionActiva()) {
-                const codigo = generarCodigo();
-                await pool.query(`
-                    INSERT INTO registros_pendientes (email, nombre, password_hash, telefono, codigo_hash, intentos, expira, created_at)
-                    VALUES ($1, $2, $3, $4, $5, 0, NOW() + INTERVAL '15 minutes', NOW())
-                    ON CONFLICT (email) DO UPDATE SET
-                        nombre = EXCLUDED.nombre, password_hash = EXCLUDED.password_hash, telefono = EXCLUDED.telefono,
-                        codigo_hash = EXCLUDED.codigo_hash, intentos = 0, expira = EXCLUDED.expira, created_at = NOW()
-                `, [email, nombre || null, passwordHash, telefono, await bcrypt.hash(codigo, 10)]);
-                await enviarCodigo(email, codigo, nombre);
-                return res.json({ success: true, requiereVerificacion: true, email });
-            }
-
             const usuario = await crearTurista({ email, nombre, passwordHash, telefono });
             res.json(respuestaSesion(usuario));
         } catch (error) {
@@ -184,69 +156,7 @@ const turistaController = {
         }
     },
 
-    // POST /api/turista/register/verificar { email, codigo }
-    async verificarRegistro(req, res) {
-        try {
-            const email = String(req.body.email || '').trim().toLowerCase();
-            const codigo = String(req.body.codigo || '').replace(/\D/g, '');
-            const r = await pool.query('SELECT *, expira < NOW() AS vencido FROM registros_pendientes WHERE email = $1', [email]);
-            const pendiente = r.rows[0];
-
-            if (!pendiente) return res.status(404).json({ error: 'No hay un registro pendiente para este correo. Regístrate de nuevo.' });
-            if (pendiente.vencido) return res.status(400).json({ error: 'El código venció. Pide uno nuevo.', codigo: 'VENCIDO' });
-            if (pendiente.intentos >= MAX_INTENTOS_CODIGO) {
-                return res.status(400).json({ error: 'Demasiados intentos. Pide un código nuevo.', codigo: 'BLOQUEADO' });
-            }
-            if (!(await bcrypt.compare(codigo, pendiente.codigo_hash))) {
-                await pool.query('UPDATE registros_pendientes SET intentos = intentos + 1 WHERE email = $1', [email]);
-                const quedan = MAX_INTENTOS_CODIGO - pendiente.intentos - 1;
-                return res.status(400).json({ error: `Código incorrecto. Te quedan ${quedan} intento${quedan === 1 ? '' : 's'}.`, codigo: 'INCORRECTO' });
-            }
-
-            const existe = await pool.query('SELECT id FROM usuarios WHERE LOWER(email) = $1', [email]);
-            if (existe.rows.length > 0) {
-                await pool.query('DELETE FROM registros_pendientes WHERE email = $1', [email]);
-                return res.status(400).json({ error: 'El email ya está registrado' });
-            }
-
-            const usuario = await crearTurista({
-                email, nombre: pendiente.nombre, passwordHash: pendiente.password_hash, telefono: pendiente.telefono,
-            });
-            await pool.query('DELETE FROM registros_pendientes WHERE email = $1', [email]);
-            res.json(respuestaSesion(usuario));
-        } catch (error) {
-            console.error('❌ Error verificando registro:', error);
-            res.status(500).json({ error: 'Error al verificar el código' });
-        }
-    },
-
-    // POST /api/turista/register/reenviar { email }
-    async reenviarCodigo(req, res) {
-        try {
-            const email = String(req.body.email || '').trim().toLowerCase();
-            const r = await pool.query(
-                `SELECT nombre, created_at > NOW() - INTERVAL '60 seconds' AS reciente FROM registros_pendientes WHERE email = $1`,
-                [email]
-            );
-            if (!r.rows[0]) return res.status(404).json({ error: 'No hay un registro pendiente para este correo' });
-            if (r.rows[0].reciente) return res.status(429).json({ error: 'Espera un minuto antes de pedir otro código' });
-
-            const codigo = generarCodigo();
-            await pool.query(`
-                UPDATE registros_pendientes
-                SET codigo_hash = $2, intentos = 0, expira = NOW() + INTERVAL '15 minutes', created_at = NOW()
-                WHERE email = $1
-            `, [email, await bcrypt.hash(codigo, 10)]);
-            await enviarCodigo(email, codigo, r.rows[0].nombre);
-            res.json({ success: true });
-        } catch (error) {
-            console.error('❌ Error reenviando código:', error);
-            res.status(500).json({ error: 'Error al reenviar el código' });
-        }
-    },
-
     // POST /api/turista/google { credential } — "Continuar con Google"
-    // Google ya verificó el correo, así que no se pide código.
     async google(req, res) {
         try {
             if (!process.env.GOOGLE_CLIENT_ID) {

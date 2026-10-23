@@ -2,14 +2,12 @@ const express = require('express');
 const router = express.Router();
 const turistaController = require('../controllers/turistaController');
 const authMiddleware = require('../middleware/auth');
-const { loginLimiter, registroLimiter, codigoLimiter } = require('../middleware/rateLimiters');
+const { loginLimiter, registroLimiter } = require('../middleware/rateLimiters');
 
 // Rutas públicas (NO requieren autenticación)
 router.get('/config-auth', turistaController.configAuth);
 router.post('/anonymous', registroLimiter, turistaController.anonymous);
 router.post('/register', registroLimiter, turistaController.register);
-router.post('/register/verificar', codigoLimiter, turistaController.verificarRegistro);
-router.post('/register/reenviar', codigoLimiter, turistaController.reenviarCodigo);
 router.post('/login', loginLimiter, turistaController.login);
 router.post('/google', loginLimiter, turistaController.google);
 
