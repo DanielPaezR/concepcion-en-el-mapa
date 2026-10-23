@@ -53,6 +53,30 @@ function SolicitarGuia() {
     }
   };
 
+  // Fecha de hoy en hora local del dispositivo, formato YYYY-MM-DD
+  const fechaLocalHoy = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // Convierte "9:00 AM - 5:00 PM" o "10:00-18:00" a minutos desde medianoche.
+  // Devuelve null si el texto no tiene dos horas reconocibles (ej: "L-V").
+  const parsearRangoHorario = (texto) => {
+    if (!texto) return null;
+    const horas = [...texto.matchAll(/(\d{1,2})(?::(\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?/gi)]
+      .filter(([coincidencia]) => coincidencia.includes(':') || /[ap]/i.test(coincidencia));
+    if (horas.length < 2) return null;
+    const aMinutos = ([, h, m = '0', sufijo]) => {
+      let horas24 = parseInt(h, 10) % 12;
+      if (!sufijo) horas24 = parseInt(h, 10);
+      else if (/^p/i.test(sufijo)) horas24 += 12;
+      return horas24 * 60 + parseInt(m, 10);
+    };
+    const inicio = aMinutos(horas[0]);
+    const fin = aMinutos(horas[1]);
+    return fin > inicio ? { inicio, fin } : null;
+  };
+
   const validarFechaHora = (fecha, hora) => {
     const hoy = new Date();
     const fechaSeleccionada = new Date(`${fecha}T${hora}`);
@@ -62,21 +86,21 @@ function SolicitarGuia() {
         return { valido: false, error: 'No puedes seleccionar una fecha/hora pasada' };
     }
     
-    // Solo hoy
-    const hoyStr = hoy.toISOString().split('T')[0];
+    // Solo hoy (fecha local; toISOString usaría UTC y en Colombia
+    // desde las 7 p. m. ya marcaría el día siguiente)
+    const hoyStr = fechaLocalHoy();
     if (fecha !== hoyStr) {
         return { valido: false, error: 'Solo puedes agendar reservas para el día de hoy' };
     }
     
-    // Verificar horario del lugar (ej: "9:00-17:00")
-    if (horarioLugar) {
-        const [horaInicio, horaFin] = horarioLugar.split('-');
-        const horaSeleccionada = parseInt(hora.split(':')[0]);
-        const horaInicioInt = parseInt(horaInicio);
-        const horaFinInt = parseInt(horaFin);
-        
-        if (horaSeleccionada < horaInicioInt || horaSeleccionada >= horaFinInt) {
-            return { valido: false, error: `El horario de atención es de ${horaInicio}:00 a ${horaFin}:00` };
+    // Verificar horario del lugar (texto libre: "9:00-17:00", "9:00 AM - 5:00 PM").
+    // Si el texto no se puede interpretar como rango de horas, no se bloquea.
+    const rango = parsearRangoHorario(horarioLugar);
+    if (rango) {
+        const [h, m] = hora.split(':').map(Number);
+        const minutosSeleccionados = h * 60 + m;
+        if (minutosSeleccionados < rango.inicio || minutosSeleccionados >= rango.fin) {
+            return { valido: false, error: `El horario de atención es ${horarioLugar}` };
         }
     }
     
@@ -227,8 +251,8 @@ function SolicitarGuia() {
                 name="fecha_encuentro"
                 value={formData.fecha_encuentro}
                 onChange={handleInputChange}
-                min={new Date().toISOString().split('T')[0]}
-                max={new Date().toISOString().split('T')[0]}
+                min={fechaLocalHoy()}
+                max={fechaLocalHoy()}
                 required
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               />

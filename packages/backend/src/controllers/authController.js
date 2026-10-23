@@ -138,8 +138,8 @@ const authController = {
 
             // Insertar nuevo usuario
             const query = `
-                INSERT INTO usuarios (email, nombre, password_hash, rol, telefono, disponible, activo)
-                VALUES ($1, $2, $3, $4, $5, true, true)
+                INSERT INTO usuarios (email, nombre, password_hash, rol, telefono, disponible)
+                VALUES ($1, $2, $3, $4, $5, true)
                 RETURNING id, email, nombre, rol, telefono, disponible
             `;
             
@@ -198,7 +198,7 @@ const authController = {
             }
 
             const query = `
-                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, activo, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico
+                SELECT id, nombre, email, rol, telefono, calificacion_promedio, disponible, COALESCE(puede_gestionar_eventos,false) as puede_gestionar_eventos, COALESCE(mostrar_avatar_publico,false) as mostrar_avatar_publico
                 FROM usuarios 
                 ORDER BY id
             `;
@@ -220,20 +220,19 @@ const authController = {
             }
 
             const { id } = req.params;
-            const { nombre, telefono, rol, disponible, activo } = req.body;
+            const { nombre, telefono, rol, disponible } = req.body;
 
             const query = `
-                UPDATE usuarios 
+                UPDATE usuarios
                 SET nombre = COALESCE($1, nombre),
                     telefono = COALESCE($2, telefono),
                     rol = COALESCE($3, rol),
-                    disponible = COALESCE($4, disponible),
-                    activo = COALESCE($5, activo)
-                WHERE id = $6
-                RETURNING id, nombre, email, rol, telefono, disponible, activo
+                    disponible = COALESCE($4, disponible)
+                WHERE id = $5
+                RETURNING id, nombre, email, rol, telefono, disponible
             `;
-            
-            const result = await pool.query(query, [nombre, telefono, rol, disponible, activo, id]);
+
+            const result = await pool.query(query, [nombre, telefono, rol, disponible, id]);
             
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Usuario no encontrado' });

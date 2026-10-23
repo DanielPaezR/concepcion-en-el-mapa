@@ -203,6 +203,10 @@ const reservaController = {
             const usuarioId = req.user.id;
             const usuarioRol = req.user.rol;
 
+            if (!['pendiente', 'confirmada', 'completada', 'cancelada'].includes(estado)) {
+                return res.status(400).json({ error: 'Estado de reserva no válido' });
+            }
+
             // Obtener reserva
             const reserva = await pool.query(
                 'SELECT guia_id, estado FROM reservas_guia WHERE id = $1',

@@ -307,6 +307,12 @@ const usuarioController = {
             
             res.json({ success: true, message: 'Guía eliminado' });
         } catch (error) {
+            // 23503 = violación de llave foránea: el guía tiene reservas asociadas
+            if (error.code === '23503') {
+                return res.status(409).json({
+                    error: 'No se puede eliminar un guía con reservas registradas. Desactívalo en su lugar.'
+                });
+            }
             console.error('Error al eliminar guía:', error);
             res.status(500).json({ error: 'Error al eliminar guía' });
         }
@@ -320,23 +326,21 @@ const usuarioController = {
     async iniciarSesion(req, res) {
         try {
             const guiaId = req.user.id;
-            const hoy = new Date().toISOString().split('T')[0];
-            const ahora = new Date().toTimeString().split(' ')[0];
-            
-            // Verificar si ya tiene una sesión activa hoy
+
+            // Verificar si ya tiene una sesión activa
             const activa = await pool.query(
-                'SELECT id FROM sesiones_guias WHERE guia_id = $1 AND fecha = $2 AND activa = true',
-                [guiaId, hoy]
+                'SELECT id FROM sesiones_guias WHERE guia_id = $1 AND estado = $2',
+                [guiaId, 'activa']
             );
-            
+
             if (activa.rows.length > 0) {
-                return res.status(400).json({ error: 'Ya tienes una sesión activa hoy' });
+                return res.status(400).json({ error: 'Ya tienes una sesión activa' });
             }
-            
+
             const result = await pool.query(
-                `INSERT INTO sesiones_guias (guia_id, fecha, hora_inicio, activa)
-                 VALUES ($1, $2, $3, true) RETURNING *`,
-                [guiaId, hoy, ahora]
+                `INSERT INTO sesiones_guias (guia_id, fecha, hora_inicio, estado)
+                 VALUES ($1, CURRENT_DATE, NOW(), 'activa') RETURNING *`,
+                [guiaId]
             );
             
             res.json({ success: true, sesion: result.rows[0] });
@@ -350,18 +354,15 @@ const usuarioController = {
     async finalizarSesion(req, res) {
         try {
             const guiaId = req.user.id;
-            const hoy = new Date().toISOString().split('T')[0];
-            const ahora = new Date().toTimeString().split(' ')[0];
-            
+
             const result = await pool.query(
-                `UPDATE sesiones_guias 
-                 SET hora_fin = $1, 
-                     duracion_minutos = EXTRACT(EPOCH FROM ($1::time - hora_inicio))/60,
-                     activa = false,
-                     updated_at = NOW()
-                 WHERE guia_id = $2 AND fecha = $3 AND activa = true
+                `UPDATE sesiones_guias
+                 SET hora_fin = NOW(),
+                     duracion_minutos = EXTRACT(EPOCH FROM (NOW() - hora_inicio))/60,
+                     estado = 'finalizada'
+                 WHERE guia_id = $1 AND estado = 'activa'
                  RETURNING *`,
-                [ahora, guiaId, hoy]
+                [guiaId]
             );
             
             if (result.rows.length === 0) {

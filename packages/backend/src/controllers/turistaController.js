@@ -177,8 +177,9 @@ const turistaController = {
             const token = jwt.sign(
                 { 
                     id: usuario.id, 
-                    email: usuario.email, 
+                    email: usuario.email,
                     nombre: usuario.nombre,
+                    rol: usuario.rol,
                     anonimo: false,
                     nivel: usuario.nivel || 1
                 },

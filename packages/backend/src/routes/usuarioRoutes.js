@@ -3,29 +3,39 @@ const express = require('express');
 const router = express.Router();
 const usuarioController = require('../controllers/usuarioController');
 const authMiddleware = require('../middleware/auth');
+const requireRole = require('../middleware/requireRole');
+
+// El admin puede actuar sobre cualquier usuario; los demás solo sobre sí mismos
+// (ej. el guía consultando su perfil o cambiando su disponibilidad en PanelGuia).
+const requireSelfOrAdmin = (req, res, next) => {
+    if (req.user.rol === 'admin' || String(req.user.id) === String(req.params.id)) {
+        return next();
+    }
+    return res.status(403).json({ error: 'No tienes permisos para realizar esta acción' });
+};
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
 // Rutas de usuarios
-router.get('/', usuarioController.listar);
-router.post('/', usuarioController.crearGuia);           // Crear nuevo guía
+router.get('/', requireRole('admin'), usuarioController.listar);
+router.post('/', requireRole('admin'), usuarioController.crearGuia);           // Crear nuevo guía
 
 // =============================================
 // NUEVAS RUTAS PARA SEGUIMIENTO DE HORAS Y UBICACIONES
 // =============================================
-router.post('/sesion/iniciar', usuarioController.iniciarSesion);
-router.post('/sesion/finalizar', usuarioController.finalizarSesion);
-router.get('/sesiones/estadisticas', usuarioController.estadisticasSesiones);
-router.get('/sesiones/detalle/:guiaId', usuarioController.detalleSesiones);
-router.get('/ubicaciones', usuarioController.getGuiasUbicaciones);
-router.get('/guias/ubicaciones', usuarioController.getGuiasUbicaciones);
+router.post('/sesion/iniciar', requireRole('guia'), usuarioController.iniciarSesion);
+router.post('/sesion/finalizar', requireRole('guia'), usuarioController.finalizarSesion);
+router.get('/sesiones/estadisticas', requireRole('admin'), usuarioController.estadisticasSesiones);
+router.get('/sesiones/detalle/:guiaId', requireRole('admin'), usuarioController.detalleSesiones);
+router.get('/ubicaciones', requireRole('admin'), usuarioController.getGuiasUbicaciones);
+router.get('/guias/ubicaciones', requireRole('admin'), usuarioController.getGuiasUbicaciones);
 
 // Rutas de usuario individual
-router.get('/:id', usuarioController.obtenerPorId);
-router.patch('/:id/disponibilidad', usuarioController.cambiarDisponibilidad);
-router.patch('/:id/calificacion', usuarioController.actualizarCalificacion);
-router.put('/:id', usuarioController.actualizarGuia);    // Actualizar guía
-router.delete('/:id', usuarioController.eliminarGuia);   // Eliminar guía
+router.get('/:id', requireSelfOrAdmin, usuarioController.obtenerPorId);
+router.patch('/:id/disponibilidad', requireSelfOrAdmin, usuarioController.cambiarDisponibilidad);
+router.patch('/:id/calificacion', requireRole('admin'), usuarioController.actualizarCalificacion);
+router.put('/:id', requireRole('admin'), usuarioController.actualizarGuia);    // Actualizar guía
+router.delete('/:id', requireRole('admin'), usuarioController.eliminarGuia);   // Eliminar guía
 
 module.exports = router;
