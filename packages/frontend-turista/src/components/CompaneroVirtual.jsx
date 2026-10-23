@@ -1,5 +1,5 @@
 // components/CompaneroVirtual.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────
@@ -186,6 +186,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
   const [mensajeActual, setMensajeActual] = useState('');
   const [textoVisible, setTextoVisible] = useState('');
   const [charIndex, setCharIndex] = useState(0);
+  const contenedorRef = useRef(null);
 
   const nivelClamped = Math.min(Math.max(Math.floor(nivel), 1), 5);
   const frame = NIVEL_FRAME[nivelClamped];
@@ -219,6 +220,19 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
     }
   }, [charIndex, mensajeActual]);
 
+  // Cerrar la burbuja al tocar fuera de ella. Se escucha en el documento en vez
+  // de poner una capa a pantalla completa, que bloqueaba el mapa y hacía que el
+  // pellizco hiciera zoom a toda la página.
+  useEffect(() => {
+    if (!mostrarBurbuja) return;
+    const cerrarSiEsFuera = (e) => {
+      if (!contenedorRef.current?.contains(e.target)) setMostrarBurbuja(false);
+    };
+    // En fase de captura: el mapa detiene la propagación de sus eventos
+    document.addEventListener('pointerdown', cerrarSiEsFuera, true);
+    return () => document.removeEventListener('pointerdown', cerrarSiEsFuera, true);
+  }, [mostrarBurbuja]);
+
   const handleClickPato = (e) => {
     e.stopPropagation();
     setMostrarBurbuja(prev => !prev);
@@ -226,15 +240,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
 
   return (
     <>
-      {/* Overlay cierra burbuja */}
-      {mostrarBurbuja && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 1500 }}
-          onClick={() => setMostrarBurbuja(false)}
-        />
-      )}
-
-      <div style={{
+      <div ref={contenedorRef} style={{
         position: 'fixed',
         bottom: 112,
         right: 16,
