@@ -47,6 +47,11 @@ const clearTokens = () => {
 // Interceptor de request
 api.interceptors.request.use(
     (config) => {
+        // Sin límite de tiempo, con mala señal una petición podía quedarse
+        // colgada para siempre. Las subidas de fotos tienen más margen.
+        if (!config.timeout) {
+            config.timeout = config.data instanceof FormData ? 90000 : 20000;
+        }
         // Si es FormData, no modificar Content-Type
         if (config.data instanceof FormData) {
             delete config.headers['Content-Type'];

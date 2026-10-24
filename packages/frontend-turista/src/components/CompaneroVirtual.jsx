@@ -301,18 +301,13 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
               }}>
                 {textoVisible}
                 {charIndex < caracteres.length && (
-                  <motion.span
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.6, repeat: Infinity }}
+                  <motion.span className="cem-parpadeo"
                     style={{ display: 'inline-block', width: 2, height: 12, background: burbuja.border, marginLeft: 2, verticalAlign: 'middle', borderRadius: 1 }}
                   />
                 )}
               </p>
               {/* Barra de expiración */}
-              <motion.div
-                initial={{ width: '100%' }}
-                animate={{ width: '0%' }}
-                transition={{ duration: 8, ease: 'linear' }}
+              <div className="cem-vaciar"
                 style={{
                   height: 2,
                   background: burbuja.border,
@@ -325,10 +320,9 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
           )}
         </AnimatePresence>
 
-        {/* ── El Pato ── */}
+        {/* ── El Pato ── (flota con CSS en un envoltorio; el motion.div solo reacciona al toque) */}
+        <div className="cem-flota">
         <motion.div
-          animate={{ y: [0, -5, 0], rotate: [-1, 1, -1] }}
-          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
           style={{ pointerEvents: 'auto', cursor: 'pointer', position: 'relative' }}
           onClick={handleClickPato}
           whileHover={{ scale: 1.06 }}
@@ -336,9 +330,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
         >
           {/* Aura nivel 4-5 */}
           {nivelClamped >= 4 && (
-            <motion.div
-              animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.35, 0.15] }}
-              transition={{ duration: 2, repeat: Infinity }}
+            <motion.div className="cem-aura"
               style={{
                 position: 'absolute',
                 inset: -10,
@@ -387,6 +379,7 @@ const CompaneroVirtual = ({ mensaje, nivel = 1, emocion = 'feliz', tipo = 'norma
             {frame.label} <span style={{ color: '#fbbf24' }}>NV.{nivelClamped}</span>
           </div>
         </motion.div>
+        </div>
       </div>
     </>
   );

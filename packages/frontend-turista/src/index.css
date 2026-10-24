@@ -78,3 +78,21 @@
   transition: all 0.3s ease;
   pointer-events: none;
 }
+/* Animaciones en bucle de marcadores, avatares y mascota. Van en CSS (las
+   anima el compositor del teléfono) y no con framer-motion, que las calcula
+   en JavaScript cuadro a cuadro y le quitaba fluidez al mapa. */
+@keyframes cem-flotar { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes cem-balanceo { 0%, 100% { transform: translateY(0) rotate(-4deg) } 50% { transform: translateY(-6px) rotate(4deg) } }
+@keyframes cem-latir { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.08) } }
+@keyframes cem-aura { 0%, 100% { transform: scale(1); opacity: .15 } 50% { transform: scale(1.33); opacity: .4 } }
+@keyframes cem-parpadeo { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+@keyframes cem-vaciar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+.cem-flota { animation: cem-flotar 2s ease-in-out infinite; will-change: transform; }
+.cem-balanceo { animation: cem-balanceo 2s ease-in-out infinite; will-change: transform; }
+.cem-late { animation: cem-latir 1.6s ease-in-out infinite; will-change: transform; }
+.cem-aura { animation: cem-aura 2s ease-in-out infinite; will-change: transform, opacity; }
+.cem-parpadeo { animation: cem-parpadeo .6s steps(2, start) infinite; }
+.cem-vaciar { animation: cem-vaciar 8s linear forwards; transform-origin: left center; }
+@media (prefers-reduced-motion: reduce) {
+  .cem-flota, .cem-balanceo, .cem-late, .cem-aura, .cem-parpadeo { animation: none; }
+}

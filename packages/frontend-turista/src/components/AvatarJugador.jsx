@@ -298,9 +298,7 @@ const AvatarJugador = ({ level = 1, isMobile = false }) => {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative' }}>
       {/* Aura de poder — solo nivel 4 y 5 */}
       {nivelClamped >= 4 && (
-        <motion.div
-          animate={{ scale: [1, 1.35, 1], opacity: [0.15, 0.4, 0.15] }}
-          transition={{ duration: 2, repeat: Infinity }}
+        <motion.div className="cem-aura"
           style={{
             position: 'absolute',
             inset: -8,
@@ -313,9 +311,7 @@ const AvatarJugador = ({ level = 1, isMobile = false }) => {
       )}
 
       {/* Frame del avatar */}
-      <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+      <motion.div className="cem-flota"
         style={{
           width: frameSize.width,
           height: frameSize.height,

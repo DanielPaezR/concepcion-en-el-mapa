@@ -15,9 +15,13 @@ export default function Map3DEffect({ color = '#d4c9a6' }) {
 
     const add3D = () => {
       try {
-        // Verificar si la capa ya existe
+        // Si ya existe solo se ajusta el color cuando cambia. Antes se
+        // pintaba en cada "styledata", y pintar dispara otro "styledata":
+        // el mapa se redibujaba sin parar en los estilos 3D.
         if (map.getLayer('3d-buildings')) {
-          map.setPaintProperty('3d-buildings', 'fill-extrusion-color', color);
+          if (map.getPaintProperty('3d-buildings', 'fill-extrusion-color') !== color) {
+            map.setPaintProperty('3d-buildings', 'fill-extrusion-color', color);
+          }
           return;
         }
         if (!map.getSource('composite')) return; // estilo sin datos de edificios

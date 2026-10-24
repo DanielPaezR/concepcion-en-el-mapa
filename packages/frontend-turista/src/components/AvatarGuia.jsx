@@ -77,9 +77,7 @@ const AvatarGuia = ({ isMobile = false, conectado = false }) => {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative' }}>
       {/* Aura de conexión (si el guía está en línea) */}
       {conectado && (
-        <motion.div
-          animate={{ scale: [1, 1.35, 1], opacity: [0.15, 0.5, 0.15] }}
-          transition={{ duration: 2, repeat: Infinity }}
+        <motion.div className="cem-aura"
           style={{
             position: 'absolute',
             inset: -8,
@@ -92,9 +90,7 @@ const AvatarGuia = ({ isMobile = false, conectado = false }) => {
       )}
 
       {/* Frame del avatar */}
-      <motion.div
-        animate={{ y: conectado ? [0, -6, 0] : 0 }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+      <motion.div className={conectado ? 'cem-flota' : undefined}
         style={{
           width: frameSize.width,
           height: frameSize.height,

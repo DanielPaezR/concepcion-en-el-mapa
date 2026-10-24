@@ -29,7 +29,7 @@ const localStoragePersister = createSyncStoragePersister({
     key: 'CEM_QUERY_CACHE',
 });
 
-const CLAVES_PERSISTIBLES = ['lugares', 'comercios', 'eventos-activos', 'lugar'];
+const CLAVES_PERSISTIBLES = ['lugares', 'comercios', 'eventos-activos', 'lugar', 'curiosidades', 'eventos-comunidad'];
 
 // 🔥 REGISTRO DEL SW - INDEPENDIENTE DEL LOGIN (se ejecuta inmediatamente)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -64,8 +64,16 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
         .then(registrations => registrations.forEach(registration => registration.unregister()));
 }
 
-// Inicializar usuario anónimo (esto es aparte, no bloquea el SW)
-initAnonymousUser().then(() => {
+// La app espera el usuario anónimo antes de dibujarse (el mapa lo necesita
+// para sus llamadas). Con mala señal eso dejaba la pantalla en blanco sin
+// límite, así que se espera como máximo 8 s. La landing del QR no lo
+// necesita: se dibuja al instante y el usuario se crea mientras la leen.
+const usuarioListo = initAnonymousUser().catch(() => null);
+const esperarUsuario = window.location.pathname === '/landing'
+    ? Promise.resolve()
+    : Promise.race([usuarioListo, new Promise((r) => setTimeout(r, 8000))]);
+
+esperarUsuario.then(() => {
     ReactDOM.createRoot(document.getElementById('root')).render(
         <React.StrictMode>
             <PersistQueryClientProvider

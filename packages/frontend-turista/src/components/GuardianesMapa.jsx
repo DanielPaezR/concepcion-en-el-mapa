@@ -3,6 +3,7 @@
 // de lista que se abre desde el menú lateral.
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { imagenLigera } from '../utils/imagenes';
 
 // Distancia a la que otros exploradores ven un guardián (igual que el backend)
 export const RADIO_GUARDIANES_M = 300;
@@ -33,7 +34,7 @@ export const GuardianPin = React.memo(({ guardian, propio = false, isMobile }) =
         color: 'white', fontWeight: 800, fontSize: size * 0.4,
       }}>
         {guardian.foto_perfil_url
-          ? <img src={guardian.foto_perfil_url} alt={nombreGuardian(guardian)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={imagenLigera(guardian.foto_perfil_url, 120)} alt={nombreGuardian(guardian)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : inicial}
       </div>
       <span style={{ position: 'absolute', top: -6, right: -6, fontSize: isMobile ? 16 : 18 }}>🛡️</span>
@@ -49,7 +50,7 @@ export const GuardianPin = React.memo(({ guardian, propio = false, isMobile }) =
 
   if (propio) return contenido;
   return (
-    <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}>
+    <motion.div className="cem-flota">
       {contenido}
     </motion.div>
   );

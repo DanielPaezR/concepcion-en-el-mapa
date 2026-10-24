@@ -30,6 +30,7 @@ import EstadoReserva from '../components/EstadoReserva';
 import MenuExplorador from '../components/MenuExplorador';
 import LocationPrompt from '../components/LocationPrompt';
 import { dialogos } from '../data/dialogosMascota';
+import { imagenLigera } from '../utils/imagenes';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -509,7 +510,7 @@ const HUDHeader = ({
           className="hud-btn hud-btn-gold"
           style={{ width: isMobile ? 40 : 46, height: isMobile ? 40 : 46, borderRadius: 13 }}>
           {userAvatar
-            ? <img src={userAvatar} alt="Perfil" style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(251,191,36,0.5)' }} />
+            ? <img src={imagenLigera(userAvatar, 96)} alt="Perfil" style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(251,191,36,0.5)' }} />
             : <UserCircle size={isMobile ? 18 : 21} color="#fbbf24" />}
         </motion.button>
 
@@ -844,7 +845,7 @@ const LugarPopupContent = ({ lugar, discovered, userPosition, onExplorar, onVerD
     <div style={{ padding: '16px 16px 14px', minWidth: 210, maxWidth: 'min(240px, 78vw)', boxSizing: 'border-box' }}>
       <div style={{ width: '100%', height: 116, borderRadius: 14, marginBottom: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
         {lugar.imagen_url
-          ? <img src={lugar.imagen_url} alt={lugar.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = `<span style="font-size:46px">${td.emoji}</span>`; }} />
+          ? <img src={imagenLigera(lugar.imagen_url, 480)} alt={lugar.nombre} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = `<span style="font-size:46px">${td.emoji}</span>`; }} />
           : <span style={{ fontSize: 46 }}>{td.emoji}</span>}
         {discovered && (
           <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(34,197,94,0.88)', borderRadius: 20, padding: '2px 9px', fontSize: 9, color: 'white', fontWeight: 700, letterSpacing: '.06em', fontFamily: "'Orbitron',monospace" }}>✓ HALLADO</div>
@@ -1109,10 +1110,15 @@ function Mapa() {
   const socketRef = useRef(null);
 
   // ── helpers ──────────────────────────────────────────────────
+  // Antes cada mensaje dejaba su propio temporizador vivo y el de un mensaje
+  // anterior borraba al siguiente antes de tiempo (la mascota "saltaba")
+  const temporizadorMensajeRef = useRef(null);
   const mostrarMensajeGuia = useCallback((msg, tipo = 'normal', dur = 5000) => {
+    clearTimeout(temporizadorMensajeRef.current);
     setMensajeGuia(msg); setTipoGuia(tipo);
-    setTimeout(() => setMensajeGuia(''), dur);
+    temporizadorMensajeRef.current = setTimeout(() => setMensajeGuia(''), dur);
   }, []);
+  useEffect(() => () => clearTimeout(temporizadorMensajeRef.current), []);
 
   const updateGuideInState = useCallback((guia) => {
     if (!guia || !guia.id) return;
@@ -1471,7 +1477,21 @@ function Mapa() {
 
   useEffect(() => {
     if (!shouldLocate || !navigator.geolocation) return;
-    const ok  = (p) => { setUserPosition({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }); setLocationPermission('granted'); };
+    // El GPS avisa cada 1-3 s aunque estés quieto, y cada aviso volvía a
+    // dibujar todo el mapa. Solo se actualiza si te moviste 4 m o más, o si la
+    // precisión mejoró bastante.
+    let ultima = null;
+    const ok  = (p) => {
+      const nueva = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+      if (ultima) {
+        const movido = calcularDistancia(ultima.lat, ultima.lng, nueva.lat, nueva.lng);
+        const mejoraPrecision = (ultima.accuracy || 0) - (nueva.accuracy || 0) > 10;
+        if (movido < 4 && !mejoraPrecision) return;
+      }
+      ultima = nueva;
+      setUserPosition(nueva);
+      setLocationPermission('granted');
+    };
     const err = (e) => { if (e.code === e.PERMISSION_DENIED) { setLocationPermission('denied'); localStorage.setItem('locationResponse', 'denied'); } };
     const id  = navigator.geolocation.watchPosition(ok, err, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
     return () => navigator.geolocation.clearWatch(id);
@@ -1703,8 +1723,7 @@ function Mapa() {
 
         {lugarEspecial && (
           <Marker longitude={parseFloat(lugarEspecial.longitud)} latitude={parseFloat(lugarEspecial.latitud)} anchor="bottom" style={{ zIndex: 1500 }}>
-            <motion.div
-              animate={{ y: [0, -7, 0] }} transition={{ duration: 2.2, repeat: Infinity }}
+            <motion.div className="cem-flota"
               onClick={() => {
                 setMostrarGaleria(true);
                 mostrarMensajeGuia(dialogos.galeria(playerLevel), playerLevel >= 5 ? 'celebrando' : 'pensativo', 4500);
@@ -1820,7 +1839,7 @@ function Mapa() {
               <div title="Reto completado"
                 style={{ width: 38, height: 38, background: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, cursor: 'pointer', opacity: 0.75, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>✅</div>
             ) : (
-              <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}
+              <motion.div className="cem-flota"
                 title={evento.titulo}
                 style={{ width: 44, height: 44, background: 'radial-gradient(circle at 35% 35%, #fbbf24, #b45309)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 24px rgba(251,191,36,0.55), 0 4px 14px rgba(0,0,0,0.5)' }}>
                 {evento.es_temporal ? '🎪' : evento.tipo === 'reunion' ? '📍' : '❓'}
@@ -1840,7 +1859,7 @@ function Mapa() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#0f172a' }}>
                   {selectedGuia.avatar_url ? (
-                    <img src={selectedGuia.avatar_url} alt={selectedGuia.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={imagenLigera(selectedGuia.avatar_url, 160)} alt={selectedGuia.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>{selectedGuia.nombre?.charAt(0) || 'G'}</div>
                   )}

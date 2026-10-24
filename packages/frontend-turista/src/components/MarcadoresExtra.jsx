@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
+import { imagenLigera } from '../utils/imagenes';
 
 // Distancia a la que se "activa" una curiosidad
 export const RADIO_CURIOSIDADES_M = 150;
@@ -57,9 +58,7 @@ export const EventoComunidadPin = React.memo(({ evento, isMobile }) => {
   const etiqueta = etiquetaFecha(evento);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
-      <motion.div
-        animate={etiqueta === 'AHORA' ? { scale: [1, 1.08, 1] } : {}}
-        transition={{ duration: 1.6, repeat: Infinity }}
+      <motion.div className={etiqueta === 'AHORA' ? 'cem-late' : undefined}
         style={{
           width: size, height: size, borderRadius: 14, overflow: 'hidden',
           background: 'linear-gradient(135deg, #db2777, #7c3aed)',
@@ -69,7 +68,7 @@ export const EventoComunidadPin = React.memo(({ evento, isMobile }) => {
         }}
       >
         {evento.imagen_url
-          ? <img src={evento.imagen_url} alt={evento.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={imagenLigera(evento.imagen_url, 120)} alt={evento.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : '🎉'}
       </motion.div>
       <div style={{
@@ -86,7 +85,7 @@ export const EventoComunidadPin = React.memo(({ evento, isMobile }) => {
 export const EventoComunidadPopupContent = ({ evento }) => (
   <div style={{ padding: '12px 14px', minWidth: 200, maxWidth: 'min(250px, 78vw)', boxSizing: 'border-box' }}>
     {evento.imagen_url && (
-      <img src={evento.imagen_url} alt={evento.titulo} style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }} />
+      <img src={imagenLigera(evento.imagen_url, 480)} alt={evento.titulo} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }} />
     )}
     <div style={{ fontSize: 10, color: '#f9a8d4', fontWeight: 700, letterSpacing: '.06em', marginBottom: 2 }}>🎉 EVENTO DEL PUEBLO</div>
     <div style={{ fontWeight: 700, fontSize: 15, color: '#f8fafc', marginBottom: 6 }}>{evento.titulo}</div>
@@ -107,9 +106,7 @@ export const EventoComunidadPopupContent = ({ evento }) => (
 export const CuriosidadPin = React.memo(({ curiosidad, vista, isMobile }) => {
   const size = isMobile ? 40 : 46;
   return (
-    <motion.div
-      animate={vista ? {} : { y: [0, -6, 0], rotate: [-4, 4, -4] }}
-      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+    <motion.div className={vista ? undefined : 'cem-balanceo'}
       style={{
         width: size, height: size, borderRadius: '50%', cursor: 'pointer',
         background: 'radial-gradient(circle at 35% 35%, #fef3c7, #f59e0b 60%, #b45309)',
@@ -140,7 +137,7 @@ export const CuriosidadModal = ({ curiosidad, onClose }) => (
         >
           <button onClick={onClose} style={{ position: 'absolute', top: 10, right: 10, zIndex: 1, background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, width: 32, height: 32, color: 'white', fontSize: 18, cursor: 'pointer' }}>×</button>
           {curiosidad.imagen_url && (
-            <img src={curiosidad.imagen_url} alt={curiosidad.titulo} style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: '22px 22px 0 0', display: 'block' }} />
+            <img src={imagenLigera(curiosidad.imagen_url, 640)} alt={curiosidad.titulo} loading="lazy" style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: '22px 22px 0 0', display: 'block' }} />
           )}
           <div style={{ padding: 20 }}>
             <div style={{ fontSize: 10, color: '#fcd34d', fontWeight: 700, letterSpacing: '.12em', marginBottom: 4 }}>💡 ¿SABÍAS QUE...?</div>

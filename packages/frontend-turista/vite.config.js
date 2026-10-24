@@ -37,6 +37,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
+        // Los íconos por plataforma (3,4 MB) los usa el sistema al instalar la
+        // app, no la app misma: precargarlos gastaba datos en la primera visita
+        globIgnores: ['icons/android/**', 'icons/ios/**', 'icons/windows/**'],
         runtimeCaching: [
           // Estilo, íconos y fuentes del mapa: casi nunca cambian, así que se
           // sirven del celular y se actualizan por detrás. Las teselas (v4/...)
@@ -52,6 +55,27 @@ export default defineConfig({
                 maxEntries: 120,
                 maxAgeSeconds: 7 * 24 * 60 * 60
               },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          // Tipografías de Google: no cambian nunca, se guardan un año
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tipografias',
+              expiration: { maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          // Fotos de Cloudinary (lugares, eventos, curiosidades, avatares):
+          // una vez vistas se muestran al instante y sin gastar datos
+          {
+            urlPattern: /^https:\/\/res\.cloudinary\.com\//i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fotos',
+              expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [0, 200] }
             }
           },
