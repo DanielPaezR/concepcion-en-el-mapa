@@ -49,16 +49,21 @@ function aplicarPaleta(map, p) {
 }
 
 function aplicarAmbiente(map, estilo) {
-  // Relieve 3D real del terreno (Concepción es montañosa)
-  if (!map.getSource(FUENTE_RELIEVE)) {
-    map.addSource(FUENTE_RELIEVE, {
-      type: 'raster-dem',
-      url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-      tileSize: 512,
-      maxzoom: 14,
-    });
+  // Relieve 3D real del terreno (Concepción es montañosa). El clásico no lo
+  // lleva: es lo que más carga el teléfono.
+  if (!estilo.exageracionRelieve) {
+    if (map.getTerrain()) map.setTerrain(null);
+  } else {
+    if (!map.getSource(FUENTE_RELIEVE)) {
+      map.addSource(FUENTE_RELIEVE, {
+        type: 'raster-dem',
+        url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        tileSize: 512,
+        maxzoom: 14,
+      });
+    }
+    map.setTerrain({ source: FUENTE_RELIEVE, exaggeration: estilo.exageracionRelieve });
   }
-  map.setTerrain({ source: FUENTE_RELIEVE, exaggeration: estilo.exageracionRelieve || 1.4 });
 
   if (estilo.cielo && !map.getLayer('cielo')) {
     map.addLayer({

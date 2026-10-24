@@ -1,7 +1,9 @@
 // config/estilosMapa.js
-// Estilos del mapa del turista. Cada uno parte de un estilo base de Mapbox y
-// MapaAmbiente le agrega relieve 3D, cielo y (en "aventura") una paleta de
-// colores tipo videojuego.
+// Estilos del mapa del turista. "clasico" es el mapa liviano de siempre (sin
+// relieve ni edificios 3D) y es el que carga por defecto: el relieve 3D pesa
+// mucho en teléfonos. Los demás parten de un estilo base de Mapbox y
+// MapaAmbiente les agrega relieve 3D, cielo y (en "aventura") una paleta de
+// colores tipo videojuego. exageracionRelieve: null = sin relieve.
 //
 // Estilo propio de Mapbox Studio: define VITE_MAPBOX_STYLE en el .env de la
 // app del turista (y en Vercel). Acepta cualquiera de estos formatos:
@@ -38,8 +40,17 @@ export const PALETA_AVENTURA = {
 };
 
 export const ESTILOS_MAPA = {
+  clasico: {
+    nombre: 'Clásico',
+    emoji: '⚡',
+    url: 'mapbox://styles/mapbox/dark-v11',
+    exageracionRelieve: null,
+    cielo: null,
+    paleta: null,
+    colorEdificios3d: null,
+  },
   aventura: {
-    nombre: 'Aventura',
+    nombre: 'Aventura 3D',
     emoji: '🗺️',
     url: 'mapbox://styles/mapbox/outdoors-v12',
     exageracionRelieve: 1.6,
@@ -48,7 +59,7 @@ export const ESTILOS_MAPA = {
     colorEdificios3d: PALETA_AVENTURA.edificio3d,
   },
   noche: {
-    nombre: 'Noche',
+    nombre: 'Noche 3D',
     emoji: '🌙',
     url: 'mapbox://styles/mapbox/dark-v11',
     exageracionRelieve: 1.4,
@@ -57,7 +68,7 @@ export const ESTILOS_MAPA = {
     colorEdificios3d: '#3d4a7a',
   },
   satelite: {
-    nombre: 'Satélite',
+    nombre: 'Satélite 3D',
     emoji: '🛰️',
     url: 'mapbox://styles/mapbox/satellite-streets-v12',
     exageracionRelieve: 1.5,
@@ -78,4 +89,4 @@ export const ESTILOS_MAPA = {
   } : {}),
 };
 
-export const ESTILO_POR_DEFECTO = ESTILO_PROPIO ? 'propio' : 'aventura';
+export const ESTILO_POR_DEFECTO = 'clasico';

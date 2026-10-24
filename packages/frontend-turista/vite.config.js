@@ -38,16 +38,21 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         runtimeCaching: [
+          // Estilo, íconos y fuentes del mapa: casi nunca cambian, así que se
+          // sirven del celular y se actualizan por detrás. Las teselas (v4/...)
+          // no pasan por aquí: mapbox-gl ya las guarda en su propio caché.
+          // (Antes una regla /^https:\/\/api\./ atrapaba todas las teselas de
+          // api.mapbox.com en un caché de 50 entradas y 5 minutos.)
           {
-            urlPattern: /^https:\/\/api\./i,
-            handler: 'NetworkFirst',
+            urlPattern: /^https:\/\/api\.mapbox\.com\/(styles|fonts)\/v1\//i,
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
+              cacheName: 'mapbox-estilo',
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 5 * 60
-              }
+                maxEntries: 120,
+                maxAgeSeconds: 7 * 24 * 60 * 60
+              },
+              cacheableResponse: { statuses: [0, 200] }
             }
           },
           {

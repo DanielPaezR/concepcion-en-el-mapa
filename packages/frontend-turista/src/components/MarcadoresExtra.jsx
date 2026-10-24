@@ -174,6 +174,7 @@ export const FiltroMarcadores = ({ filtros, onAlternar, isMobile, estilos, estil
             {estilos && (
               <>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: '.14em', margin: '2px 4px 8px' }}>ESTILO DEL MAPA</div>
+                <div style={{ color: 'rgba(226,232,240,0.45)', fontSize: 10, margin: '-4px 4px 8px' }}>Los 3D usan más batería y datos</div>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Object.keys(estilos).length, 2)}, 1fr)`, gap: 6, marginBottom: 12 }}>
                   {Object.entries(estilos).map(([clave, e]) => (
                     <button key={clave} onClick={() => onCambiarEstilo(clave)}

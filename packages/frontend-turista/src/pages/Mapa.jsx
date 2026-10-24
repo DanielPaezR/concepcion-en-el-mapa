@@ -1037,14 +1037,16 @@ function Mapa() {
 
   // Eventos del pueblo y curiosidades (no cuentan en el juego)
   const [filtros, alternarFiltro] = useFiltrosMapa();
-  // Estilo del mapa (aventura, noche, satélite o el propio de Studio), recordado entre visitas
+  // Estilo del mapa (clásico, aventura, noche, satélite o el propio de Studio),
+  // recordado entre visitas. La clave es nueva para que todos arranquen en el
+  // clásico, que es el liviano.
   const [estiloMapa, setEstiloMapa] = useState(() => {
     try {
-      const guardado = localStorage.getItem('estilo_mapa');
+      const guardado = localStorage.getItem('estilo_mapa_v2');
       return ESTILOS_MAPA[guardado] ? guardado : ESTILO_POR_DEFECTO;
     } catch { return ESTILO_POR_DEFECTO; }
   });
-  const estiloActual = ESTILOS_MAPA[estiloMapa] || ESTILOS_MAPA.aventura;
+  const estiloActual = ESTILOS_MAPA[estiloMapa] || ESTILOS_MAPA.clasico;
   // Los marcadores se montan cuando el mapa terminó de cargar: los estilos v12
   // traen niebla y, si un marcador se dibuja antes del primer cuadro, mapbox-gl
   // 2.x falla consultándola ("Cannot read properties of undefined (reading 'get')")
@@ -1052,7 +1054,7 @@ function Mapa() {
   const cambiarEstiloMapa = (clave) => {
     if (clave !== estiloMapa) setMapaListo(false);
     setEstiloMapa(clave);
-    try { localStorage.setItem('estilo_mapa', clave); } catch { /* sin almacenamiento */ }
+    try { localStorage.setItem('estilo_mapa_v2', clave); } catch { /* sin almacenamiento */ }
   };
   const { data: eventosComunidad = [] } = useQuery({
     queryKey: ['eventos-comunidad'],
@@ -1606,11 +1608,11 @@ function Mapa() {
         }}
         onError={(evt) => {
           // Si el estilo propio de Studio no carga (otra cuenta, no publicado,
-          // URL mal copiada), se vuelve al estilo de aventura en vez de quedar en blanco
+          // URL mal copiada), se vuelve al clásico en vez de quedar en blanco
           const estado = evt?.error?.status;
           if (estiloMapa === 'propio' && [401, 403, 404].includes(estado)) {
             console.warn('No se pudo cargar el estilo propio de Mapbox (VITE_MAPBOX_STYLE). Revisa que esté publicado y sea de la misma cuenta que el token.');
-            cambiarEstiloMapa('aventura');
+            cambiarEstiloMapa('clasico');
           }
         }}
         mapboxAccessToken={MAPBOX_TOKEN}
@@ -1618,7 +1620,7 @@ function Mapa() {
         onClick={() => { setSelectedLugar(null); setSelectedGuia(null); setSelectedGuardian(null); setEventoComunidadSel(null); setSelectedComercio(null); }}
       >
         <MapaAmbiente estilo={estiloActual} />
-        <Map3DEffect color={estiloActual.colorEdificios3d || '#d4c9a6'} />
+        {estiloActual.colorEdificios3d && <Map3DEffect color={estiloActual.colorEdificios3d} />}
 
         {mapaListo && (<>
 
