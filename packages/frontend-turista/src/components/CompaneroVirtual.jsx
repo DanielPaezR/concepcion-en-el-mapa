@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // ─────────────────────────────────────────────
 
 // Cuerpo base compartido — con líneas grises características y pico rojo
-const PatoBase = ({ width, height, accesorios = null, ojos = null }) => (
+export const PatoBase = ({ width, height, accesorios = null, ojos = null }) => (
   <svg viewBox="0 0 80 96" width={width} height={height}>
     {/* Sombra agua */}
     <ellipse cx="40" cy="91" rx="24" ry="5" fill="#0c4a6e" opacity=".35" />
@@ -63,7 +63,7 @@ const PatoBase = ({ width, height, accesorios = null, ojos = null }) => (
 );
 
 // Ojos por emoción
-const ojosConfig = {
+export const ojosConfig = {
   feliz: (
     <>
       <circle cx="34" cy="32" r="4.5" fill="white" />

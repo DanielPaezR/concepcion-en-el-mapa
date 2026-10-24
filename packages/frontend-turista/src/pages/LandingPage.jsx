@@ -1,959 +1,325 @@
 // pages/LandingPage.jsx
-// WABOT x CONCEPCIÓN — PREMIUM EDITION
-// Estética: Cinemática / Turismo Gamificado / Glassmorphism / Fantasy Map UI
+// Página a la que llegan los turistas al escanear el QR de los letreros.
+// Pensada primero para el teléfono: un solo objetivo, que entren al juego.
+// No carga Mapbox GL: la vista previa del juego es una imagen estática del
+// mapa real de Concepción (Static Images API) con el HUD dibujado encima.
 
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  ChevronRight,
-  Sparkles,
-  Compass,
-  Shield,
-  Camera,
-  Trophy,
-  Calendar,
-  ArrowDown,
-  Crown,
-  Zap,
-  MapPin,
-  Stars,
-  Mountain,
-  Trees,
-  Flame,
-  Gem
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, MapPin, Footprints, Sparkles, Trophy, ChevronDown } from 'lucide-react';
+import { PatoBase, ojosConfig } from '../components/CompaneroVirtual';
 
-/* ─────────────────────────────────────────────
-   CSS
-───────────────────────────────────────────── */
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+// Parque principal de Concepción, inclinado como se ve en el juego
+const MAPA_PREVIA = MAPBOX_TOKEN
+  ? `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/-75.2591,6.3951,16.4,12,55/340x620@2x?attribution=false&logo=false&access_token=${MAPBOX_TOKEN}`
+  : null;
+
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap');
 
-:root{
-  --gold:#F6C453;
-  --gold-soft:#FFD978;
-  --dark:#070B11;
-  --dark-2:#0D131D;
-  --blue:#0EA5E9;
-  --blue-soft:#38BDF8;
-  --green:#22C55E;
-  --red:#FF4D6D;
-  --text:#E8EEF8;
-  --muted:#95A4BD;
-  --card:rgba(255,255,255,0.05);
-  --stroke:rgba(255,255,255,0.08);
-}
-
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-}
-
-html{
-  scroll-behavior:smooth;
-}
-
-body{
-  background:var(--dark);
-  color:white;
-  font-family:'Inter',sans-serif;
+.lp{
+  --oro:#F6C453; --oro2:#FFB800; --fondo:#070B11; --texto:#E8EEF8; --suave:#9AA8BF;
+  --verde:#22C55E; --tarjeta:rgba(255,255,255,.05); --borde:rgba(255,255,255,.08);
+  min-height:100vh; color:var(--texto); font-family:'Inter',system-ui,sans-serif;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(34,197,94,.16), transparent 60%),
+    radial-gradient(80% 50% at 100% 100%, rgba(246,196,83,.12), transparent 60%),
+    var(--fondo);
   overflow-x:hidden;
 }
+.lp *{ box-sizing:border-box; margin:0; padding:0; }
+.lp a{ text-decoration:none; }
+.lp svg{ display:inline-block; } /* Tailwind deja los svg en bloque */
+.lp-wrap{ max-width:1080px; margin:0 auto; padding:0 20px; }
 
-.land{
-  position:relative;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at top left, rgba(14,165,233,.12), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(246,196,83,.12), transparent 30%),
-    linear-gradient(to bottom, #06090F 0%, #09111B 100%);
+/* Barra superior */
+.lp-top{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; max-width:1080px; margin:0 auto; }
+.lp-marca{ display:flex; align-items:center; gap:10px; color:white; }
+.lp-marca-icono{ width:36px; height:36px; border-radius:12px; display:grid; place-items:center;
+  background:linear-gradient(135deg,var(--oro),var(--oro2)); color:#111; box-shadow:0 0 22px rgba(246,196,83,.35); }
+.lp-marca b{ font-family:'Cinzel',serif; font-size:15px; letter-spacing:.04em; display:block; line-height:1; }
+.lp-marca small{ font-size:11px; color:var(--suave); }
+.lp-top-jugar{ font-size:13px; font-weight:700; color:var(--oro); padding:8px 14px; border-radius:999px;
+  border:1px solid rgba(246,196,83,.35); background:rgba(246,196,83,.08); }
+
+/* Portada */
+.lp-hero{ display:grid; gap:28px; align-items:center; padding:12px 0 40px; }
+.lp-ubicacion{ display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px;
+  background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3); color:#86EFAC; font-size:12px; font-weight:600; }
+.lp-ubicacion i{ width:8px; height:8px; border-radius:50%; background:var(--verde); box-shadow:0 0 0 0 rgba(34,197,94,.7);
+  animation:lp-ping 1.8s infinite; }
+@keyframes lp-ping{ 0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)} 100%{box-shadow:0 0 0 10px rgba(34,197,94,0)} }
+.lp-titulo{ font-family:'Cinzel',serif; font-weight:900; font-size:clamp(36px,10vw,64px); line-height:1.02;
+  letter-spacing:-.02em; margin-top:16px; color:white; }
+.lp-titulo em{ font-style:normal; background:linear-gradient(135deg,var(--oro),#FFE39A);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.lp-sub{ margin-top:14px; font-size:17px; line-height:1.6; color:var(--suave); max-width:520px; }
+.lp-sub b{ color:var(--texto); font-weight:600; }
+
+/* Botón principal */
+.lp-jugar{ position:relative; display:flex; align-items:center; justify-content:center; gap:12px; width:100%;
+  max-width:420px; margin-top:24px; padding:19px 24px; border-radius:20px; border:0; cursor:pointer;
+  background:linear-gradient(135deg,var(--oro),var(--oro2)); color:#1a1300;
+  font-family:'Inter',sans-serif; font-size:19px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+  box-shadow:0 6px 0 #B7791F, 0 18px 40px rgba(246,196,83,.35); transition:transform .12s, box-shadow .12s; }
+.lp-jugar:active{ transform:translateY(4px); box-shadow:0 2px 0 #B7791F, 0 10px 24px rgba(246,196,83,.3); }
+.lp-jugar::after{ content:''; position:absolute; inset:-6px; border-radius:24px; border:2px solid rgba(246,196,83,.5);
+  animation:lp-aura 2s ease-out infinite; pointer-events:none; }
+@keyframes lp-aura{ 0%{opacity:.9; transform:scale(.98)} 100%{opacity:0; transform:scale(1.08)} }
+.lp-jugar-icono{ width:34px; height:34px; border-radius:50%; background:#1a1300; color:var(--oro); display:grid; place-items:center; }
+.lp-garantias{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:14px; font-size:13px; color:var(--suave); }
+.lp-garantias span{ display:inline-flex; align-items:center; gap:6px; }
+.lp-garantias span::before{ content:'✓'; color:var(--verde); font-weight:800; }
+
+/* Teléfono con la vista previa del juego */
+.lp-telefono{ position:relative; width:min(300px,78vw); aspect-ratio:340/620; margin:0 auto; border-radius:38px; padding:10px;
+  background:linear-gradient(160deg,#1f2937,#0b1018); box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08), 0 0 60px rgba(34,197,94,.15); }
+.lp-pantalla{ position:relative; width:100%; height:100%; border-radius:30px; overflow:hidden;
+  background:linear-gradient(180deg,#a8dd7c,#7cc86a); }
+.lp-pantalla > img{ width:100%; height:100%; object-fit:cover; display:block; }
+.lp-hud{ position:absolute; top:12px; left:12px; right:12px; display:flex; gap:6px; align-items:flex-start; }
+.lp-hud-nivel{ padding:6px 9px; border-radius:10px; background:rgba(6,20,12,.85); border:1px solid rgba(34,197,94,.6);
+  color:#4ADE80; font-size:11px; font-weight:800; line-height:1.1; }
+.lp-hud-nivel small{ display:block; color:rgba(134,239,172,.6); font-size:8px; font-weight:600; margin-top:2px; }
+.lp-hud-xp{ height:3px; border-radius:2px; background:rgba(255,255,255,.12); margin-top:4px; overflow:hidden; }
+.lp-hud-xp i{ display:block; height:100%; width:35%; background:#4ADE80; }
+.lp-hud-chip{ padding:6px 9px; border-radius:10px; background:rgba(15,23,42,.8); color:#E2E8F0; font-size:10px; font-weight:700; }
+.lp-pin{ position:absolute; transform:translate(-50%,-100%); display:grid; place-items:center; width:38px; height:38px;
+  border-radius:50% 50% 50% 4px; rotate:-45deg; box-shadow:0 6px 14px rgba(0,0,0,.35); border:2px solid white; }
+.lp-pin span{ rotate:45deg; font-size:17px; }
+.lp-pin-salta{ animation:lp-salta 1.6s ease-in-out infinite; }
+@keyframes lp-salta{ 0%,100%{ translate:0 0 } 50%{ translate:0 -7px } }
+.lp-burbuja{ position:absolute; right:12px; bottom:96px; max-width:68%; padding:9px 11px; border-radius:14px 14px 4px 14px;
+  background:rgba(2,6,23,.92); border:1px solid rgba(34,197,94,.5); color:#E2E8F0; font-size:11px; line-height:1.35; }
+.lp-pato{ position:absolute; right:10px; bottom:12px; width:70px; height:78px; border-radius:16px; display:grid; place-items:center;
+  background:linear-gradient(180deg,#0f2747,#0a1a33); border:2px solid #3B82F6; }
+.lp-reto{ position:absolute; left:12px; bottom:14px; padding:8px 10px; border-radius:12px; background:rgba(124,58,237,.92);
+  color:white; font-size:10px; font-weight:700; box-shadow:0 8px 18px rgba(0,0,0,.3); }
+.lp-reto small{ display:block; font-weight:500; opacity:.85; }
+.lp-flecha{ display:flex; justify-content:center; margin-top:8px; color:var(--suave); animation:lp-salta 2s infinite; }
+
+/* Secciones */
+.lp-seccion{ padding:48px 0; }
+.lp-etiqueta{ color:var(--oro); font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }
+.lp-h2{ font-family:'Cinzel',serif; font-size:clamp(26px,7vw,40px); line-height:1.12; margin-top:8px; color:white; }
+.lp-pasos{ display:grid; gap:12px; margin-top:24px; }
+.lp-paso{ display:flex; gap:14px; align-items:flex-start; padding:16px; border-radius:20px; background:var(--tarjeta); border:1px solid var(--borde); }
+.lp-paso-num{ flex:none; width:44px; height:44px; border-radius:14px; display:grid; place-items:center; font-size:22px;
+  background:rgba(246,196,83,.12); border:1px solid rgba(246,196,83,.25); }
+.lp-paso h3{ font-size:16px; color:white; }
+.lp-paso p{ font-size:14px; line-height:1.55; color:var(--suave); margin-top:3px; }
+.lp-cosas{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:24px; }
+.lp-cosa{ padding:16px 14px; border-radius:18px; background:var(--tarjeta); border:1px solid var(--borde); }
+.lp-cosa b{ display:block; font-size:26px; }
+.lp-cosa h3{ font-size:14px; color:white; margin-top:8px; }
+.lp-cosa p{ font-size:12.5px; line-height:1.45; color:var(--suave); margin-top:3px; }
+.lp-niveles{ display:flex; gap:10px; overflow-x:auto; margin:24px -20px 0; padding:4px 20px 8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.lp-niveles::-webkit-scrollbar{ display:none; }
+.lp-nivel{ flex:none; width:132px; scroll-snap-align:start; text-align:center; padding:16px 10px; border-radius:18px;
+  background:var(--tarjeta); border:1px solid var(--borde); }
+.lp-nivel b{ font-size:30px; display:block; }
+.lp-nivel h3{ font-size:14px; color:white; margin-top:6px; }
+.lp-nivel small{ display:inline-block; margin-top:8px; padding:3px 9px; border-radius:999px; background:rgba(246,196,83,.12); color:var(--oro); font-size:11px; font-weight:700; }
+.lp-final{ text-align:center; padding:36px 20px; border-radius:28px; margin:8px 0 24px;
+  background:radial-gradient(100% 80% at 50% 0%, rgba(246,196,83,.18), transparent 70%), #0D131D; border:1px solid var(--borde); }
+.lp-final .lp-jugar{ margin:22px auto 0; }
+.lp-pie{ text-align:center; padding:24px 20px 120px; color:var(--suave); font-size:12px; }
+
+/* Botón fijo abajo (teléfono), aparece al bajar */
+.lp-fijo{ position:fixed; left:0; right:0; bottom:0; z-index:50; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,transparent,rgba(7,11,17,.95) 35%); }
+.lp-fijo .lp-jugar{ margin:0 auto; padding:16px 20px; font-size:17px; }
+.lp-fijo .lp-jugar::after{ display:none; }
+
+@media (min-width:860px){
+  .lp-hero{ grid-template-columns:1.1fr .9fr; padding:40px 0 64px; }
+  .lp-pasos{ grid-template-columns:repeat(3,1fr); }
+  .lp-cosas{ grid-template-columns:repeat(3,1fr); }
+  .lp-niveles{ justify-content:center; overflow:visible; }
+  .lp-fijo{ display:none; }
+  .lp-pie{ padding-bottom:32px; }
 }
-
-/* ───────────────── NAVBAR ───────────────── */
-
-.nav{
-  position:fixed;
-  top:0;
-  left:0;
-  right:0;
-  z-index:100;
-  padding:1rem 2rem;
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-
-  backdrop-filter:blur(16px);
-  background:rgba(7,11,17,.55);
-  border-bottom:1px solid rgba(255,255,255,.05);
-}
-
-.logo{
-  display:flex;
-  align-items:center;
-  gap:.8rem;
-  text-decoration:none;
-  color:white;
-}
-
-.logo-icon{
-  width:42px;
-  height:42px;
-  border-radius:14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  background:linear-gradient(135deg,var(--gold),#FFB800);
-  color:black;
-  box-shadow:0 0 25px rgba(246,196,83,.35);
-}
-
-.logo-text{
-  display:flex;
-  flex-direction:column;
-  line-height:1;
-}
-
-.logo-title{
-  font-family:'Cinzel',serif;
-  font-weight:800;
-  font-size:1rem;
-  letter-spacing:.06em;
-}
-
-.logo-sub{
-  font-size:.72rem;
-  color:var(--muted);
-}
-
-.nav-actions{
-  display:flex;
-  align-items:center;
-  gap:1rem;
-}
-
-.nav-link{
-  color:var(--muted);
-  text-decoration:none;
-  font-size:.92rem;
-  transition:.2s;
-}
-
-.nav-link:hover{
-  color:white;
-}
-
-.nav-btn{
-  padding:.8rem 1.4rem;
-  border-radius:999px;
-  background:linear-gradient(135deg,var(--gold),#FFB800);
-  color:black;
-  font-weight:700;
-  text-decoration:none;
-  box-shadow:0 10px 35px rgba(246,196,83,.25);
-  transition:.25s;
-}
-
-.nav-btn:hover{
-  transform:translateY(-2px) scale(1.03);
-}
-
-/* ───────────────── HERO ───────────────── */
-
-.hero{
-  position:relative;
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:9rem 2rem 6rem;
-}
-
-.hero::before{
-  content:'';
-  position:absolute;
-  inset:0;
-
-  background:
-    linear-gradient(to bottom, rgba(0,0,0,.3), rgba(0,0,0,.65)),
-    url('/mapa.png');
-
-  background-size:cover;
-  background-position:center;
-  opacity:.23;
-  filter:contrast(1.1) brightness(.8);
-}
-
-.hero-grid{
-  position:absolute;
-  inset:0;
-  background-image:
-    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-
-  background-size:80px 80px;
-  mask-image:radial-gradient(circle at center, black, transparent 90%);
-}
-
-.hero-content{
-  position:relative;
-  z-index:2;
-  max-width:1100px;
-  width:100%;
-}
-
-.hero-badge{
-  display:inline-flex;
-  align-items:center;
-  gap:.6rem;
-
-  padding:.6rem 1rem;
-  border-radius:999px;
-
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.08);
-
-  color:#D9E6F7;
-  font-size:.78rem;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  margin-bottom:2rem;
-
-  backdrop-filter:blur(10px);
-}
-
-.hero-dot{
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:var(--gold);
-  box-shadow:0 0 14px var(--gold);
-}
-
-.hero-title{
-  font-family:'Cinzel',serif;
-  font-size:clamp(3rem,7vw,6.8rem);
-  line-height:.95;
-  font-weight:900;
-  letter-spacing:-.04em;
-
-  max-width:1000px;
-}
-
-.hero-title span{
-  display:block;
-  background:linear-gradient(to bottom,#fff,#C8D7E8);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-}
-
-.hero-title em{
-  display:block;
-  font-style:normal;
-
-  background:linear-gradient(135deg,var(--gold),#FFE39A);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-}
-
-.hero-sub{
-  max-width:720px;
-  margin-top:2rem;
-
-  font-size:1.1rem;
-  line-height:1.9;
-  color:var(--muted);
-}
-
-.hero-actions{
-  margin-top:2.6rem;
-
-  display:flex;
-  gap:1rem;
-  flex-wrap:wrap;
-}
-
-.btn-main{
-  display:inline-flex;
-  align-items:center;
-  gap:.7rem;
-
-  padding:1rem 1.7rem;
-  border-radius:999px;
-
-  background:linear-gradient(135deg,var(--gold),#FFB800);
-  color:black;
-
-  font-weight:800;
-  text-decoration:none;
-
-  transition:.25s;
-  box-shadow:0 14px 40px rgba(246,196,83,.3);
-}
-
-.btn-main:hover{
-  transform:translateY(-2px);
-}
-
-.btn-ghost{
-  display:inline-flex;
-  align-items:center;
-  gap:.7rem;
-
-  padding:1rem 1.6rem;
-  border-radius:999px;
-
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.08);
-
-  color:white;
-  text-decoration:none;
-
-  backdrop-filter:blur(12px);
-}
-
-.hero-cards{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:1rem;
-
-  margin-top:4rem;
-}
-
-.stat-card{
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.07);
-
-  padding:1.3rem;
-  border-radius:24px;
-
-  backdrop-filter:blur(18px);
-
-  transition:.3s;
-}
-
-.stat-card:hover{
-  transform:translateY(-5px);
-  border-color:rgba(246,196,83,.25);
-  box-shadow:0 20px 50px rgba(0,0,0,.35);
-}
-
-.stat-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:.9rem;
-}
-
-.stat-icon{
-  width:44px;
-  height:44px;
-  border-radius:14px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  background:rgba(255,255,255,.05);
-  color:var(--gold);
-}
-
-.stat-number{
-  font-size:2rem;
-  font-weight:800;
-}
-
-.stat-label{
-  color:var(--muted);
-  font-size:.9rem;
-}
-
-/* ───────────────── SECTION ───────────────── */
-
-.section{
-  position:relative;
-  padding:7rem 2rem;
-}
-
-.container{
-  max-width:1200px;
-  margin:auto;
-}
-
-.section-head{
-  text-align:center;
-  max-width:760px;
-  margin:0 auto 4rem;
-}
-
-.section-tag{
-  display:inline-flex;
-  align-items:center;
-  gap:.6rem;
-
-  color:var(--gold);
-  font-size:.8rem;
-  text-transform:uppercase;
-  letter-spacing:.15em;
-
-  margin-bottom:1rem;
-}
-
-.section-title{
-  font-family:'Cinzel',serif;
-  font-size:clamp(2rem,5vw,4rem);
-  line-height:1.1;
-}
-
-.section-title span{
-  color:var(--gold);
-}
-
-.section-desc{
-  margin-top:1.2rem;
-  line-height:1.9;
-  color:var(--muted);
-  font-size:1.05rem;
-}
-
-/* ───────────────── FEATURES ───────────────── */
-
-.features{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:1.4rem;
-}
-
-.feature{
-  position:relative;
-  overflow:hidden;
-
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.07);
-
-  padding:2rem;
-  border-radius:28px;
-
-  transition:.35s;
-}
-
-.feature::before{
-  content:'';
-  position:absolute;
-  inset:0;
-
-  background:linear-gradient(
-    135deg,
-    rgba(246,196,83,.08),
-    transparent 60%
-  );
-
-  opacity:0;
-  transition:.35s;
-}
-
-.feature:hover{
-  transform:translateY(-7px);
-  border-color:rgba(246,196,83,.2);
-}
-
-.feature:hover::before{
-  opacity:1;
-}
-
-.feature-icon{
-  width:60px;
-  height:60px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  border-radius:18px;
-
-  background:rgba(255,255,255,.05);
-  color:var(--gold);
-
-  margin-bottom:1.4rem;
-}
-
-.feature h3{
-  font-size:1.2rem;
-  margin-bottom:.8rem;
-}
-
-.feature p{
-  color:var(--muted);
-  line-height:1.8;
-}
-
-/* ───────────────── LEVELS ───────────────── */
-
-.levels{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  gap:1.3rem;
-}
-
-.level{
-  position:relative;
-
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.07);
-
-  border-radius:30px;
-  padding:2rem;
-
-  text-align:center;
-
-  overflow:hidden;
-}
-
-.level::before{
-  content:'';
-  position:absolute;
-  inset:0;
-
-  background:
-    radial-gradient(circle at top, rgba(255,255,255,.08), transparent 60%);
-}
-
-.level-emoji{
-  font-size:3rem;
-  margin-bottom:1rem;
-}
-
-.level h3{
-  font-size:1.3rem;
-  margin-bottom:.5rem;
-}
-
-.level p{
-  color:var(--muted);
-  line-height:1.6;
-}
-
-.level-badge{
-  margin-top:1rem;
-  display:inline-block;
-
-  padding:.45rem .9rem;
-  border-radius:999px;
-
-  background:rgba(246,196,83,.1);
-  color:var(--gold);
-
-  font-size:.75rem;
-  font-weight:700;
-}
-
-/* ───────────────── CTA ───────────────── */
-
-.cta{
-  position:relative;
-  overflow:hidden;
-
-  background:
-    radial-gradient(circle at top right, rgba(246,196,83,.18), transparent 30%),
-    linear-gradient(135deg,#0D131D,#09111B);
-
-  border:1px solid rgba(255,255,255,.06);
-
-  padding:5rem 2rem;
-  border-radius:40px;
-
-  text-align:center;
-}
-
-.cta h2{
-  font-family:'Cinzel',serif;
-  font-size:clamp(2rem,5vw,4rem);
-  max-width:800px;
-  margin:auto;
-}
-
-.cta p{
-  max-width:650px;
-  margin:1.4rem auto 2.5rem;
-  color:var(--muted);
-  line-height:1.9;
-}
-
-/* ───────────────── FOOTER ───────────────── */
-
-.footer{
-  padding:3rem 2rem;
-  text-align:center;
-  color:var(--muted);
-  border-top:1px solid rgba(255,255,255,.06);
-  margin-top:5rem;
-}
-
-/* ───────────────── RESPONSIVE ───────────────── */
-
-@media(max-width:900px){
-
-  .hero-cards{
-    grid-template-columns:1fr 1fr;
-  }
-
-}
-
-@media(max-width:700px){
-
-  .nav{
-    padding:1rem;
-  }
-
-  .nav-link{
-    display:none;
-  }
-
-  .hero{
-    padding-top:8rem;
-  }
-
-  .hero-cards{
-    grid-template-columns:1fr;
-  }
-
-  .hero-actions{
-    flex-direction:column;
-  }
-
-  .btn-main,
-  .btn-ghost{
-    width:100%;
-    justify-content:center;
-  }
-
+@media (prefers-reduced-motion:reduce){
+  .lp *{ animation:none !important; }
 }
 `;
 
-/* ───────────────── DATA ───────────────── */
-
-const features = [
-  {
-    icon:<Compass size={26} />,
-    title:'Mapa interactivo',
-    desc:'Explora Concepción como si estuvieras dentro de un videojuego. Descubre puntos ocultos y secretos del municipio.'
-  },
-  {
-    icon:<Shield size={26} />,
-    title:'Guardianes del mapa',
-    desc:'Protege lugares emblemáticos y conviértete en un guardián reconocido dentro de la comunidad.'
-  },
-  {
-    icon:<Camera size={26} />,
-    title:'Galería social',
-    desc:'Sube fotos, comparte experiencias y deja recuerdos vivos dentro de cada lugar turístico.'
-  },
-  {
-    icon:<Calendar size={26} />,
-    title:'Eventos y retos',
-    desc:'Participa en dinámicas, trivias y desafíos diarios que te darán XP y recompensas únicas.'
-  },
-  {
-    icon:<Trophy size={26} />,
-    title:'Sistema de logros',
-    desc:'Desbloquea insignias especiales y demuestra quién es el verdadero explorador de Concepción.'
-  },
-  {
-    icon:<Zap size={26} />,
-    title:'Experiencia gamificada',
-    desc:'Cada paso suma experiencia. Sube de nivel y conviértete en una leyenda local.'
-  }
+const PASOS = [
+  { icono: '📍', titulo: 'Camina por el pueblo', texto: 'El mapa te muestra dónde estás y qué hay cerca: el parque, la iglesia, las casas de balcones.' },
+  { icono: '🔍', titulo: 'Descubre sus secretos', texto: 'Al acercarte a un lugar se desbloquean su historia y curiosidades que pocos conocen.' },
+  { icono: '🏆', titulo: 'Responde retos y sube de nivel', texto: 'Cada lugar y cada reto te da XP e insignias. Tu pato compañero crece contigo.' },
 ];
 
-const levels = [
-  {emoji:'🌱',title:'Principiante',desc:'Tus primeros pasos dentro de la aventura.',badge:'Nivel 1'},
-  {emoji:'⭐',title:'Explorador',desc:'Ya comienzas a descubrir lugares ocultos.',badge:'Nivel 5'},
-  {emoji:'⚡',title:'Aventurero',desc:'La experiencia comienza a sentirse épica.',badge:'Nivel 10'},
-  {emoji:'🛡️',title:'Guardián',desc:'Proteges y conquistas lugares del municipio.',badge:'Nivel 20'},
-  {emoji:'👑',title:'Leyenda',desc:'Eres parte de la historia de Concepción.',badge:'Nivel Máximo'}
+const COSAS = [
+  { icono: '🗺️', titulo: 'Lugares', texto: 'Los rincones más bonitos de Concepción.' },
+  { icono: '❓', titulo: 'Retos', texto: 'Preguntas y desafíos que te dan XP.' },
+  { icono: '💡', titulo: 'Curiosidades', texto: 'Historias que aparecen al pasar cerca.' },
+  { icono: '🎉', titulo: 'Eventos', texto: 'Lo que está pasando hoy en el pueblo.' },
+  { icono: '🛡️', titulo: 'Guardianes', texto: 'Exploradores que cuidan cada lugar.' },
+  { icono: '🧭', titulo: 'Guías locales', texto: 'Reserva un recorrido con alguien de aquí.' },
 ];
 
-/* ───────────────── COMPONENT ───────────────── */
+const NIVELES = [
+  { icono: '🌱', titulo: 'Principiante', etiqueta: 'Nivel 1' },
+  { icono: '⭐', titulo: 'Explorador', etiqueta: 'Nivel 5' },
+  { icono: '⚡', titulo: 'Aventurero', etiqueta: 'Nivel 10' },
+  { icono: '🛡️', titulo: 'Guardián', etiqueta: 'Nivel 20' },
+  { icono: '👑', titulo: 'Leyenda', etiqueta: 'Máximo' },
+];
 
-export default function LandingPage(){
+// Botón grande "Jugar ahora". Conserva los parámetros del QR (si los trae).
+function BotonJugar({ destino, texto = 'Jugar ahora' }) {
+  return (
+    <Link to={destino} className="lp-jugar">
+      <span className="lp-jugar-icono"><Play size={16} fill="currentColor" /></span>
+      {texto}
+    </Link>
+  );
+}
 
-  return(
-    <>
+// Vista previa del juego dentro de un teléfono
+function PreviaJuego() {
+  const [mapaOk, setMapaOk] = useState(Boolean(MAPA_PREVIA));
+  return (
+    <div className="lp-telefono" aria-hidden="true">
+      <div className="lp-pantalla">
+        {mapaOk && <img src={MAPA_PREVIA} alt="" loading="eager" onError={() => setMapaOk(false)} />}
+
+        <div className="lp-hud">
+          <div className="lp-hud-nivel">★ NV.1<small>35/100 XP</small><div className="lp-hud-xp"><i /></div></div>
+          <div className="lp-hud-chip">📍 2/8 lugares</div>
+        </div>
+
+        <div className="lp-pin lp-pin-salta" style={{ left: '46%', top: '42%', background: '#F59E0B' }}><span>⛪</span></div>
+        <div className="lp-pin" style={{ left: '70%', top: '30%', background: '#7C3AED' }}><span>❓</span></div>
+        <div className="lp-pin" style={{ left: '26%', top: '60%', background: '#0EA5E9' }}><span>💡</span></div>
+        <div className="lp-pin" style={{ left: '74%', top: '56%', background: '#22C55E' }}><span>🎉</span></div>
+
+        <motion.div className="lp-burbuja"
+          initial={{ opacity: 0, y: 8, scale: .95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: .9, duration: .4 }}>
+          ¡Hola, explorador! Vamos al parque, allá hay un secreto 🦆
+        </motion.div>
+        <div className="lp-reto">❓ Reto del día<small>+50 XP</small></div>
+        <div className="lp-pato"><PatoBase width={52} height={62} ojos={ojosConfig.feliz} /></div>
+      </div>
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  const { search } = useLocation();
+  const destino = `/${search}`;
+  const heroRef = useRef(null);
+  const finalRef = useRef(null);
+  const [mostrarFijo, setMostrarFijo] = useState(false);
+
+  // El botón fijo de abajo aparece cuando no se ve ni el botón de la portada
+  // ni el del final
+  useEffect(() => {
+    const vistos = new Map();
+    if (!('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver((entradas) => {
+      entradas.forEach((e) => vistos.set(e.target, e.isIntersecting));
+      setMostrarFijo(![...vistos.values()].some(Boolean));
+    }, { threshold: 0 });
+    [heroRef.current, finalRef.current].forEach((el) => el && obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const anterior = document.title;
+    document.title = 'Concepción en el Mapa · ¡Juega!';
+    return () => { document.title = anterior; };
+  }, []);
+
+  return (
+    <div className="lp">
       <style>{CSS}</style>
 
-      <div className="land">
+      <header className="lp-top">
+        <div className="lp-marca">
+          <div className="lp-marca-icono"><MapPin size={18} /></div>
+          <div><b>Concepción</b><small>en el mapa</small></div>
+        </div>
+        <Link to={destino} className="lp-top-jugar">Jugar</Link>
+      </header>
 
-        {/* NAV */}
-        <nav className="nav">
-
-          <Link to="/landing" className="logo">
-            <div className="logo-icon">
-              <MapPin size={20}/>
+      <main className="lp-wrap">
+        <section className="lp-hero">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .5 }}>
+            <span className="lp-ubicacion"><i />Estás en Concepción, Antioquia</span>
+            <h1 className="lp-titulo">Este pueblo es <em>un juego.</em> Y empieza aquí.</h1>
+            <p className="lp-sub">
+              Camina sus calles empedradas, <b>descubre sus secretos</b>, responde retos y <b>gana insignias</b> mientras recorres Concepción.
+            </p>
+            <div ref={heroRef}><BotonJugar destino={destino} /></div>
+            <div className="lp-garantias">
+              <span>Gratis</span><span>Sin descargar nada</span><span>Sin registrarte</span>
             </div>
+          </motion.div>
 
-            <div className="logo-text">
-              <span className="logo-title">Concepción</span>
-              <span className="logo-sub">En el mapa</span>
-            </div>
-          </Link>
-
-          <div className="nav-actions">
-            <a href="#features" className="nav-link">Funcionalidades</a>
-            <a href="#niveles" className="nav-link">Niveles</a>
-            <a href="#comenzar" className="nav-btn">
-              Comenzar aventura
-            </a>
-          </div>
-
-        </nav>
-
-        {/* HERO */}
-        <section className="hero">
-
-          <div className="hero-grid"/>
-
-          <div className="hero-content">
-
-            <motion.div
-              initial={{opacity:0,y:30}}
-              animate={{opacity:1,y:0}}
-              transition={{duration:.7}}
-            >
-
-              <div className="hero-badge">
-                <div className="hero-dot"/>
-                Antioquia · Colombia · Turismo Gamificado
-              </div>
-
-              <h1 className="hero-title">
-                <span>Explora.</span>
-                <em>Descubre.</em>
-                <span>Conquista Concepción.</span>
-              </h1>
-
-              <p className="hero-sub">
-                Una experiencia inmersiva donde el turismo, la exploración y la gamificación se unen para transformar cada rincón del municipio en una aventura épica.
-              </p>
-
-              <div className="hero-actions">
-
-                <Link to="/" className="btn-main">
-                  Comenzar ahora
-                  <ChevronRight size={18}/>
-                </Link>
-
-                <a href="#features" className="btn-ghost">
-                  Ver funcionalidades
-                </a>
-
-              </div>
-
-              <div className="hero-cards">
-
-                <div className="stat-card">
-                  <div className="stat-top">
-                    <div className="stat-icon">
-                      <Mountain size={20}/>
-                    </div>
-                  </div>
-
-                  <div className="stat-number">8+</div>
-                  <div className="stat-label">Lugares turísticos</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-top">
-                    <div className="stat-icon">
-                      <Gem size={20}/>
-                    </div>
-                  </div>
-
-                  <div className="stat-number">20+</div>
-                  <div className="stat-label">Insignias</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-top">
-                    <div className="stat-icon">
-                      <Flame size={20}/>
-                    </div>
-                  </div>
-
-                  <div className="stat-number">5</div>
-                  <div className="stat-label">Niveles épicos</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-top">
-                    <div className="stat-icon">
-                      <Stars size={20}/>
-                    </div>
-                  </div>
-
-                  <div className="stat-number">∞</div>
-                  <div className="stat-label">Aventuras</div>
-                </div>
-
-              </div>
-
-            </motion.div>
-
-          </div>
-
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: .15 }}>
+            <PreviaJuego />
+            <a href="#como" className="lp-flecha" aria-label="Ver cómo se juega"><ChevronDown size={22} /></a>
+          </motion.div>
         </section>
 
-        {/* FEATURES */}
-        <section id="features" className="section">
-
-          <div className="container">
-
-            <div className="section-head">
-
-              <div className="section-tag">
-                <Sparkles size={14}/>
-                Funcionalidades
-              </div>
-
-              <h2 className="section-title">
-                Turismo convertido en <span>videojuego</span>
-              </h2>
-
-              <p className="section-desc">
-                Descubre una experiencia moderna e inmersiva diseñada para que cada visitante viva Concepción de una forma completamente diferente.
-              </p>
-
-            </div>
-
-            <div className="features">
-
-              {features.map((f,i)=>(
-                <motion.div
-                  key={i}
-                  className="feature"
-                  initial={{opacity:0,y:40}}
-                  whileInView={{opacity:1,y:0}}
-                  transition={{duration:.45,delay:i*.05}}
-                  viewport={{once:true}}
-                >
-
-                  <div className="feature-icon">
-                    {f.icon}
-                  </div>
-
-                  <h3>{f.title}</h3>
-                  <p>{f.desc}</p>
-
-                </motion.div>
-              ))}
-
-            </div>
-
+        <section id="como" className="lp-seccion">
+          <div className="lp-etiqueta"><Footprints size={13} style={{ verticalAlign: '-2px' }} /> Cómo se juega</div>
+          <h2 className="lp-h2">Tres pasos, cero complicaciones</h2>
+          <div className="lp-pasos">
+            {PASOS.map((p, i) => (
+              <motion.div key={p.titulo} className="lp-paso"
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ duration: .4, delay: i * .08 }}>
+                <div className="lp-paso-num">{p.icono}</div>
+                <div><h3>{i + 1}. {p.titulo}</h3><p>{p.texto}</p></div>
+              </motion.div>
+            ))}
           </div>
-
         </section>
 
-        {/* LEVELS */}
-        <section id="niveles" className="section">
-
-          <div className="container">
-
-            <div className="section-head">
-
-              <div className="section-tag">
-                <Crown size={14}/>
-                Progresión
-              </div>
-
-              <h2 className="section-title">
-                Conviértete en una <span>leyenda</span>
-              </h2>
-
-              <p className="section-desc">
-                Sube de nivel, desbloquea insignias y deja tu marca dentro del mapa turístico de Concepción.
-              </p>
-
-            </div>
-
-            <div className="levels">
-
-              {levels.map((lv,i)=>(
-                <motion.div
-                  key={i}
-                  className="level"
-                  initial={{opacity:0,y:40}}
-                  whileInView={{opacity:1,y:0}}
-                  transition={{duration:.45,delay:i*.08}}
-                  viewport={{once:true}}
-                >
-
-                  <div className="level-emoji">
-                    {lv.emoji}
-                  </div>
-
-                  <h3>{lv.title}</h3>
-
-                  <p>{lv.desc}</p>
-
-                  <div className="level-badge">
-                    {lv.badge}
-                  </div>
-
-                </motion.div>
-              ))}
-
-            </div>
-
+        <section className="lp-seccion">
+          <div className="lp-etiqueta"><Sparkles size={13} style={{ verticalAlign: '-2px' }} /> En el mapa encuentras</div>
+          <h2 className="lp-h2">Todo Concepción en tu bolsillo</h2>
+          <div className="lp-cosas">
+            {COSAS.map((c) => (
+              <div key={c.titulo} className="lp-cosa"><b>{c.icono}</b><h3>{c.titulo}</h3><p>{c.texto}</p></div>
+            ))}
           </div>
-
         </section>
 
-        {/* CTA */}
-        <section className="section">
-
-          <div className="container">
-
-            <div id="comenzar" className="cta">
-
-              <h2>
-                ¿Listo para descubrir Concepción como nunca antes?
-              </h2>
-
-              <p>
-                Explora lugares, gana experiencia, participa en eventos y conviértete en parte viva de la historia del municipio.
-              </p>
-
-              <Link to="/" className="btn-main">
-                Entrar a la experiencia
-                <Sparkles size={18}/>
-              </Link>
-
-            </div>
-
+        <section className="lp-seccion">
+          <div className="lp-etiqueta"><Trophy size={13} style={{ verticalAlign: '-2px' }} /> Progresión</div>
+          <h2 className="lp-h2">¿Hasta dónde llegarás?</h2>
+          <div className="lp-niveles">
+            {NIVELES.map((n) => (
+              <div key={n.titulo} className="lp-nivel"><b>{n.icono}</b><h3>{n.titulo}</h3><small>{n.etiqueta}</small></div>
+            ))}
           </div>
-
         </section>
 
-        {/* FOOTER */}
-        <footer className="footer">
+        <section className="lp-final" ref={finalRef}>
+          <PatoBase width={70} height={84} ojos={ojosConfig.celebrando} />
+          <h2 className="lp-h2" style={{ marginTop: 10 }}>Tu aventura empieza en 5 segundos</h2>
+          <p className="lp-sub" style={{ margin: '10px auto 0' }}>Toca el botón, permite tu ubicación y sigue al pato.</p>
+          <BotonJugar destino={destino} texto="Empezar a jugar" />
+        </section>
+      </main>
 
-          <div style={{
-            fontFamily:'Cinzel',
-            fontSize:'1.1rem',
-            marginBottom:'.5rem',
-            color:'white'
-          }}>
-            Concepción en el mapa
-          </div>
+      <footer className="lp-pie">Concepción en el Mapa · Antioquia, Colombia</footer>
 
-          <div>
-            © 2026 · Municipio de Concepción · Antioquia · Colombia
-          </div>
-
-        </footer>
-
-      </div>
-    </>
+      <AnimatePresence>
+        {mostrarFijo && (
+          <motion.div className="lp-fijo"
+            initial={{ y: 90 }} animate={{ y: 0 }} exit={{ y: 90 }} transition={{ type: 'spring', damping: 22, stiffness: 260 }}>
+            <BotonJugar destino={destino} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
