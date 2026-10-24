@@ -24,11 +24,43 @@ const distanciaMetros = (lat1, lon1, lat2, lon2) => {
 
 // La respuesta correcta puede traer alternativas separadas por "|":
 // "José María Córdova|Córdova|Cordoba"
-const esRespuestaCorrecta = (respuesta, correcta) => String(correcta || "")
-    .split("|")
-    .map(normalizar)
-    .filter(Boolean)
-    .includes(normalizar(respuesta));
+// Palabras de relleno que la gente agrega al responder ("en 1799", "fue la
+// República del Ecuador") y que no cambian la respuesta
+const RELLENO = new Set(['el', 'la', 'los', 'las', 'de', 'del', 'en', 'a', 'al', 'y', 'un', 'una', 'fue', 'es', 'era', 'por', 'que', 'creo', 'pues']);
+const sinRelleno = (texto) => normalizar(texto).split(' ').filter((p) => p && !RELLENO.has(p)).join(' ');
+
+// Distancia de edición (para perdonar errores de tipeo)
+const distanciaEdicion = (a, b) => {
+    const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+        let diagonal = fila[0];
+        fila[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const arriba = fila[j];
+            fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+            diagonal = arriba;
+        }
+    }
+    return fila[b.length];
+};
+
+// Antes solo valía el texto exacto: "en 1799", "1.799", "la República de
+// Ecuador" o "Ecudor" contaban como incorrectas.
+const esRespuestaCorrecta = (respuesta, correcta) => {
+    const dada = sinRelleno(respuesta);
+    if (!dada) return false;
+    const soloNumeros = (t) => t.replace(/\D/g, '');
+    return String(correcta || '').split('|').map(sinRelleno).filter(Boolean).some((opcion) => {
+        if (dada === opcion) return true;
+        // Respuestas numéricas (años): basta con que coincidan los dígitos
+        if (/^\d+$/.test(opcion)) return soloNumeros(respuesta) === opcion;
+        // La opción aparece completa dentro de la respuesta ("la republica ecuador")
+        if (` ${dada} `.includes(` ${opcion} `)) return true;
+        // Errores de tipeo: 1 letra en palabras medianas, 2 en largas
+        const tolerancia = opcion.length >= 10 ? 2 : opcion.length >= 5 ? 1 : 0;
+        return tolerancia > 0 && distanciaEdicion(dada, opcion) <= tolerancia;
+    });
+};
 
 // Ruta pública: si viene un token válido se marca qué retos ya completó el usuario
 const usuarioOpcional = (req) => {

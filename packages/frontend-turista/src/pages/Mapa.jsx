@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Map, { NavigationControl, Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useNavigate } from 'react-router-dom';
@@ -738,7 +738,7 @@ const ETIQUETA_RETO = {
 };
 
 // distancia: metros hasta el lugar del reto (null sin ubicación)
-const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, distancia, enviando }) => {
+const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, distancia, enviando, error }) => {
   const esReunion = evento.tipo === 'reunion';
   const radio = (evento.radio || 50) + 20;
   // Las preguntas se responden desde cualquier parte del pueblo; solo los
@@ -803,9 +803,17 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, di
           {!esReunion && (
             <input type="text" value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
               placeholder="Tu respuesta..." onKeyDown={(e) => e.key === 'Enter' && puedeResponder && onResponder()}
+              enterKeyHint="send" autoComplete="off"
               disabled={!enRango}
               style={{ width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, marginBottom: 14, color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', opacity: enRango ? 1 : 0.5 }}
             />
+          )}
+          {error && (
+            <motion.div key={error} role="alert"
+              initial={{ x: 0 }} animate={{ x: [0, -8, 8, -5, 5, 0] }} transition={{ duration: 0.35 }}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 12, padding: '10px 12px', color: '#fca5a5', fontSize: 13, marginTop: -4, marginBottom: 14 }}>
+              {error}
+            </motion.div>
           )}
         </>
       )}
@@ -1007,6 +1015,9 @@ function Mapa() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [respuestaEvento, setRespuestaEvento]       = useState('');
   const [enviandoReto, setEnviandoReto]             = useState(false);
+  // Mensaje de error dentro del modal del reto: antes solo lo decía la
+  // mascota, que queda detrás del fondo oscuro del modal y no se veía
+  const [errorReto, setErrorReto]                   = useState('');
   const [userAvatar, setUserAvatar]                 = useState(null);
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
@@ -1379,6 +1390,7 @@ function Mapa() {
   const handleCompletarEvento = async (evento, respuesta) => {
     if (evento.tipo === 'reunion' && !userPosition) { mostrarMensajeGuia(dialogos.sinUbicacion(), 'pensativo', 4000); return; }
     setEnviandoReto(true);
+    setErrorReto('');
     try {
       const r = await api.post('/eventos/completar', {
         eventoId: evento.id, respuesta, latitud: userPosition?.lat, longitud: userPosition?.lng,
@@ -1401,8 +1413,15 @@ function Mapa() {
     } catch (error) {
       // Antes cualquier error se mostraba como "respuesta incorrecta"
       const datos = error.response?.data;
-      if (datos?.codigo === 'INCORRECTA') mostrarMensajeGuia(dialogos.retoIncorrecto(), 'pensativo', 5000);
-      else mostrarMensajeGuia(datos?.error || dialogos.errorGenerico(), 'pensativo', 5000);
+      if (datos?.codigo === 'INCORRECTA') {
+        setErrorReto('❌ Esa no es. ¡Piénsalo y vuelve a intentar!');
+        mostrarMensajeGuia(dialogos.retoIncorrecto(), 'pensativo', 5000);
+      } else {
+        setErrorReto(error.response?.status === 401
+          ? 'Tu sesión expiró. Recarga la página para seguir jugando.'
+          : datos?.error || (error.response ? 'No se pudo enviar tu respuesta. Intenta de nuevo.' : 'Sin conexión. Revisa tu internet e intenta de nuevo.'));
+        mostrarMensajeGuia(datos?.error || dialogos.errorGenerico(), 'pensativo', 5000);
+      }
       if (error.response?.status === 404) {
         setEventoSeleccionado(null);
         queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
@@ -1411,6 +1430,26 @@ function Mapa() {
       setEnviandoReto(false);
     }
   };
+
+  // Los retos se generan en las mismas coordenadas de los lugares (parque,
+  // casa natal...) y su marcador quedaba debajo del del lugar: al tocarlo se
+  // abría el lugar y el reto no se podía responder. Si un reto cae a menos
+  // de 25 m de otro marcador, se corre un poco hacia un lado.
+  const desplazamientoRetos = useMemo(() => {
+    const HUECOS = [[30, -34], [-30, -34], [0, -58], [38, 6], [-38, 6], [0, 30]];
+    const ocupados = [
+      ...lugares.map((l) => [parseFloat(l.latitud), parseFloat(l.longitud)]),
+      ...(lugarEspecial ? [[parseFloat(lugarEspecial.latitud), parseFloat(lugarEspecial.longitud)]] : []),
+    ];
+    const resultado = {};
+    eventos.forEach((ev) => {
+      const lat = parseFloat(ev.latitud), lng = parseFloat(ev.longitud);
+      const cercanos = ocupados.filter(([a, b]) => calcularDistancia(lat, lng, a, b) < 25).length;
+      if (cercanos > 0) resultado[ev.id] = HUECOS[(cercanos - 1) % HUECOS.length];
+      ocupados.push([lat, lng]);
+    });
+    return resultado;
+  }, [eventos, lugares, lugarEspecial]);
 
   // Manejo de ubicación
   useEffect(() => {
@@ -1775,7 +1814,8 @@ function Mapa() {
 
         {filtros.retos && eventos.map((evento) => (
           <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)}
-            onClick={(e) => { e.originalEvent.stopPropagation(); setRespuestaEvento(''); setEventoSeleccionado(evento); }}>
+            offset={desplazamientoRetos[evento.id] || [0, 0]} style={{ zIndex: 1600 }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); setRespuestaEvento(''); setErrorReto(''); setEventoSeleccionado(evento); }}>
             {evento.completado ? (
               <div title="Reto completado"
                 style={{ width: 38, height: 38, background: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, cursor: 'pointer', opacity: 0.75, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>✅</div>
@@ -1873,9 +1913,10 @@ function Mapa() {
 
       <AnimatePresence>
         {eventoSeleccionado && (
-          <EventoModal evento={eventoSeleccionado} respuesta={respuestaEvento} setRespuesta={setRespuestaEvento}
+          <EventoModal evento={eventoSeleccionado} respuesta={respuestaEvento} error={errorReto}
+            setRespuesta={(valor) => { setRespuestaEvento(valor); setErrorReto(''); }}
             onResponder={() => handleCompletarEvento(eventoSeleccionado, respuestaEvento)}
-            onClose={() => { setEventoSeleccionado(null); setRespuestaEvento(''); }}
+            onClose={() => { setEventoSeleccionado(null); setRespuestaEvento(''); setErrorReto(''); }}
             enviando={enviandoReto}
             distancia={userPosition
               ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(eventoSeleccionado.latitud), parseFloat(eventoSeleccionado.longitud))
