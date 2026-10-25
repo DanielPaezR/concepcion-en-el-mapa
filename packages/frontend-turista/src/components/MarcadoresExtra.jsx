@@ -2,7 +2,7 @@
 // Marcadores de eventos del pueblo y curiosidades, y el filtro por tipo de
 // marcador del mapa. Las curiosidades no forman parte del recorrido ni dan XP:
 // solo aparecen cuando el explorador pasa cerca.
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
 import { imagenLigera } from '../utils/imagenes';
@@ -155,9 +155,22 @@ export const FiltroMarcadores = ({ filtros, onAlternar, isMobile, estilos, estil
   const [abierto, setAbierto] = useState(false);
   const ocultos = TIPOS_MARCADOR.filter((t) => !filtros[t.id]).length;
   const size = isMobile ? 42 : 46;
+  const contenedorRef = useRef(null);
+
+  // Se cierra al tocar fuera del panel. Se escucha en el documento (en fase
+  // de captura, porque el mapa detiene sus eventos) en vez de poner una capa
+  // encima, que bloquearía el arrastre y el zoom del mapa.
+  useEffect(() => {
+    if (!abierto) return;
+    const cerrarSiEsFuera = (e) => {
+      if (!contenedorRef.current?.contains(e.target)) setAbierto(false);
+    };
+    document.addEventListener('pointerdown', cerrarSiEsFuera, true);
+    return () => document.removeEventListener('pointerdown', cerrarSiEsFuera, true);
+  }, [abierto]);
 
   return (
-    <div style={{ position: 'absolute', bottom: isMobile ? 152 : 164, left: isMobile ? 12 : 16, zIndex: 1000 }}>
+    <div ref={contenedorRef} style={{ position: 'absolute', bottom: isMobile ? 152 : 164, left: isMobile ? 12 : 16, zIndex: 1000 }}>
       <AnimatePresence>
         {abierto && (
           <motion.div
