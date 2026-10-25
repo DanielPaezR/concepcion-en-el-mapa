@@ -93,8 +93,15 @@ function dibujarMarco(ctx, w, h, { lugarNombre, nivelActual }) {
   ctx.fillText(nivelInfo.emoji, selloX, selloY + selloR * 0.35);
 
   // Nombre del lugar + fecha, abajo
+  // Los nombres largos ("Parque Principal José María Córdova") se salían por
+  // los lados: se achica la letra hasta que quepa dentro del marco
   ctx.fillStyle = crema;
-  ctx.font = `700 ${w * 0.052}px Georgia, serif`;
+  let tamanoNombre = w * 0.052;
+  ctx.font = `700 ${tamanoNombre}px Georgia, serif`;
+  while (ctx.measureText(lugarNombre).width > w * 0.84 && tamanoNombre > w * 0.025) {
+    tamanoNombre *= 0.94;
+    ctx.font = `700 ${tamanoNombre}px Georgia, serif`;
+  }
   ctx.fillText(lugarNombre, w / 2, h * 0.855);
 
   ctx.strokeStyle = oro;
@@ -114,6 +121,24 @@ function dibujarMarco(ctx, w, h, { lugarNombre, nivelActual }) {
   ctx.fillText(`NIVEL ${nivelActual} · ${nivelInfo.label}`, w / 2, h * 0.945);
   ctx.globalAlpha = 1;
 }
+
+// ¿El cuadro capturado salió negro? Pasa con los primeros cuadros de la
+// cámara recién encendida (sobre todo justo después de dar el permiso).
+// Se revisa una cuadrícula de puntos en vez de toda la imagen, que es grande.
+function cuadroNegro(ctx, w, h) {
+  let suma = 0;
+  let puntos = 0;
+  for (let i = 1; i <= 12; i++) {
+    for (let j = 1; j <= 12; j++) {
+      const [r, g, b] = ctx.getImageData(Math.floor((w * i) / 13), Math.floor((h * j) / 13), 1, 1).data;
+      suma += r + g + b;
+      puntos++;
+    }
+  }
+  return suma / (puntos * 3) < 6;
+}
+
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido }) {
   const videoRef = useRef(null);
@@ -144,10 +169,26 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     return navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: modo }, audio: false })
       .then(stream => {
         streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        conectarVideo(videoRef.current);
       })
       .catch(() => setErrorCamara(true));
   }, []);
+
+  // Une el stream al <video> y lo pone a reproducir. Se llama al llegar el
+  // stream y también cuando el <video> aparece en pantalla (ref de callback):
+  // si el permiso tardaba, el stream llegaba antes o después que el <video> y
+  // la primera vez quedaba sin conectar o en pausa (negro).
+  const conectarVideo = useCallback((video) => {
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    if (video.srcObject !== stream) video.srcObject = stream;
+    video.play?.().catch(() => { /* autoPlay lo reintenta */ });
+  }, []);
+
+  const refVideo = useCallback((video) => {
+    videoRef.current = video;
+    conectarVideo(video);
+  }, [conectarVideo]);
 
   useEffect(() => {
     let activo = true;
@@ -159,35 +200,54 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     };
   }, []); // solo al montar — cambios de facingMode los maneja voltearCamara directamente
 
-  const componerDesdeFuente = useCallback((dibujarFuente, anchoFuente, altoFuente) => {
+  // Dibuja la fuente en el canvas (sin marco todavía) y devuelve el contexto
+  const dibujarFuenteEnLienzo = (dibujarFuente, anchoFuente, altoFuente) => {
     const canvas = canvasRef.current;
     canvas.width = anchoFuente;
     canvas.height = altoFuente;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     dibujarFuente(ctx);
     ctx.setTransform(1, 0, 0, 1, 0, 0); // reset — si dibujarFuente aplicó espejo, el marco/texto no debe salir espejado
-    dibujarMarco(ctx, anchoFuente, altoFuente, { lugarNombre: lugar.nombre, nivelActual });
+    return ctx;
+  };
 
-    canvas.toBlob((blob) => {
+  const terminarFoto = useCallback((ctx, anchoFuente, altoFuente) => {
+    dibujarMarco(ctx, anchoFuente, altoFuente, { lugarNombre: lugar.nombre, nivelActual });
+    canvasRef.current.toBlob((blob) => {
       setFotoBlob(blob);
       setFotoUrl(URL.createObjectURL(blob));
       setModo('revisar');
     }, 'image/jpeg', 0.92);
   }, [lugar, nivelActual]);
 
-  const capturarDeCamera = () => {
+  const [capturando, setCapturando] = useState(false);
+
+  const capturarDeCamera = async () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth || !camaraLista) return;
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    componerDesdeFuente((ctx) => {
+    if (!video || !video.videoWidth || !camaraLista || capturando) return;
+    setCapturando(true);
+    const dibujarVideo = (ctx) => {
       if (facingMode === 'user') {
         // Espejo, para que la foto guardada coincida con lo que se vio en vivo
         ctx.translate(video.videoWidth, 0);
         ctx.scale(-1, 1);
       }
       ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-    }, video.videoWidth, video.videoHeight);
+    };
+    // Si el cuadro sale negro (cámara recién encendida), se reintenta unas
+    // veces esperando un momento antes de rendirse
+    let ctx = dibujarFuenteEnLienzo(dibujarVideo, video.videoWidth, video.videoHeight);
+    for (let intento = 0; intento < 8 && cuadroNegro(ctx, video.videoWidth, video.videoHeight); intento++) {
+      video.play?.().catch(() => {});
+      await esperar(250);
+      ctx = dibujarFuenteEnLienzo(dibujarVideo, video.videoWidth, video.videoHeight);
+    }
+    // La cámara se apaga DESPUÉS de copiar el cuadro. Antes se apagaba
+    // primero y en muchos Android el video quedaba en negro al instante.
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    terminarFoto(ctx, video.videoWidth, video.videoHeight);
+    setCapturando(false);
   };
 
   const voltearCamara = () => {
@@ -201,7 +261,8 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
     if (!archivo) return;
     const img = new Image();
     img.onload = () => {
-      componerDesdeFuente((ctx) => ctx.drawImage(img, 0, 0, img.width, img.height), img.width, img.height);
+      const ctx = dibujarFuenteEnLienzo((c) => c.drawImage(img, 0, 0, img.width, img.height), img.width, img.height);
+      terminarFoto(ctx, img.width, img.height);
     };
     img.src = URL.createObjectURL(archivo);
   };
@@ -251,9 +312,11 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
           {!errorCamara ? (
             <video
-              ref={videoRef}
+              ref={refVideo}
               autoPlay playsInline muted
-              onLoadedMetadata={() => setCamaraLista(true)}
+              // "playing" y no "loadedmetadata": con solo los metadatos el
+              // video aún puede estar en pausa y el botón capturaba negro
+              onPlaying={() => setCamaraLista(true)}
               style={{
                 width: '100%', height: '100%', objectFit: 'cover',
                 transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
@@ -281,7 +344,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
             <>
               <button
                 onClick={capturarDeCamera}
-                disabled={!camaraLista}
+                disabled={!camaraLista || capturando}
                 style={{
                   position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
                   width: 72, height: 72, borderRadius: '50%', background: '#fdf6e3',
