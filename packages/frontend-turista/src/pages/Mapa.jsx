@@ -31,6 +31,7 @@ import MenuExplorador from '../components/MenuExplorador';
 import LocationPrompt from '../components/LocationPrompt';
 import { dialogos } from '../data/dialogosMascota';
 import { imagenLigera } from '../utils/imagenes';
+import CuponGanado from '../components/CuponGanado';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -1019,6 +1020,7 @@ function Mapa() {
   // Mensaje de error dentro del modal del reto: antes solo lo decía la
   // mascota, que queda detrás del fondo oscuro del modal y no se veía
   const [errorReto, setErrorReto]                   = useState('');
+  const [cuponesGanados, setCuponesGanados]         = useState([]);
   const [userAvatar, setUserAvatar]                 = useState(null);
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
@@ -1257,7 +1259,7 @@ function Mapa() {
           setTimeout(() => setShowLevelUp(false), 2500);
         }
         setTimeout(
-          () => navigate(`/lugar/${lugar.id}`, { state: { recienDescubierto: true, nivelNuevo: subioNivel ? nivelNuevo : null } }),
+          () => navigate(`/lugar/${lugar.id}`, { state: { recienDescubierto: true, nivelNuevo: subioNivel ? nivelNuevo : null, cupones: res.data.codigos_descuento || [] } }),
           subioNivel ? 2600 : 900
         );
         return true;
@@ -1405,6 +1407,7 @@ function Mapa() {
         setEventoSeleccionado(null);
         setRespuestaEvento('');
         queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
+        if (r.data.codigos_descuento?.length) setTimeout(() => setCuponesGanados(r.data.codigos_descuento), 1200);
         // Antes el XP y el nivel del HUD no se actualizaban tras ganar un reto
         const subioNivel = (r.data.nivel_actual || playerLevel) > playerLevel;
         await cargarPerfilYDescubrimientos();
@@ -1941,6 +1944,10 @@ function Mapa() {
               ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(eventoSeleccionado.latitud), parseFloat(eventoSeleccionado.longitud))
               : null} />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {cuponesGanados.length > 0 && <CuponGanado codigos={cuponesGanados} onClose={() => setCuponesGanados([])} />}
       </AnimatePresence>
 
       <EstadoReserva />

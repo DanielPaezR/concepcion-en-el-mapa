@@ -4,7 +4,7 @@ import {
     User, Settings, Globe, LogOut, X, ChevronRight, LogIn,
     Award, MapPin, Calendar, Shield, Star, Zap, Crown,
     Wifi, WifiOff, RefreshCw, UserCircle, Medal, Camera,
-    Heart, MessageCircle, Share2, Bell, TrendingUp, Megaphone, ListChecks
+    Heart, MessageCircle, Share2, Bell, TrendingUp, Megaphone, ListChecks, Home, Gift
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTuristaActual, logoutTurista } from '../services/auth';
@@ -98,6 +98,22 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
     
     const opciones = esAnonimo ? [
         {
+            icon: <Home className="w-5 h-5" />,
+            label: 'Inicio',
+            desc: 'Comercios, anuncios y eventos del pueblo',
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+            onClick: () => navigate('/landing')
+        },
+        {
+            icon: <Gift className="w-5 h-5" />,
+            label: 'Mis cupones',
+            desc: 'Tus descuentos y dónde usarlos',
+            color: 'text-pink-600',
+            bg: 'bg-pink-50',
+            onClick: () => navigate('/mis-cupones')
+        },
+        {
             icon: <Megaphone className="w-5 h-5" />,
             label: 'Anuncios',
             desc: 'Servicios, ventas y compras del pueblo',
@@ -114,6 +130,22 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
             onClick: () => navigate('/login-turista')
         }
     ] : [
+        {
+            icon: <Home className="w-5 h-5" />,
+            label: 'Inicio',
+            desc: 'Comercios, anuncios y eventos del pueblo',
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+            onClick: () => navigate('/landing')
+        },
+        {
+            icon: <Gift className="w-5 h-5" />,
+            label: 'Mis cupones',
+            desc: 'Tus descuentos y dónde usarlos',
+            color: 'text-pink-600',
+            bg: 'bg-pink-50',
+            onClick: () => navigate('/mis-cupones')
+        },
         {
             icon: <Megaphone className="w-5 h-5" />,
             label: 'Anuncios',

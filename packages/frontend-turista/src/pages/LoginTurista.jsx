@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { loginUser } from '../services/auth';
 import BotonGoogle from '../components/BotonGoogle';
 import toast from 'react-hot-toast';
+import { useVolver, destinoSeguro } from '../utils/navegacion';
 
 export default function LoginTurista() {
     const navigate = useNavigate();
+    // ?volver=/anuncios/nuevo: al entrar sigue con lo que estaba haciendo (antes siempre iba al mapa)
+    const [params] = useSearchParams();
+    const destino = destinoSeguro(params.get('volver'), '/');
+    const volver = useVolver('/landing');
     const [formData, setFormData] = useState({
         email: '',
         password: ''
@@ -32,7 +37,7 @@ export default function LoginTurista() {
         if (result.success) {
             toast.success('¡Bienvenido de vuelta!');
             setTimeout(() => {
-                navigate('/');
+                navigate(destino, { replace: true });
             }, 1500);
         } else {
             setError(result.error || 'Error al iniciar sesión');
@@ -49,10 +54,10 @@ export default function LoginTurista() {
                 className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8"
             >
                 <div className="text-center mb-8">
-                    <Link to="/" className="inline-flex items-center text-green-600 text-sm mb-4">
+                    <button type="button" onClick={volver} className="inline-flex items-center text-green-600 text-sm mb-4">
                         <ArrowLeft className="w-4 h-4 mr-1" />
-                        Volver al mapa
-                    </Link>
+                        Volver
+                    </button>
                     <h1 className="text-2xl font-bold text-gray-800">Iniciar sesión</h1>
                     <p className="text-gray-500 text-sm mt-2">
                         Ingresa para continuar tu aventura
@@ -66,7 +71,7 @@ export default function LoginTurista() {
                 )}
 
                 <BotonGoogle
-                    onExito={() => { toast.success('¡Bienvenido!'); setTimeout(() => navigate('/'), 1200); }}
+                    onExito={() => { toast.success('¡Bienvenido!'); setTimeout(() => navigate(destino, { replace: true }), 1200); }}
                     onError={(msg) => setError(msg || 'No se pudo entrar con Google')}
                 />
 
@@ -130,7 +135,7 @@ export default function LoginTurista() {
                 <div className="mt-6 pt-5 border-t border-gray-100 text-center">
                     <p className="text-sm text-gray-600 mb-3">¿No tienes cuenta?</p>
                     <Link
-                        to="/registro"
+                        to={params.get('volver') ? `/registro?volver=${encodeURIComponent(destino)}` : '/registro'}
                         className="block w-full border-2 border-green-600 text-green-700 py-2 rounded-lg font-semibold hover:bg-green-50 transition"
                     >
                         Registrarse

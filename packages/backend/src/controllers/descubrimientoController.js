@@ -26,6 +26,17 @@ const descubrimientoController = {
         }
     },
 
+    // Cupones de descuento del turista (antes no había cómo verlos: el
+    // código se generaba pero la app nunca se lo mostraba)
+    async getMisCodigos(req, res) {
+        try {
+            res.json({ codigos: await CodigoDescuento.delUsuario(req.user.id) });
+        } catch (error) {
+            console.error('Error al obtener cupones:', error);
+            res.status(500).json({ error: 'Error al obtener tus cupones' });
+        }
+    },
+
     async registrar(req, res) {
         try {
             const { lugar_id } = req.body;
@@ -86,18 +97,7 @@ const descubrimientoController = {
             // en toda su visita, no uno por cada lugar. Se generan todos los
             // que aplique en esta llamada (por si un salto de XP cruza más
             // de un umbral de una sola vez).
-            const NIVELES_CON_CODIGO = [3, 5];
-            const codigosDescuento = [];
-            for (const nivelUmbral of NIVELES_CON_CODIGO) {
-                if (nivelAnterior < nivelUmbral && nivelNuevo >= nivelUmbral) {
-                    try {
-                        const codigo = await CodigoDescuento.generar(usuarioId, lugar_id);
-                        codigosDescuento.push(codigo);
-                    } catch (errCodigo) {
-                        console.error(`⚠️ No se pudo generar código de descuento (nivel ${nivelUmbral}):`, errCodigo.message);
-                    }
-                }
-            }
+            const codigosDescuento = await CodigoDescuento.otorgarPorNivel(usuarioId, nivelAnterior, nivelNuevo, lugar_id);
 
             res.json({
                 success: true,

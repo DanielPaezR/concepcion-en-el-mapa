@@ -16,7 +16,41 @@ function generarCodigoAleatorio() {
     return codigo;
 }
 
+// Niveles que entregan un cupón al alcanzarlos (máximo 2 por turista)
+const NIVELES_CON_CODIGO = [3, 5];
+
 const CodigoDescuento = {
+    // Genera los cupones de los umbrales de nivel que se cruzaron (3 y/o 5),
+    // venga la XP de descubrir un lugar o de un reto. Antes solo se daban al
+    // descubrir lugares: quien subía de nivel con retos se quedaba sin cupón.
+    async otorgarPorNivel(usuarioId, nivelAnterior, nivelNuevo, lugarId = null) {
+        const codigos = [];
+        for (const umbral of NIVELES_CON_CODIGO) {
+            if (nivelAnterior < umbral && nivelNuevo >= umbral) {
+                try {
+                    codigos.push(await this.generar(usuarioId, lugarId));
+                } catch (error) {
+                    console.error(`⚠️ No se pudo generar código de descuento (nivel ${umbral}):`, error.message);
+                }
+            }
+        }
+        return codigos;
+    },
+
+    // Cupones del turista, del más reciente al más antiguo
+    async delUsuario(usuarioId) {
+        const result = await pool.query(`
+            SELECT cd.id, cd.codigo, cd.usado, cd.fecha_creacion, cd.fecha_uso,
+                   l.nombre AS lugar_nombre, c.nombre AS comercio_nombre
+            FROM codigos_descuento cd
+            LEFT JOIN lugares l ON l.id = cd.lugar_id
+            LEFT JOIN comercios c ON c.id = cd.comercio_id
+            WHERE cd.usuario_id = $1
+            ORDER BY cd.usado, cd.fecha_creacion DESC
+        `, [usuarioId]);
+        return result.rows;
+    },
+
     // Genera y guarda un código nuevo para un usuario+lugar. Reintenta si
     // por azar el código ya existe (la tabla tiene UNIQUE en "codigo").
     async generar(usuarioId, lugarId, intentos = 5) {

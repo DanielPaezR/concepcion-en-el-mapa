@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Star, MapPin, Store, Clock } from 'lucide-react';
+import { ChevronLeft, Star, MapPin, Store, Clock, Navigation, Gift } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { useVolver } from '../utils/navegacion';
 
 const CATEGORIA_LABEL = {
   tienda: 'Tienda',
@@ -38,7 +39,8 @@ function EstrellasSelector({ valor, onChange }) {
 
 export default function FichaComercio() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  // Vuelve a donde estabas (la landing o el mapa)
+  const volver = useVolver('/landing');
   const queryClient = useQueryClient();
   const [calificacion, setCalificacion] = useState(0);
   const [comentario, setComentario] = useState('');
@@ -76,7 +78,7 @@ export default function FichaComercio() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500 p-6 text-center">
         <Store className="w-12 h-12 text-gray-300" />
         <p>No encontramos este comercio.</p>
-        <button onClick={() => navigate('/')} className="text-amber-600 font-semibold">Volver al mapa</button>
+        <button onClick={volver} className="text-amber-600 font-semibold">Volver</button>
       </div>
     );
   }
@@ -91,7 +93,7 @@ export default function FichaComercio() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <button
-          onClick={() => navigate(-1)}
+          onClick={volver}
           className="absolute top-4 left-4 bg-black/30 backdrop-blur rounded-full p-2"
         >
           <ChevronLeft className="w-5 h-5 text-white" />
@@ -114,6 +116,9 @@ export default function FichaComercio() {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 shadow-sm">
           <div className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">🎁 Beneficio para exploradores</div>
           <p className="text-amber-900 font-medium">{comercio.beneficio}</p>
+          <Link to="/mis-cupones" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-amber-700">
+            <Gift className="w-4 h-4" /> ¿Cómo lo obtengo? Ver mis cupones
+          </Link>
         </div>
 
         {comercio.descripcion && (
@@ -123,9 +128,16 @@ export default function FichaComercio() {
         )}
 
         {comercio.direccion && (
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-4 px-1">
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-3 px-1">
             <MapPin className="w-4 h-4" /> {comercio.direccion}
           </div>
+        )}
+        {comercio.latitud != null && comercio.longitud != null && (
+          <a href={`https://www.google.com/maps/dir/?api=1&destination=${comercio.latitud},${comercio.longitud}`}
+            target="_blank" rel="noopener noreferrer"
+            className="mb-4 flex items-center justify-center gap-2 bg-white border border-amber-200 text-amber-700 font-semibold py-2.5 rounded-xl shadow-sm">
+            <Navigation className="w-4 h-4" /> Cómo llegar
+          </a>
         )}
 
         {comercio.fotos?.length > 0 && (

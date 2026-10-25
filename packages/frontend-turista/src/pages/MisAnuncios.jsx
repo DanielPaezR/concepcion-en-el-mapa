@@ -29,7 +29,7 @@ export default function MisAnuncios() {
 
   useEffect(() => { if (usuario && !usuario.anonimo) cargar(); }, []);
 
-  if (!usuario || usuario.anonimo) return <Navigate to="/login-turista" replace />;
+  if (!usuario || usuario.anonimo) return <Navigate to="/login-turista?volver=/mis-anuncios" replace />;
 
   const completar = async (a) => {
     if (!window.confirm(`¿Marcar "${a.titulo}" como completado? Dejará de aparecer en el tablero.`)) return;

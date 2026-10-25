@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Phone } from 'lucide-react';
 import { registerUser } from '../services/auth';
 import BotonGoogle from '../components/BotonGoogle';
 import toast from 'react-hot-toast';
+import { useVolver, destinoSeguro } from '../utils/navegacion';
 
 export default function Registro() {
     const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const destino = destinoSeguro(params.get('volver'), '/');
+    const volver = useVolver('/landing');
     const [formData, setFormData] = useState({
         nombre: '',
         email: '',
@@ -20,7 +24,7 @@ export default function Registro() {
     const [errors, setErrors] = useState({});
     const entrar = (mensaje) => {
         toast.success(mensaje);
-        setTimeout(() => navigate('/'), 1500);
+        setTimeout(() => navigate(destino, { replace: true }), 1500);
     };
 
     const handleChange = (e) => {
@@ -95,10 +99,10 @@ export default function Registro() {
             >
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <Link to="/" className="inline-flex items-center text-green-600 text-sm mb-4">
+                    <button type="button" onClick={volver} className="inline-flex items-center text-green-600 text-sm mb-4">
                         <ArrowLeft className="w-4 h-4 mr-1" />
-                        Volver al mapa
-                    </Link>
+                        Volver
+                    </button>
                     <h1 className="text-2xl font-bold text-gray-800">Crear cuenta</h1>
                     <p className="text-gray-500 text-sm mt-2">
                         Regístrate para solicitar guías, publicar anuncios y guardar tu progreso
@@ -241,7 +245,7 @@ export default function Registro() {
                 {/* Link a login */}
                 <p className="text-center text-sm text-gray-600 mt-6">
                     ¿Ya tienes cuenta?{' '}
-                    <Link to="/login-turista" className="text-green-600 font-medium hover:underline">
+                    <Link to={params.get('volver') ? `/login-turista?volver=${encodeURIComponent(destino)}` : '/login-turista'} className="text-green-600 font-medium hover:underline">
                         Inicia sesión
                     </Link>
                 </p>

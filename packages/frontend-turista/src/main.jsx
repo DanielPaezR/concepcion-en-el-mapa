@@ -29,7 +29,7 @@ const localStoragePersister = createSyncStoragePersister({
     key: 'CEM_QUERY_CACHE',
 });
 
-const CLAVES_PERSISTIBLES = ['lugares', 'comercios', 'eventos-activos', 'lugar', 'curiosidades', 'eventos-comunidad'];
+const CLAVES_PERSISTIBLES = ['lugares', 'comercios', 'eventos-activos', 'lugar', 'curiosidades', 'eventos-comunidad', 'anuncios-recientes'];
 
 // 🔥 REGISTRO DEL SW - INDEPENDIENTE DEL LOGIN (se ejecuta inmediatamente)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const jwt = require('jsonwebtoken');
 const { verificarYOtorgarInsignias } = require('../services/insigniaService');
+const CodigoDescuento = require('../models/CodigoDescuento');
 
 // Compara respuestas sin importar mayúsculas, tildes, signos ni espacios extra:
 // "Córdova" = "cordova" = " CORDOVA. "
@@ -216,6 +217,8 @@ const eventoController = {
 
             const stats = statsResult.rows[0];
             const xpGanada = eventoData.xp_recompensa || 50;
+            const antes = await pool.query('SELECT COALESCE(nivel, 1) AS nivel FROM usuarios WHERE id = $1', [usuarioId]);
+            const nivelAnterior = antes.rows[0]?.nivel || 1;
             const nivelResult = await pool.query(`
                 UPDATE usuarios
                 SET xp_total = COALESCE(xp_total, 0) + $1,
@@ -226,6 +229,8 @@ const eventoController = {
 
             const nivelActual = nivelResult.rows[0]?.nivel || 1;
             const nuevasInsignias = await verificarYOtorgarInsignias(usuarioId);
+            // Subir a nivel 3 o 5 con retos también da cupón (antes solo al descubrir lugares)
+            const codigosDescuento = await CodigoDescuento.otorgarPorNivel(usuarioId, nivelAnterior, nivelActual);
 
             res.json({
                 success: true,
@@ -242,7 +247,8 @@ const eventoController = {
                     nombre: i.nombre,
                     descripcion: i.descripcion,
                     imagen_url: i.imagen_url
-                }))
+                })),
+                codigos_descuento: codigosDescuento
             });
         } catch (error) {
             console.error('Error en completarEvento:', error);

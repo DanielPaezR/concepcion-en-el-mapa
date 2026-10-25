@@ -1,14 +1,22 @@
 // pages/LandingPage.jsx
-// Página a la que llegan los turistas al escanear el QR de los letreros.
-// Pensada primero para el teléfono: un solo objetivo, que entren al juego.
-// No carga Mapbox GL: la vista previa del juego es una imagen estática del
-// mapa real de Concepción (Static Images API) con el HUD dibujado encima.
+// Inicio del pueblo: es lo que abre el QR de los letreros. Tiene dos caminos:
+// jugar (el mapa) o explorar sin jugar (comercios con descuentos, anuncios y
+// eventos del pueblo), porque no todos los que la abren vienen a jugar.
+// Pensada primero para el teléfono. No carga Mapbox GL: la vista previa del
+// juego es una imagen estática del mapa real (Static Images API).
 
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, MapPin, Footprints, Sparkles, Trophy, ChevronDown } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Play, MapPin, Footprints, Trophy, ChevronDown, ChevronRight, Store, Megaphone,
+  CalendarDays, Gift, MessageCircle, Star, Plus,
+} from 'lucide-react';
 import { PatoBase, ojosConfig } from '../components/CompaneroVirtual';
+import api from '../services/api';
+import { imagenLigera } from '../utils/imagenes';
+import { categoriaComercio } from '../data/comercios';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 // Parque principal de Concepción, inclinado como se ve en el juego
@@ -110,11 +118,6 @@ const CSS = `
   background:rgba(246,196,83,.12); border:1px solid rgba(246,196,83,.25); }
 .lp-paso h3{ font-size:16px; color:white; }
 .lp-paso p{ font-size:14px; line-height:1.55; color:var(--suave); margin-top:3px; }
-.lp-cosas{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:24px; }
-.lp-cosa{ padding:16px 14px; border-radius:18px; background:var(--tarjeta); border:1px solid var(--borde); }
-.lp-cosa b{ display:block; font-size:26px; }
-.lp-cosa h3{ font-size:14px; color:white; margin-top:8px; }
-.lp-cosa p{ font-size:12.5px; line-height:1.45; color:var(--suave); margin-top:3px; }
 .lp-niveles{ display:flex; gap:10px; overflow-x:auto; margin:24px -20px 0; padding:4px 20px 8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
 .lp-niveles::-webkit-scrollbar{ display:none; }
 .lp-nivel{ flex:none; width:132px; scroll-snap-align:start; text-align:center; padding:16px 10px; border-radius:18px;
@@ -133,10 +136,54 @@ const CSS = `
 .lp-fijo .lp-jugar{ margin:0 auto; padding:16px 20px; font-size:17px; }
 .lp-fijo .lp-jugar::after{ display:none; }
 
+/* Explorar sin jugar */
+.lp-explorar-titulo{ margin-top:26px; font-size:13px; color:var(--suave); font-weight:600; }
+.lp-accesos{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; max-width:520px; }
+.lp-acceso{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:16px; color:white;
+  background:var(--tarjeta); border:1px solid var(--borde); font-size:14px; font-weight:700; line-height:1.15; }
+.lp-acceso small{ display:block; font-size:11px; font-weight:500; color:var(--suave); margin-top:2px; }
+.lp-acceso-icono{ flex:none; width:36px; height:36px; border-radius:11px; display:grid; place-items:center; }
+.lp-cabecera{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.lp-ver{ flex:none; display:inline-flex; align-items:center; gap:2px; color:var(--oro); font-size:13px; font-weight:700; }
+.lp-desc{ margin-top:8px; font-size:15px; line-height:1.55; color:var(--suave); }
+.lp-carrusel{ display:flex; gap:12px; overflow-x:auto; margin:18px -20px 0; padding:4px 20px 10px;
+  scroll-snap-type:x mandatory; scroll-padding:0 20px; scrollbar-width:none; }
+.lp-carrusel::-webkit-scrollbar{ display:none; }
+.lp-tarjeta{ flex:none; width:248px; scroll-snap-align:start; border-radius:20px; overflow:hidden;
+  background:#0E1520; border:1px solid var(--borde); color:var(--texto); display:flex; flex-direction:column; }
+.lp-tarjeta-foto{ flex:none; height:128px; overflow:hidden; background:linear-gradient(135deg,#1f2937,#111827); display:grid; place-items:center; font-size:38px; position:relative; }
+.lp-tarjeta-foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+.lp-tarjeta-cuerpo{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:4px; flex:1; }
+.lp-chip{ align-self:flex-start; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.08); color:#CBD5E1; }
+.lp-tarjeta h3{ font-size:16px; color:white; line-height:1.25; }
+.lp-beneficio{ margin-top:4px; padding:8px 10px; border-radius:12px; background:rgba(246,196,83,.1); border:1px dashed rgba(246,196,83,.45);
+  color:#FFE39A; font-size:13px; font-weight:600; line-height:1.35; }
+.lp-precio{ color:#4ADE80; font-weight:800; font-size:15px; }
+.lp-meta{ font-size:12px; color:var(--suave); }
+.lp-whatsapp{ margin-top:auto; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px; border-radius:12px;
+  background:#25D366; color:#062e16; font-weight:800; font-size:13px; }
+.lp-cupon-banner{ display:flex; align-items:center; gap:12px; margin-top:16px; padding:14px; border-radius:18px; color:white;
+  background:linear-gradient(135deg,rgba(246,196,83,.18),rgba(246,196,83,.05)); border:1px solid rgba(246,196,83,.35); }
+.lp-cupon-banner b{ display:block; font-size:15px; }
+.lp-cupon-banner span{ font-size:13px; color:var(--suave); }
+.lp-boton-sec{ display:inline-flex; align-items:center; gap:6px; margin-top:14px; padding:11px 16px; border-radius:14px;
+  border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.04); color:white; font-weight:700; font-size:14px; }
+.lp-eventos{ display:grid; gap:10px; margin-top:18px; }
+.lp-evento{ display:flex; gap:12px; padding:12px; border-radius:18px; background:var(--tarjeta); border:1px solid var(--borde); }
+.lp-evento-fecha{ flex:none; width:56px; border-radius:14px; padding:8px 4px; text-align:center;
+  background:linear-gradient(135deg,#db2777,#7c3aed); color:white; font-weight:800; font-size:12px; line-height:1.2; }
+.lp-evento-fecha b{ display:block; font-size:20px; }
+.lp-evento h3{ font-size:15px; color:white; }
+.lp-evento p{ font-size:13px; color:var(--suave); margin-top:2px; line-height:1.45;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.lp-vacio{ margin-top:16px; padding:18px; border-radius:18px; text-align:center; color:var(--suave); font-size:14px;
+  background:var(--tarjeta); border:1px dashed var(--borde); }
+
 @media (min-width:860px){
   .lp-hero{ grid-template-columns:1.1fr .9fr; padding:40px 0 64px; }
+  .lp-accesos{ grid-template-columns:repeat(4,1fr); max-width:none; }
+  .lp-eventos{ grid-template-columns:1fr 1fr; }
   .lp-pasos{ grid-template-columns:repeat(3,1fr); }
-  .lp-cosas{ grid-template-columns:repeat(3,1fr); }
   .lp-niveles{ justify-content:center; overflow:visible; }
   .lp-fijo{ display:none; }
   .lp-pie{ padding-bottom:32px; }
@@ -152,14 +199,59 @@ const PASOS = [
   { icono: '🏆', titulo: 'Responde retos y sube de nivel', texto: 'Cada lugar y cada reto te da XP e insignias. Tu pato compañero crece contigo.' },
 ];
 
-const COSAS = [
-  { icono: '🗺️', titulo: 'Lugares', texto: 'Los rincones más bonitos de Concepción.' },
-  { icono: '❓', titulo: 'Retos', texto: 'Preguntas y desafíos que te dan XP.' },
-  { icono: '💡', titulo: 'Curiosidades', texto: 'Historias que aparecen al pasar cerca.' },
-  { icono: '🎉', titulo: 'Eventos', texto: 'Lo que está pasando hoy en el pueblo.' },
-  { icono: '🛡️', titulo: 'Guardianes', texto: 'Exploradores que cuidan cada lugar.' },
-  { icono: '🧭', titulo: 'Guías locales', texto: 'Reserva un recorrido con alguien de aquí.' },
-];
+const TIPO_ANUNCIO = {
+  servicio: '🛠️ Servicio',
+  venta: '🏷️ Venta',
+  compra: '🛒 Compra',
+};
+
+const precioTexto = (precio) => (precio == null ? null : `$${Number(precio).toLocaleString('es-CO')}`);
+
+// "SÁB 26" / "HOY" para la fecha de un evento del pueblo
+const fechaEvento = (evento) => {
+  const inicio = new Date(evento.fecha_inicio);
+  const ahora = new Date();
+  if (inicio <= ahora) return { arriba: 'AHORA', abajo: '●' };
+  if (inicio.toDateString() === ahora.toDateString()) {
+    // Hora corta de 24 h ("21:30") para que quepa en la cajita
+    const hora = `${inicio.getHours()}:${String(inicio.getMinutes()).padStart(2, '0')}`;
+    return { arriba: 'HOY', abajo: hora, corta: true };
+  }
+  return {
+    arriba: inicio.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '').toUpperCase(),
+    abajo: inicio.getDate(),
+  };
+};
+
+// Datos del pueblo que no necesitan el mapa. Las mismas claves de caché que
+// usa el mapa, así lo que se baja aquí ya queda listo si después juegan.
+function useDatosDelPueblo() {
+  const comercios = useQuery({
+    queryKey: ['comercios'],
+    queryFn: async () => {
+      const r = await api.get('/comercios');
+      return Array.isArray(r.data) ? r.data : [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+  const anuncios = useQuery({
+    queryKey: ['anuncios-recientes'],
+    queryFn: async () => (await api.get('/anuncios')).data.anuncios || [],
+    staleTime: 5 * 60 * 1000,
+  });
+  const eventos = useQuery({
+    queryKey: ['eventos-comunidad'],
+    queryFn: async () => (await api.get('/eventos-comunidad')).data.eventos || [],
+    staleTime: 5 * 60 * 1000,
+  });
+  return {
+    comercios: comercios.data || [],
+    anuncios: anuncios.data || [],
+    eventos: eventos.data || [],
+    cargandoComercios: comercios.isLoading,
+    cargandoAnuncios: anuncios.isLoading,
+  };
+}
 
 const NIVELES = [
   { icono: '🌱', titulo: 'Principiante', etiqueta: 'Nivel 1' },
@@ -215,6 +307,7 @@ export default function LandingPage() {
   const heroRef = useRef(null);
   const finalRef = useRef(null);
   const [mostrarFijo, setMostrarFijo] = useState(false);
+  const { comercios, anuncios, eventos, cargandoComercios, cargandoAnuncios } = useDatosDelPueblo();
 
   // El botón fijo de abajo aparece cuando no se ve ni el botón de la portada
   // ni el del final
@@ -231,7 +324,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const anterior = document.title;
-    document.title = 'Concepción en el Mapa · ¡Juega!';
+    document.title = 'Concepción en el Mapa';
     return () => { document.title = anterior; };
   }, []);
 
@@ -244,7 +337,10 @@ export default function LandingPage() {
           <div className="lp-marca-icono"><MapPin size={18} /></div>
           <div><b>Concepción</b><small>en el mapa</small></div>
         </div>
-        <Link to={destino} className="lp-top-jugar">Jugar</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/mis-cupones" className="lp-top-jugar" aria-label="Mis cupones" style={{ padding: '8px 10px' }}><Gift size={16} /></Link>
+          <Link to={destino} className="lp-top-jugar">Jugar</Link>
+        </div>
       </header>
 
       <main className="lp-wrap">
@@ -253,18 +349,148 @@ export default function LandingPage() {
             <span className="lp-ubicacion"><i />Estás en Concepción, Antioquia</span>
             <h1 className="lp-titulo">Este pueblo es <em>un juego.</em> Y empieza aquí.</h1>
             <p className="lp-sub">
-              Camina sus calles empedradas, <b>descubre sus secretos</b>, responde retos y <b>gana insignias</b> mientras recorres Concepción.
+              Camina sus calles empedradas, <b>descubre sus secretos</b>, responde retos y <b>gana cupones de descuento</b> en los comercios del pueblo.
             </p>
             <div ref={heroRef}><BotonJugar destino={destino} /></div>
             <div className="lp-garantias">
               <span>Gratis</span><span>Sin descargar nada</span><span>Sin registrarte</span>
             </div>
+
+            {/* Para quien no viene a jugar */}
+            <div className="lp-explorar-titulo">¿Solo de paso? Explora sin jugar:</div>
+            <div className="lp-accesos">
+              <a href="#comercios" className="lp-acceso">
+                <span className="lp-acceso-icono" style={{ background: 'rgba(246,196,83,.15)', color: '#F6C453' }}><Store size={18} /></span>
+                <span>Comercios<small>con descuentos</small></span>
+              </a>
+              <Link to="/anuncios" className="lp-acceso">
+                <span className="lp-acceso-icono" style={{ background: 'rgba(34,197,94,.15)', color: '#4ADE80' }}><Megaphone size={18} /></span>
+                <span>Anuncios<small>compra y vende</small></span>
+              </Link>
+              <a href="#eventos" className="lp-acceso">
+                <span className="lp-acceso-icono" style={{ background: 'rgba(219,39,119,.15)', color: '#F472B6' }}><CalendarDays size={18} /></span>
+                <span>Eventos<small>del pueblo</small></span>
+              </a>
+              <Link to="/mis-cupones" className="lp-acceso">
+                <span className="lp-acceso-icono" style={{ background: 'rgba(14,165,233,.15)', color: '#38BDF8' }}><Gift size={18} /></span>
+                <span>Mis cupones<small>y dónde usarlos</small></span>
+              </Link>
+            </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: .15 }}>
             <PreviaJuego />
-            <a href="#como" className="lp-flecha" aria-label="Ver cómo se juega"><ChevronDown size={22} /></a>
+            <a href="#comercios" className="lp-flecha" aria-label="Ver más"><ChevronDown size={22} /></a>
           </motion.div>
+        </section>
+
+        {/* ── Comercios aliados y sus descuentos ── */}
+        <section id="comercios" className="lp-seccion">
+          <div className="lp-cabecera">
+            <div>
+              <div className="lp-etiqueta"><Store size={13} style={{ verticalAlign: '-2px' }} /> Comercios aliados</div>
+              <h2 className="lp-h2">Come, compra y ahorra</h2>
+            </div>
+          </div>
+          <p className="lp-desc">Negocios de Concepción con beneficios para quienes recorren el pueblo.</p>
+          {cargandoComercios ? (
+            <div className="lp-vacio">Cargando comercios…</div>
+          ) : comercios.length === 0 ? (
+            <div className="lp-vacio">Muy pronto verás aquí los comercios aliados.</div>
+          ) : (
+            <div className="lp-carrusel">
+              {comercios.map((c) => {
+                const cat = categoriaComercio(c.categoria);
+                return (
+                  <Link key={c.id} to={`/comercio/${c.id}`} className="lp-tarjeta">
+                    <div className="lp-tarjeta-foto">
+                      {c.imagen_portada_url
+                        ? <img src={imagenLigera(c.imagen_portada_url, 500)} alt={c.nombre} loading="lazy" />
+                        : cat.emoji}
+                    </div>
+                    <div className="lp-tarjeta-cuerpo">
+                      <span className="lp-chip">{cat.emoji} {cat.label}
+                        {Number(c.total_resenas) > 0 && <> · <Star size={11} fill="#F6C453" color="#F6C453" style={{ verticalAlign: '-1px' }} /> {Number(c.calificacion_promedio).toFixed(1)}</>}
+                      </span>
+                      <h3>{c.nombre}</h3>
+                      {c.beneficio && <div className="lp-beneficio">🎁 {c.beneficio}</div>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+          <Link to="/mis-cupones" className="lp-cupon-banner">
+            <span className="lp-acceso-icono" style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#F6C453,#FFB800)', color: '#1a1300' }}><Gift size={22} /></span>
+            <span style={{ flex: 1 }}><b>Gana cupones jugando</b><span>Al llegar a nivel 3 y 5 recibes un código para usar en estos comercios.</span></span>
+            <ChevronRight size={20} color="#F6C453" />
+          </Link>
+        </section>
+
+        {/* ── Anuncios del pueblo ── */}
+        <section id="anuncios" className="lp-seccion">
+          <div className="lp-cabecera">
+            <div>
+              <div className="lp-etiqueta"><Megaphone size={13} style={{ verticalAlign: '-2px' }} /> Anuncios del pueblo</div>
+              <h2 className="lp-h2">Se vende, se compra, se ofrece</h2>
+            </div>
+            <Link to="/anuncios" className="lp-ver">Ver todos <ChevronRight size={16} /></Link>
+          </div>
+          <p className="lp-desc">Servicios y ventas de la gente de Concepción. Escríbeles directo por WhatsApp.</p>
+          {cargandoAnuncios ? (
+            <div className="lp-vacio">Cargando anuncios…</div>
+          ) : anuncios.length === 0 ? (
+            <div className="lp-vacio">Todavía no hay anuncios. ¡Publica el primero!</div>
+          ) : (
+            <div className="lp-carrusel">
+              {anuncios.slice(0, 8).map((a) => (
+                <article key={a.id} className="lp-tarjeta">
+                  <Link to="/anuncios" className="lp-tarjeta-foto">
+                    {a.imagen_url
+                      ? <img src={imagenLigera(a.imagen_url, 500)} alt={a.titulo} loading="lazy" />
+                      : '📣'}
+                  </Link>
+                  <div className="lp-tarjeta-cuerpo">
+                    <span className="lp-chip">{TIPO_ANUNCIO[a.tipo] || 'Anuncio'}</span>
+                    <h3>{a.titulo}</h3>
+                    {precioTexto(a.precio) && <div className="lp-precio">{precioTexto(a.precio)}</div>}
+                    <div className="lp-meta">Publicado por {a.autor}</div>
+                    {a.whatsapp && (
+                      <a href={a.whatsapp} target="_blank" rel="noopener noreferrer" className="lp-whatsapp">
+                        <MessageCircle size={16} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          <Link to="/anuncios/nuevo" className="lp-boton-sec"><Plus size={16} /> Publicar un anuncio</Link>
+        </section>
+
+        {/* ── Eventos del pueblo ── */}
+        <section id="eventos" className="lp-seccion">
+          <div className="lp-etiqueta"><CalendarDays size={13} style={{ verticalAlign: '-2px' }} /> Eventos del pueblo</div>
+          <h2 className="lp-h2">¿Qué pasa en Concepción?</h2>
+          {eventos.length === 0 ? (
+            <div className="lp-vacio">No hay eventos programados por ahora. ¡Vuelve pronto!</div>
+          ) : (
+            <div className="lp-eventos">
+              {eventos.slice(0, 6).map((e) => {
+                const f = fechaEvento(e);
+                return (
+                  <div key={e.id} className="lp-evento">
+                    <div className="lp-evento-fecha">{f.arriba}<b style={f.corta ? { fontSize: 15, marginTop: 3 } : undefined}>{f.abajo}</b></div>
+                    <div style={{ minWidth: 0 }}>
+                      <h3>{e.titulo}</h3>
+                      {(e.lugar_texto || e.comercio_nombre) && <div className="lp-meta">📍 {e.lugar_texto || e.comercio_nombre}</div>}
+                      {e.descripcion && <p>{e.descripcion}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section id="como" className="lp-seccion">
@@ -278,16 +504,6 @@ export default function LandingPage() {
                 <div className="lp-paso-num">{p.icono}</div>
                 <div><h3>{i + 1}. {p.titulo}</h3><p>{p.texto}</p></div>
               </motion.div>
-            ))}
-          </div>
-        </section>
-
-        <section className="lp-seccion">
-          <div className="lp-etiqueta"><Sparkles size={13} style={{ verticalAlign: '-2px' }} /> En el mapa encuentras</div>
-          <h2 className="lp-h2">Todo Concepción en tu bolsillo</h2>
-          <div className="lp-cosas">
-            {COSAS.map((c) => (
-              <div key={c.titulo} className="lp-cosa"><b>{c.icono}</b><h3>{c.titulo}</h3><p>{c.texto}</p></div>
             ))}
           </div>
         </section>

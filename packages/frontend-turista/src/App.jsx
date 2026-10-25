@@ -24,6 +24,7 @@ const FichaComercio     = lazy(() => import('./pages/FichaComercio'));
 const Anuncios          = lazy(() => import('./pages/Anuncios'));
 const NuevoAnuncio      = lazy(() => import('./pages/NuevoAnuncio'));
 const MisAnuncios       = lazy(() => import('./pages/MisAnuncios'));
+const MisCupones        = lazy(() => import('./pages/MisCupones'));
 
 function App() {
   const location = useLocation();
@@ -86,6 +87,7 @@ function App() {
           <Route path="/anuncios" element={<Anuncios />} />
           <Route path="/anuncios/nuevo" element={<NuevoAnuncio />} />
           <Route path="/mis-anuncios" element={<MisAnuncios />} />
+          <Route path="/mis-cupones" element={<MisCupones />} />
         </Routes>
       </Suspense>
     </>

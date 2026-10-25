@@ -6,10 +6,12 @@ import { Megaphone, ImagePlus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
+import { useVolver } from '../utils/navegacion';
 import { TIPOS_ANUNCIO } from './Anuncios';
 
 export default function NuevoAnuncio() {
   const navigate = useNavigate();
+  const volver = useVolver('/anuncios');
   const usuario = getTuristaActual();
   const [form, setForm] = useState({ tipo: 'venta', titulo: '', descripcion: '', precio: '', telefono: '' });
   const [tieneTelefono, setTieneTelefono] = useState(true);
@@ -27,7 +29,7 @@ export default function NuevoAnuncio() {
 
   useEffect(() => () => vista && URL.revokeObjectURL(vista), [vista]);
 
-  if (!usuario || usuario.anonimo) return <Navigate to="/login-turista" replace />;
+  if (!usuario || usuario.anonimo) return <Navigate to="/login-turista?volver=/anuncios/nuevo" replace />;
 
   const elegirImagen = (e) => {
     const archivo = e.target.files?.[0];
@@ -64,7 +66,7 @@ export default function NuevoAnuncio() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pb-24">
       <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-6">
-        <button onClick={() => navigate(-1)} className="text-white mb-4">← Volver</button>
+        <button onClick={volver} className="text-white mb-4">← Volver</button>
         <div className="flex items-center gap-3">
           <Megaphone className="w-10 h-10" />
           <div>

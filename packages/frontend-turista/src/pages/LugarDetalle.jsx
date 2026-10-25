@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import TomarRecuerdo from '../components/TomarRecuerdo';
+import CuponGanado from '../components/CuponGanado';
 import CompaneroVirtual from '../components/CompaneroVirtual';
 import { dialogos } from '../data/dialogosMascota';
 import { useState, useEffect } from 'react';
@@ -19,6 +20,8 @@ export default function LugarDetalle() {
   const { id } = useParams();
   const location = useLocation();
   const [mostrarBannerDescubierto, setMostrarBannerDescubierto] = useState(!!location.state?.recienDescubierto);
+  // Cupón ganado al descubrir este lugar (llega desde el mapa)
+  const [cupones, setCupones] = useState(location.state?.cupones || []);
   const navigate = useNavigate();
   const [showAvatar, setShowAvatar] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -450,6 +453,10 @@ export default function LugarDetalle() {
           onSubido={() => {}}
         />
       )}
+
+      <AnimatePresence>
+        {cupones.length > 0 && <CuponGanado codigos={cupones} onClose={() => setCupones([])} />}
+      </AnimatePresence>
     </div>
   );
 }

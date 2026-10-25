@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Megaphone, Search, Plus, MessageCircle, ListChecks } from 'lucide-react';
 import api from '../services/api';
 import { getTuristaActual } from '../services/auth';
+import { useVolver } from '../utils/navegacion';
 
 export const TIPOS_ANUNCIO = {
   servicio: { label: 'Servicio', emoji: '🛠️', clase: 'bg-blue-100 text-blue-700' },
@@ -25,6 +26,7 @@ const hace = (fecha) => {
 
 export default function Anuncios() {
   const navigate = useNavigate();
+  const volver = useVolver('/landing');
   const usuario = getTuristaActual();
   const registrado = usuario && !usuario.anonimo;
   const [anuncios, setAnuncios] = useState([]);
@@ -50,12 +52,13 @@ export default function Anuncios() {
       .finally(() => setCargando(false));
   }, [tipo, consulta]);
 
-  const publicar = () => navigate(registrado ? '/anuncios/nuevo' : '/login-turista');
+  // Sin cuenta: inicia sesión y vuelve directo a publicar
+  const publicar = () => navigate(registrado ? '/anuncios/nuevo' : '/login-turista?volver=/anuncios/nuevo');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pb-24">
       <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-6">
-        <button onClick={() => navigate('/')} className="text-white mb-4">← Volver al mapa</button>
+        <button onClick={volver} className="text-white mb-4">← Volver</button>
         <div className="flex items-center gap-3">
           <Megaphone className="w-10 h-10" />
           <div>
