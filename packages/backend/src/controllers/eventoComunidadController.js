@@ -3,6 +3,7 @@
 // marcadores en el mapa del turista. No confundir con los retos
 // (bancos_preguntas / eventos_diarios) de eventoController.
 const pool = require('../config/database');
+const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const { tienePermiso } = require('../services/permisosService');
 
@@ -86,7 +87,42 @@ const SELECT_EVENTO = `
     LEFT JOIN comercios c ON c.id = e.comercio_id
 `;
 
+const usuarioOpcional = (req) => {
+    try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        return token ? jwt.verify(token, process.env.JWT_SECRET) : null;
+    } catch {
+        return null;
+    }
+};
+
 const eventoComunidadController = {
+    // POST /api/eventos-comunidad/:id/voy — marca o desmarca "¡Voy!" (uno por
+    // persona) y devuelve cuántos van. Solo es un contador: no expone quiénes.
+    async alternarVoy(req, res) {
+        try {
+            const eventoId = Number(req.params.id);
+            const existe = await pool.query('SELECT 1 FROM eventos_comunidad WHERE id = $1 AND activo = true', [eventoId]);
+            if (existe.rows.length === 0) return res.status(404).json({ error: 'Este evento ya no está disponible' });
+
+            const borrado = await pool.query(
+                'DELETE FROM asistencias_evento_comunidad WHERE evento_id = $1 AND usuario_id = $2 RETURNING 1',
+                [eventoId, req.user.id]
+            );
+            if (borrado.rows.length === 0) {
+                await pool.query(
+                    'INSERT INTO asistencias_evento_comunidad (evento_id, usuario_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                    [eventoId, req.user.id]
+                );
+            }
+            const total = await pool.query('SELECT COUNT(*)::int AS n FROM asistencias_evento_comunidad WHERE evento_id = $1', [eventoId]);
+            res.json({ yo_voy: borrado.rows.length === 0, asistentes: total.rows[0].n });
+        } catch (error) {
+            console.error('Error al marcar asistencia:', error);
+            res.status(500).json({ error: 'No se pudo guardar tu asistencia' });
+        }
+    },
+
     // GET /api/eventos-comunidad — públicos: activos y que no hayan terminado
     // (sin fecha de fin, se considera que dura hasta el final del día de inicio).
     // Las fechas se guardan en hora local de Colombia (vienen de un
@@ -94,13 +130,20 @@ const eventoComunidadController = {
     // contra NOW(), que en el servidor de producción está en UTC.
     async listarActivos(req, res) {
         try {
+            // Con sesión se marca si esa persona ya dijo "¡Voy!"
+            const usuario = usuarioOpcional(req);
             const result = await pool.query(`
-                ${SELECT_EVENTO}
-                WHERE e.activo = true
-                  AND COALESCE(e.fecha_fin, date_trunc('day', e.fecha_inicio) + INTERVAL '1 day')
-                      >= (NOW() AT TIME ZONE 'America/Bogota')
-                ORDER BY e.fecha_inicio
-            `);
+                SELECT ev.*,
+                       (SELECT COUNT(*)::int FROM asistencias_evento_comunidad a WHERE a.evento_id = ev.id) AS asistentes,
+                       ${usuario ? 'EXISTS (SELECT 1 FROM asistencias_evento_comunidad a WHERE a.evento_id = ev.id AND a.usuario_id = $1)' : 'false'} AS yo_voy
+                FROM (
+                    ${SELECT_EVENTO}
+                    WHERE e.activo = true
+                      AND COALESCE(e.fecha_fin, date_trunc('day', e.fecha_inicio) + INTERVAL '1 day')
+                          >= (NOW() AT TIME ZONE 'America/Bogota')
+                ) ev
+                ORDER BY ev.fecha_inicio
+            `, usuario ? [usuario.id] : []);
             res.json({ success: true, eventos: result.rows });
         } catch (error) {
             console.error('Error al listar eventos de la comunidad:', error);

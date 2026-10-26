@@ -2,6 +2,7 @@ import { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { registrarVisita } from './services/escaneo';
 import NotificacionInsignia from './components/NotificacionInsignia';
+import Celebracion from './components/Celebracion';
 import { connectSocket, getSocket } from './services/socket';
 import { getTuristaActual } from './services/auth'; // Ajusta según tu función
 
@@ -25,6 +26,7 @@ const Anuncios          = lazy(() => import('./pages/Anuncios'));
 const NuevoAnuncio      = lazy(() => import('./pages/NuevoAnuncio'));
 const MisAnuncios       = lazy(() => import('./pages/MisAnuncios'));
 const MisCupones        = lazy(() => import('./pages/MisCupones'));
+const MiDia             = lazy(() => import('./pages/MiDia'));
 
 function App() {
   const location = useLocation();
@@ -63,6 +65,7 @@ function App() {
   return (
     <>
       <NotificacionInsignia />
+      <Celebracion />
       <Suspense fallback={
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -88,6 +91,7 @@ function App() {
           <Route path="/anuncios/nuevo" element={<NuevoAnuncio />} />
           <Route path="/mis-anuncios" element={<MisAnuncios />} />
           <Route path="/mis-cupones" element={<MisCupones />} />
+          <Route path="/mi-dia" element={<MiDia />} />
         </Routes>
       </Suspense>
     </>

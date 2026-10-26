@@ -28,6 +28,17 @@ async function elegirUbicacion(client, pregunta, usadas) {
 
 const xpDe = (p) => p.puntos || (50 + (p.dificultad || 1) * 10);
 
+// Título del reto en el mapa según su tipo
+const tituloDe = (p, ubicacion) => {
+    const lugar = ubicacion.nombre || 'Concepción';
+    if (p.tipo === 'opcion') {
+        const verdadOMito = Array.isArray(p.opciones) && p.opciones.length === 2
+            && p.opciones.map((o) => String(o).toLowerCase()).sort().join('|') === 'falso|verdadero';
+        return verdadOMito ? `🤔 ¿Verdad o mito?: ${lugar}` : `🧠 Quiz: ${lugar}`;
+    }
+    return `🎯 Reto: ${lugar}`;
+};
+
 async function generarEventosDiarios() {
     const client = await pool.pool.connect();
     try {
@@ -51,7 +62,7 @@ async function generarEventosDiarios() {
             await client.query(`
                 INSERT INTO eventos_diarios (pregunta_id, ubicacion_id, titulo, xp_recompensa, fecha_expiracion)
                 VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')
-            `, [pregunta.id, ubicacion.id, `🎯 Reto: ${ubicacion.nombre || 'Concepción'}`, xpDe(pregunta)]);
+            `, [pregunta.id, ubicacion.id, tituloDe(pregunta, ubicacion), xpDe(pregunta)]);
             creados++;
         }
 

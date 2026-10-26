@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth');
 
 // Rutas públicas
 router.get('/activos', eventoController.getEventosActivos);
+router.get('/meta-semanal', eventoController.getMetaSemanal);
 
 // Rutas protegidas
 router.use(authMiddleware);

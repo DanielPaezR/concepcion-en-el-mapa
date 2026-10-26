@@ -33,7 +33,9 @@ export default function BancoPreguntas() {
     fecha_fin: '',
     evento_temporal_tipo: 'navidad',
     requiere_visitas: 1,
-    lugares_requeridos: []
+    lugares_requeridos: [],
+    opciones: ['', '', '', ''],
+    modoOpcion: 'multiple'
   });
 
   // NUEVO: estado para controlar la obtención de ubicación
@@ -159,6 +161,24 @@ export default function BancoPreguntas() {
           puntos: nuevaPregunta.puntos,
           ubicacion_id: nuevaPregunta.ubicacion_id || null
         };
+      } else if (tipoEvento === 'opcion') {
+        // Quiz u "¿Verdad o mito?": la respuesta es la opción marcada
+        const opciones = nuevaPregunta.modoOpcion === 'vf'
+          ? ['Verdadero', 'Falso']
+          : nuevaPregunta.opciones.map(o => o.trim()).filter(Boolean);
+        if (!nuevaPregunta.respuesta) {
+          toast.error('Marca cuál es la opción correcta');
+          return;
+        }
+        data = {
+          tipo: 'opcion',
+          pregunta: nuevaPregunta.pregunta,
+          respuesta: nuevaPregunta.respuesta,
+          opciones,
+          dificultad: nuevaPregunta.dificultad,
+          puntos: nuevaPregunta.puntos,
+          ubicacion_id: nuevaPregunta.ubicacion_id || null
+        };
       } else if (tipoEvento === 'reunion') {
         data = {
           tipo: 'reunion',
@@ -249,7 +269,9 @@ export default function BancoPreguntas() {
       fecha_fin: '',
       evento_temporal_tipo: 'navidad',
       requiere_visitas: 1,
-      lugares_requeridos: []
+      lugares_requeridos: [],
+      opciones: ['', '', '', ''],
+      modoOpcion: 'multiple'
     });
     setMostrarForm(false);
     setTipoEvento('pregunta');
@@ -258,6 +280,7 @@ export default function BancoPreguntas() {
   const getTipoTexto = () => {
     switch(tipoEvento) {
       case 'pregunta': return 'Pregunta';
+      case 'opcion': return 'Quiz';
       case 'pistas': return 'Evento con pistas';
       case 'reto': return 'Reto contrarreloj';
       case 'reunion': return 'Punto de encuentro';
@@ -273,6 +296,7 @@ export default function BancoPreguntas() {
     }
     switch(tipo) {
       case 'pregunta': return <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">❓ Pregunta</span>;
+      case 'opcion': return <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-xs">🧠 Quiz</span>;
       case 'pistas': return <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">🔍 Pistas</span>;
       case 'reto': return <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs">⏱️ Reto</span>;
       case 'reunion': return <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">📍 Reunión</span>;
@@ -471,6 +495,98 @@ export default function BancoPreguntas() {
           </>
         );
       
+      case 'opcion': {
+        const esVF = nuevaPregunta.modoOpcion === 'vf';
+        const opciones = esVF ? ['Verdadero', 'Falso'] : nuevaPregunta.opciones;
+        const cambiarOpcion = (i, valor) => {
+          const nuevas = [...nuevaPregunta.opciones];
+          // Si se edita la opción marcada como correcta, la respuesta la sigue
+          const eraCorrecta = nuevaPregunta.respuesta && nuevaPregunta.respuesta === nuevas[i];
+          nuevas[i] = valor;
+          setNuevaPregunta({ ...nuevaPregunta, opciones: nuevas, respuesta: eraCorrecta ? valor : nuevaPregunta.respuesta });
+        };
+        return (
+          <>
+            <div className="bg-amber-50 p-3 rounded-lg text-sm text-amber-800">
+              🧠 Se responde tocando una opción y tiene <b>un solo intento</b>. Si fallan, se les muestra la respuesta correcta.
+            </div>
+            <div className="flex gap-2">
+              {[['multiple', '🧠 Opción múltiple'], ['vf', '🤔 ¿Verdad o mito?']].map(([modo, texto]) => (
+                <button key={modo} type="button"
+                  onClick={() => setNuevaPregunta({ ...nuevaPregunta, modoOpcion: modo, respuesta: '' })}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium ${nuevaPregunta.modoOpcion === modo ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                  {texto}
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{esVF ? 'Afirmación *' : 'Pregunta *'}</label>
+              <input
+                type="text"
+                value={nuevaPregunta.pregunta}
+                onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, pregunta: e.target.value })}
+                className="w-full p-2 border rounded"
+                placeholder={esVF ? 'Ej: Antes de la estatua de Córdova llegó un dedo de bronce' : 'Ej: ¿Qué país regaló la estatua de Córdova?'}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {esVF ? '¿Es verdad o mito? *' : 'Opciones (marca la correcta) *'}
+              </label>
+              <div className="space-y-2">
+                {opciones.map((opcion, i) => (
+                  <label key={i} className={`flex items-center gap-2 p-2 rounded border ${opcion && nuevaPregunta.respuesta === opcion ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                    <input
+                      type="radio"
+                      name="opcion-correcta"
+                      checked={!!opcion && nuevaPregunta.respuesta === opcion}
+                      disabled={!opcion}
+                      onChange={() => setNuevaPregunta({ ...nuevaPregunta, respuesta: opcion })}
+                    />
+                    {esVF ? (
+                      <span className="text-sm">{opcion === 'Verdadero' ? '✅ Verdadero' : '❌ Falso (es un mito)'}</span>
+                    ) : (
+                      <input
+                        type="text"
+                        value={opcion}
+                        onChange={(e) => cambiarOpcion(i, e.target.value)}
+                        className="flex-1 p-1.5 border rounded text-sm"
+                        placeholder={i < 2 ? `Opción ${i + 1} *` : `Opción ${i + 1} (opcional)`}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Puntos</label>
+                <input
+                  type="number"
+                  value={nuevaPregunta.puntos}
+                  onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, puntos: parseInt(e.target.value) })}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Ubicación (opcional)</label>
+                <select
+                  value={nuevaPregunta.ubicacion_id}
+                  onChange={(e) => setNuevaPregunta({ ...nuevaPregunta, ubicacion_id: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Cualquier lugar</option>
+                  {ubicaciones.map(u => (
+                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
+        );
+      }
+
       case 'pistas':
         return (
           <>
@@ -779,6 +895,15 @@ export default function BancoPreguntas() {
               </button>
               <button
                 type="button"
+                onClick={() => setTipoEvento('opcion')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  tipoEvento === 'opcion' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                }`}
+              >
+                🧠 Quiz / ¿Verdad o mito?
+              </button>
+              <button
+                type="button"
                 onClick={() => setTipoEvento('pistas')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                   tipoEvento === 'pistas' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
@@ -882,6 +1007,7 @@ export default function BancoPreguntas() {
                   <p className="font-medium">{p.pregunta}</p>
                 </div>
                 <p className="text-sm text-gray-500">
+                  {Array.isArray(p.opciones) && p.opciones.length > 0 && `Opciones: ${p.opciones.join(' / ')} | `}
                   Respuesta: {p.respuesta} | {p.puntos || 50} XP
                   {p.dificultad && ` | Dificultad: ${p.dificultad}`}
                   {p.duracion && ` | ⏱️ ${p.duracion} min`}

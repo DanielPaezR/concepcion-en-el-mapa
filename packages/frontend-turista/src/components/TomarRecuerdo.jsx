@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Download, RotateCcw, Check, Loader2, SwitchCamera } from 'lucide-react';
 import api from '../services/api';
+import { celebrar } from '../utils/celebrar';
 
 const NIVEL_INFO = {
   1: { emoji: '🥚', label: 'COMPAÑERO' },
@@ -292,6 +293,7 @@ export default function TomarRecuerdo({ lugar, nivelActual, onClose, onSubido })
       formData.append('lugar_id', lugar.id);
       await api.post('/recuerdos', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setModo('listo');
+      celebrar('normal');
       onSubido?.();
     } catch (e) {
       setError(e.response?.data?.error || 'No se pudo guardar el recuerdo, pero ya lo tienes descargado si lo bajaste.');

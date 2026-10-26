@@ -63,6 +63,26 @@ const esRespuestaCorrecta = (respuesta, correcta) => {
     });
 };
 
+// Retos de opción múltiple ("opcion"): la respuesta es una de las opciones
+const esVerdadOMito = (opciones) => opciones.length === 2
+    && opciones.map(normalizar).sort().join('|') === 'falso|verdadero';
+
+// Mezcla determinista (misma semilla = mismo orden) para no cambiar el orden
+// de las opciones cada vez que el turista abre el reto
+const mezclarEstable = (lista, semilla) => {
+    const copia = [...lista];
+    let s = Number(semilla) || 1;
+    for (let i = copia.length - 1; i > 0; i--) {
+        s = (s * 9301 + 49297) % 233280;
+        const j = Math.floor((s / 233280) * (i + 1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+    }
+    return copia;
+};
+
+// Meta de retos que el pueblo completa entre todos cada semana
+const META_SEMANAL = Number(process.env.META_RETOS_SEMANA) || 100;
+
 // Ruta pública: si viene un token válido se marca qué retos ya completó el usuario
 const usuarioOpcional = (req) => {
     try {
@@ -83,7 +103,7 @@ const eventoController = {
                     e.id, e.titulo, e.xp_recompensa, e.fecha_expiracion, e.es_temporal,
                     e.fecha_inicio, e.fecha_fin,
                     COALESCE(p.tipo, 'pregunta') AS tipo,
-                    p.pregunta, p.pistas, p.evento_temporal_tipo,
+                    p.pregunta, p.pistas, p.evento_temporal_tipo, p.opciones,
                     u.nombre as ubicacion_nombre,
                     u.latitud,
                     u.longitud,
@@ -91,7 +111,11 @@ const eventoController = {
                     ${usuario ? `EXISTS (
                         SELECT 1 FROM progreso_eventos pe
                         WHERE pe.evento_id = e.id AND pe.usuario_id = $1 AND pe.completado = true
-                    )` : 'false'} AS completado
+                    )` : 'false'} AS completado,
+                    ${usuario ? `EXISTS (
+                        SELECT 1 FROM progreso_eventos pe
+                        WHERE pe.evento_id = e.id AND pe.usuario_id = $1 AND pe.completado = false
+                    )` : 'false'} AS fallado
                 FROM eventos_diarios e
                 JOIN bancos_preguntas p ON e.pregunta_id = p.id
                 JOIN bancos_ubicaciones u ON e.ubicacion_id = u.id
@@ -99,10 +123,35 @@ const eventoController = {
                 AND e.fecha_expiracion > NOW()
                 ORDER BY e.es_temporal DESC, e.id
             `, usuario ? [usuario.id] : []);
-            res.json({ success: true, eventos: result.rows });
+            // Las opciones se mezclan para que la correcta no quede siempre de
+            // primera (siempre igual para el mismo reto). "Verdadero/Falso" se
+            // deja en su orden natural.
+            const eventos = result.rows.map((ev) => ({
+                ...ev,
+                opciones: Array.isArray(ev.opciones) && !esVerdadOMito(ev.opciones)
+                    ? mezclarEstable(ev.opciones, ev.id)
+                    : ev.opciones,
+            }));
+            res.json({ success: true, eventos });
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({ error: 'Error al obtener eventos' });
+        }
+    },
+
+    // Meta semanal del pueblo: cuántos retos completaron entre todos esta
+    // semana (lunes a domingo) y cuántas personas participaron. Pública.
+    async getMetaSemanal(req, res) {
+        try {
+            const r = await pool.query(`
+                SELECT COUNT(*)::int AS completados, COUNT(DISTINCT usuario_id)::int AS participantes
+                FROM progreso_eventos
+                WHERE completado = true AND fecha_completado >= date_trunc('week', NOW())
+            `);
+            res.json({ meta: META_SEMANAL, ...r.rows[0] });
+        } catch (error) {
+            console.error('Error en meta semanal:', error);
+            res.status(500).json({ error: 'Error al obtener la meta semanal' });
         }
     },
 
@@ -138,13 +187,17 @@ const eventoController = {
             const { eventoId, respuesta, latitud, longitud } = req.body;
             const usuarioId = req.user.id;
 
-            const yaCompleto = await pool.query(
-                'SELECT id FROM progreso_eventos WHERE usuario_id = $1 AND evento_id = $2 AND completado = true',
+            const progreso = await pool.query(
+                'SELECT completado FROM progreso_eventos WHERE usuario_id = $1 AND evento_id = $2',
                 [usuarioId, eventoId]
             );
 
-            if (yaCompleto.rows.length > 0) {
+            if (progreso.rows[0]?.completado) {
                 return res.status(400).json({ error: 'Ya completaste este reto' });
+            }
+            // Solo los retos de opción múltiple dejan un intento fallido guardado
+            if (progreso.rows.length > 0) {
+                return res.status(400).json({ error: 'Ya usaste tu intento en este reto. ¡Mañana hay más!', codigo: 'SIN_INTENTOS' });
             }
 
             const evento = await pool.query(`
@@ -182,7 +235,22 @@ const eventoController = {
                 if (!normalizar(respuesta)) {
                     return res.status(400).json({ error: 'Escribe una respuesta', codigo: 'SIN_RESPUESTA' });
                 }
-                if (!esRespuestaCorrecta(respuesta, eventoData.respuesta_correcta)) {
+                // Opción múltiple / verdad o mito: un solo intento, y se revela
+                // la respuesta para que igual aprendan algo
+                if (eventoData.tipo === 'opcion') {
+                    if (normalizar(respuesta) !== normalizar(eventoData.respuesta_correcta)) {
+                        await pool.query(
+                            `INSERT INTO progreso_eventos (usuario_id, evento_id, completado, fecha_completado)
+                             VALUES ($1, $2, false, NOW()) ON CONFLICT (usuario_id, evento_id) DO NOTHING`,
+                            [usuarioId, eventoId]
+                        );
+                        return res.status(400).json({
+                            error: '❌ No era esa',
+                            codigo: 'INCORRECTA_FINAL',
+                            respuesta_correcta: eventoData.respuesta_correcta,
+                        });
+                    }
+                } else if (!esRespuestaCorrecta(respuesta, eventoData.respuesta_correcta)) {
                     return res.status(400).json({ error: '❌ Respuesta incorrecta', codigo: 'INCORRECTA' });
                 }
             }

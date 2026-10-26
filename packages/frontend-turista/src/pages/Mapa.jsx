@@ -32,6 +32,7 @@ import LocationPrompt from '../components/LocationPrompt';
 import { dialogos } from '../data/dialogosMascota';
 import { imagenLigera } from '../utils/imagenes';
 import CuponGanado from '../components/CuponGanado';
+import { celebrar } from '../utils/celebrar';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const STORAGE_KEY  = 'concepcion_descubiertos';
@@ -732,7 +733,11 @@ const QuestLogPanel = ({ show, lugares, discoveredPlaces, onClose, onSelectLugar
 );
 
 // 🎯 Modal Evento
+const esVerdadOMito = (opciones) => Array.isArray(opciones) && opciones.length === 2
+  && opciones.map((o) => String(o).toLowerCase()).sort().join('|') === 'falso|verdadero';
+
 const ETIQUETA_RETO = {
+  opcion: 'QUIZ',
   pregunta: 'RETO DIARIO',
   pistas: 'BÚSQUEDA CON PISTAS',
   reto: 'RETO DIARIO',
@@ -740,15 +745,39 @@ const ETIQUETA_RETO = {
 };
 
 // distancia: metros hasta el lugar del reto (null sin ubicación)
-const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, distancia, enviando, error }) => {
+// Barra de la meta semanal: un objetivo de todo el pueblo, no una competencia
+const MetaPueblo = ({ meta }) => {
+  if (!meta) return null;
+  const pct = Math.min(100, Math.round((meta.completados / meta.meta) * 100));
+  return (
+    <div style={{ marginTop: 16, padding: '10px 12px', borderRadius: 12, background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.22)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(226,232,240,0.75)', marginBottom: 6 }}>
+        <span>🏘️ Meta del pueblo esta semana</span>
+        <b style={{ color: '#86efac' }}>{meta.completados}/{meta.meta}</b>
+      </div>
+      <div style={{ height: 6, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#22c55e,#86efac)', transition: 'width .6s ease' }} />
+      </div>
+      <div style={{ fontSize: 10.5, color: 'rgba(226,232,240,0.5)', marginTop: 5 }}>
+        {meta.completados >= meta.meta ? '¡Lo logramos entre todos! 🎉' : `${meta.participantes} exploradores ya aportaron. ¡Suma el tuyo!`}
+      </div>
+    </div>
+  );
+};
+
+const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, distancia, enviando, error, quizResultado, metaSemanal }) => {
   const esReunion = evento.tipo === 'reunion';
+  // Quiz / verdad o mito: se responde tocando una opción, con un solo intento
+  const esQuiz = evento.tipo === 'opcion' && Array.isArray(evento.opciones) && evento.opciones.length > 0;
+  const verdadOMito = esQuiz && esVerdadOMito(evento.opciones);
+  const quizCerrado = !!quizResultado || evento.fallado;
   const radio = (evento.radio || 50) + 20;
   // Las preguntas se responden desde cualquier parte del pueblo; solo los
   // puntos de encuentro exigen estar en el lugar.
   const enRango = !esReunion || (distancia !== null && distancia <= radio);
   const pistas = Array.isArray(evento.pistas) ? evento.pistas.filter(p => p?.texto) : [];
   const puedeResponder = !evento.completado && enRango && !enviando && (esReunion || respuesta.trim());
-  const etiqueta = evento.es_temporal ? 'EVENTO ESPECIAL' : (ETIQUETA_RETO[evento.tipo] || 'RETO DIARIO');
+  const etiqueta = evento.es_temporal ? 'EVENTO ESPECIAL' : verdadOMito ? '¿VERDAD O MITO?' : (ETIQUETA_RETO[evento.tipo] || 'RETO DIARIO');
 
   return (
   <motion.div
@@ -765,7 +794,7 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, di
       <div style={{ position: 'absolute', top: 0, left: 30, right: 30, height: 1, background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.7), transparent)' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{ width: 44, height: 44, flexShrink: 0, background: evento.completado ? 'linear-gradient(135deg, #16a34a, #14532d)' : 'linear-gradient(135deg, #b45309, #78350f)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 0 16px rgba(245,158,11,0.25)' }}>
-          {evento.completado ? '✅' : esReunion ? '📍' : evento.es_temporal ? '🎪' : '🎯'}
+          {evento.completado ? '✅' : esReunion ? '📍' : evento.es_temporal ? '🎪' : verdadOMito ? '🤔' : esQuiz ? '🧠' : '🎯'}
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="orb-font" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 8, letterSpacing: '.15em', marginBottom: 3 }}>{etiqueta} · +{evento.xp_recompensa || 50} XP</div>
@@ -802,7 +831,34 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, di
                   ? `📍 ¡Llegaste al punto de encuentro! (${Math.round(distancia)} m)`
                   : `🚶 Llega a ${evento.ubicacion_nombre || 'el punto de encuentro'} (estás a ${Math.round(distancia)} m).`}
           </div>
-          {!esReunion && (
+          {esQuiz && (
+            <div style={{ display: 'grid', gridTemplateColumns: verdadOMito ? '1fr 1fr' : '1fr', gap: 8, marginBottom: 14 }}>
+              {evento.opciones.map((opcion) => {
+                const esCorrecta = quizResultado && opcion === quizResultado.correcta;
+                const esElegida = quizResultado && opcion === quizResultado.elegida;
+                return (
+                  <motion.button key={opcion} type="button"
+                    whileTap={!quizCerrado && !enviando ? { scale: 0.96 } : {}}
+                    animate={esElegida && !esCorrecta ? { x: [0, -7, 7, -4, 4, 0] } : {}}
+                    onClick={() => !quizCerrado && !enviando && onResponder(opcion)}
+                    disabled={quizCerrado || enviando}
+                    style={{
+                      padding: verdadOMito ? '16px 10px' : '12px 14px', borderRadius: 14, textAlign: verdadOMito ? 'center' : 'left',
+                      fontSize: verdadOMito ? 16 : 14, fontWeight: 700, fontFamily: 'inherit', cursor: quizCerrado ? 'default' : 'pointer',
+                      color: esCorrecta ? '#bbf7d0' : esElegida ? '#fecaca' : '#f1f5f9',
+                      background: esCorrecta ? 'rgba(34,197,94,0.2)' : esElegida ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.05)',
+                      border: `1.5px solid ${esCorrecta ? '#22c55e' : esElegida ? '#ef4444' : 'rgba(251,191,36,0.28)'}`,
+                      opacity: quizCerrado && !esCorrecta && !esElegida ? 0.5 : 1,
+                    }}>
+                    {verdadOMito ? (opcion.toLowerCase().startsWith('v') ? '✅ ' : '❌ ') : ''}{opcion}
+                  </motion.button>
+                );
+              })}
+              {!quizCerrado && <div style={{ gridColumn: '1 / -1', fontSize: 11, color: 'rgba(226,232,240,0.5)', textAlign: 'center' }}>Tienes un solo intento. ¡Piénsalo bien!</div>}
+              {evento.fallado && !quizResultado && <div style={{ gridColumn: '1 / -1', fontSize: 12.5, color: '#fca5a5', textAlign: 'center' }}>Ya usaste tu intento en este reto. ¡Mañana hay más!</div>}
+            </div>
+          )}
+          {!esReunion && !esQuiz && (
             <input type="text" value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
               placeholder="Tu respuesta..." onKeyDown={(e) => e.key === 'Enter' && puedeResponder && onResponder()}
               enterKeyHint="send" autoComplete="off"
@@ -821,15 +877,16 @@ const EventoModal = ({ evento, respuesta, setRespuesta, onResponder, onClose, di
       )}
 
       <div style={{ display: 'flex', gap: 10, marginTop: evento.completado ? 12 : 0 }}>
-        {!evento.completado && (
+        {!evento.completado && !esQuiz && (
           <motion.button whileHover={puedeResponder ? { scale: 1.03 } : {}} whileTap={puedeResponder ? { scale: 0.97 } : {}} onClick={onResponder} disabled={!puedeResponder}
             style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #14532d)', color: 'white', padding: '12px 0', borderRadius: 13, fontWeight: 700, fontSize: 13, border: '1px solid rgba(34,197,94,0.4)', cursor: puedeResponder ? 'pointer' : 'not-allowed', letterSpacing: '.07em', fontFamily: "'Orbitron',monospace", boxShadow: '0 0 18px rgba(34,197,94,0.18)', opacity: puedeResponder ? 1 : 0.45 }}>
             {enviando ? '...' : esReunion ? 'ESTOY AQUÍ' : 'RESPONDER'}
           </motion.button>
         )}
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClose}
-          style={{ flex: 1, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', padding: '12px 0', borderRadius: 13, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>{evento.completado ? 'CERRAR' : 'CANCELAR'}</motion.button>
+          style={{ flex: 1, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', padding: '12px 0', borderRadius: 13, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>{evento.completado || quizCerrado ? 'CERRAR' : 'CANCELAR'}</motion.button>
       </div>
+      <MetaPueblo meta={metaSemanal} />
     </motion.div>
   </motion.div>
   );
@@ -1021,6 +1078,14 @@ function Mapa() {
   // mascota, que queda detrás del fondo oscuro del modal y no se veía
   const [errorReto, setErrorReto]                   = useState('');
   const [cuponesGanados, setCuponesGanados]         = useState([]);
+  // Resultado de un quiz fallado: { elegida, correcta } para pintar las opciones
+  const [quizResultado, setQuizResultado]           = useState(null);
+  // Meta del pueblo: retos completados entre todos esta semana
+  const { data: metaSemanal } = useQuery({
+    queryKey: ['meta-semanal'],
+    queryFn: async () => (await api.get('/eventos/meta-semanal')).data,
+    staleTime: 2 * 60 * 1000,
+  });
   const [userAvatar, setUserAvatar]                 = useState(null);
   const [publicGuides, setPublicGuides]             = useState([]);
   const [selectedGuia, setSelectedGuia]             = useState(null);
@@ -1254,6 +1319,7 @@ function Mapa() {
         setLastVisitedPlace(lugar);
         setTimeout(() => setLastVisitedPlace(null), 3000);
         setXpBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 10 });
+        celebrar(subioNivel ? 'grande' : 'normal');
         if (subioNivel) {
           setShowLevelUp(true);
           setTimeout(() => setShowLevelUp(false), 2500);
@@ -1410,6 +1476,8 @@ function Mapa() {
         if (r.data.codigos_descuento?.length) setTimeout(() => setCuponesGanados(r.data.codigos_descuento), 1200);
         // Antes el XP y el nivel del HUD no se actualizaban tras ganar un reto
         const subioNivel = (r.data.nivel_actual || playerLevel) > playerLevel;
+        celebrar(subioNivel ? 'grande' : 'normal');
+        queryClient.invalidateQueries({ queryKey: ['meta-semanal'] });
         await cargarPerfilYDescubrimientos();
         if (subioNivel) {
           setShowLevelUp(true);
@@ -1422,7 +1490,13 @@ function Mapa() {
     } catch (error) {
       // Antes cualquier error se mostraba como "respuesta incorrecta"
       const datos = error.response?.data;
-      if (datos?.codigo === 'INCORRECTA') {
+      if (datos?.codigo === 'INCORRECTA_FINAL') {
+        // Quiz / verdad o mito: era su único intento; se muestra la correcta
+        setQuizResultado({ elegida: respuesta, correcta: datos.respuesta_correcta });
+        setErrorReto(`La respuesta era: ${datos.respuesta_correcta}. ¡Mañana hay más!`);
+        mostrarMensajeGuia(dialogos.retoIncorrecto(), 'pensativo', 5000);
+        queryClient.invalidateQueries({ queryKey: ['eventos-activos'] });
+      } else if (datos?.codigo === 'INCORRECTA') {
         setErrorReto('❌ Esa no es. ¡Piénsalo y vuelve a intentar!');
         mostrarMensajeGuia(dialogos.retoIncorrecto(), 'pensativo', 5000);
       } else {
@@ -1442,20 +1516,36 @@ function Mapa() {
 
   // Los retos se generan en las mismas coordenadas de los lugares (parque,
   // casa natal...) y su marcador quedaba debajo del del lugar: al tocarlo se
-  // abría el lugar y el reto no se podía responder. Si un reto cae a menos
-  // de 25 m de otro marcador, se corre un poco hacia un lado.
-  const desplazamientoRetos = useMemo(() => {
-    const HUECOS = [[30, -34], [-30, -34], [0, -58], [38, 6], [-38, 6], [0, 30]];
+  // abría el lugar y el reto no se podía responder. Cada reto se ubica en un
+  // punto libre: si tiene otro marcador a menos de 28 m, se busca alrededor
+  // (anillos de 30 y 55 m) el primer punto sin nada cerca. Se hace en metros
+  // y no en píxeles para que no choque con marcadores vecinos al moverlo.
+  const posicionRetos = useMemo(() => {
+    const SEPARACION = 28;
     const ocupados = [
       ...lugares.map((l) => [parseFloat(l.latitud), parseFloat(l.longitud)]),
       ...(lugarEspecial ? [[parseFloat(lugarEspecial.latitud), parseFloat(lugarEspecial.longitud)]] : []),
     ];
+    const libre = (lat, lng) => ocupados.every(([a, b]) => calcularDistancia(lat, lng, a, b) >= SEPARACION);
     const resultado = {};
     eventos.forEach((ev) => {
       const lat = parseFloat(ev.latitud), lng = parseFloat(ev.longitud);
-      const cercanos = ocupados.filter(([a, b]) => calcularDistancia(lat, lng, a, b) < 25).length;
-      if (cercanos > 0) resultado[ev.id] = HUECOS[(cercanos - 1) % HUECOS.length];
-      ocupados.push([lat, lng]);
+      let punto = [lat, lng];
+      if (!libre(lat, lng)) {
+        const candidatos = [];
+        for (const radio of [30, 55, 80]) {
+          for (let i = 0; i < 8; i++) {
+            const angulo = (Math.PI / 4) * i + (radio === 55 ? Math.PI / 8 : 0);
+            candidatos.push([
+              lat + (radio * Math.sin(angulo)) / 111320,
+              lng + (radio * Math.cos(angulo)) / (111320 * Math.cos((lat * Math.PI) / 180)),
+            ]);
+          }
+        }
+        punto = candidatos.find(([a, b]) => libre(a, b)) || candidatos[0];
+      }
+      resultado[ev.id] = punto;
+      ocupados.push(punto);
     });
     return resultado;
   }, [eventos, lugares, lugarEspecial]);
@@ -1835,17 +1925,22 @@ function Mapa() {
         )}
 
         {filtros.retos && eventos.map((evento) => (
-          <Marker key={`ev_${evento.id}`} longitude={parseFloat(evento.longitud)} latitude={parseFloat(evento.latitud)}
-            offset={desplazamientoRetos[evento.id] || [0, 0]} style={{ zIndex: 1600 }}
-            onClick={(e) => { e.originalEvent.stopPropagation(); setRespuestaEvento(''); setErrorReto(''); setEventoSeleccionado(evento); }}>
-            {evento.completado ? (
+          <Marker key={`ev_${evento.id}`}
+            longitude={(posicionRetos[evento.id] || [0, parseFloat(evento.longitud)])[1]}
+            latitude={(posicionRetos[evento.id] || [parseFloat(evento.latitud)])[0]}
+            style={{ zIndex: 1600 }}
+            onClick={(e) => { e.originalEvent.stopPropagation(); setRespuestaEvento(''); setErrorReto(''); setQuizResultado(null); setEventoSeleccionado(evento); }}>
+            {evento.fallado ? (
+              <div title="Ya usaste tu intento"
+                style={{ width: 38, height: 38, background: 'radial-gradient(circle at 35% 35%, #94a3b8, #475569)', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, cursor: 'pointer', opacity: 0.7, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>🔒</div>
+            ) : evento.completado ? (
               <div title="Reto completado"
                 style={{ width: 38, height: 38, background: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, cursor: 'pointer', opacity: 0.75, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>✅</div>
             ) : (
               <motion.div className="cem-flota"
                 title={evento.titulo}
                 style={{ width: 44, height: 44, background: 'radial-gradient(circle at 35% 35%, #fbbf24, #b45309)', borderRadius: '50%', border: '2px solid rgba(251,191,36,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', boxShadow: '0 0 24px rgba(251,191,36,0.55), 0 4px 14px rgba(0,0,0,0.5)' }}>
-                {evento.es_temporal ? '🎪' : evento.tipo === 'reunion' ? '📍' : '❓'}
+                {evento.es_temporal ? '🎪' : evento.tipo === 'reunion' ? '📍' : evento.tipo === 'opcion' ? (esVerdadOMito(evento.opciones) ? '🤔' : '🧠') : '❓'}
               </motion.div>
             )}
           </Marker>
@@ -1937,8 +2032,9 @@ function Mapa() {
         {eventoSeleccionado && (
           <EventoModal evento={eventoSeleccionado} respuesta={respuestaEvento} error={errorReto}
             setRespuesta={(valor) => { setRespuestaEvento(valor); setErrorReto(''); }}
-            onResponder={() => handleCompletarEvento(eventoSeleccionado, respuestaEvento)}
-            onClose={() => { setEventoSeleccionado(null); setRespuestaEvento(''); setErrorReto(''); }}
+            onResponder={(opcion) => handleCompletarEvento(eventoSeleccionado, typeof opcion === 'string' ? opcion : respuestaEvento)}
+            quizResultado={quizResultado} metaSemanal={metaSemanal}
+            onClose={() => { setEventoSeleccionado(null); setRespuestaEvento(''); setErrorReto(''); setQuizResultado(null); }}
             enviando={enviandoReto}
             distancia={userPosition
               ? calcularDistancia(userPosition.lat, userPosition.lng, parseFloat(eventoSeleccionado.latitud), parseFloat(eventoSeleccionado.longitud))

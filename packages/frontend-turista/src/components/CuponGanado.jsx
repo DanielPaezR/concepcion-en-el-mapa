@@ -1,14 +1,17 @@
 // components/CuponGanado.jsx
 // Aviso de cupón ganado al llegar a nivel 3 o 5. Antes el servidor generaba
 // el código pero la app nunca se lo mostraba al turista.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Gift, Copy, Check } from 'lucide-react';
+import { celebrar } from '../utils/celebrar';
 
 export default function CuponGanado({ codigos, onClose }) {
   const navigate = useNavigate();
   const [copiado, setCopiado] = useState('');
+  // Ganar un cupón es de los mejores momentos del juego
+  useEffect(() => { if (codigos?.length) celebrar('grande'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!codigos?.length) return null;
 
   const copiar = async (codigo) => {

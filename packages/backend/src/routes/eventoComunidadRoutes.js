@@ -7,6 +7,8 @@ const upload = require('../middleware/upload');
 
 // Pública: eventos vigentes para el mapa del turista
 router.get('/', eventoComunidadController.listarActivos);
+// "¡Voy!": cualquier persona con sesión (también el usuario anónimo del juego)
+router.post('/:id(\\d+)/voy', authMiddleware, eventoComunidadController.alternarVoy);
 
 // Gestión: admin, guías (con permiso, se valida en el controlador) y comercios
 router.use(authMiddleware);

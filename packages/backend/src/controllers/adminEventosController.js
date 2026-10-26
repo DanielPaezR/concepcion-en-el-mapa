@@ -1,6 +1,21 @@
 const pool = require('../config/database');
 const { generarEventosDiarios } = require('../jobs/generarEventos');
 
+// Opciones de un reto de opción múltiple: entre 2 y 6, sin repetir, y la
+// respuesta correcta tiene que ser una de ellas
+const normalizarTexto = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+function validarOpciones(opcionesEnviadas, respuesta) {
+    const opciones = (Array.isArray(opcionesEnviadas) ? opcionesEnviadas : [])
+        .map((o) => String(o || '').trim())
+        .filter(Boolean);
+    if (opciones.length < 2 || opciones.length > 6) return { error: 'Pon entre 2 y 6 opciones' };
+    if (new Set(opciones.map(normalizarTexto)).size !== opciones.length) return { error: 'Hay opciones repetidas' };
+    if (!opciones.some((o) => normalizarTexto(o) === normalizarTexto(respuesta))) {
+        return { error: 'La respuesta correcta tiene que ser una de las opciones' };
+    }
+    return { opciones };
+}
+
 // Una pregunta o ubicación que ya se usó en retos tiene historial
 // (eventos_diarios / progreso de los turistas) y no se puede borrar sin
 // perderlo: en ese caso se desactiva y se retira de los retos vigentes.
@@ -72,11 +87,19 @@ const adminEventosController = {
             if (es_temporal && (!fecha_inicio || !fecha_fin)) {
                 return res.status(400).json({ error: 'Un evento temporal necesita fecha de inicio y de fin' });
             }
+            // Opción múltiple / verdad o mito: al menos 2 opciones y la
+            // respuesta tiene que ser una de ellas
+            let opciones = null;
+            if (tipo === 'opcion') {
+                const resultado = validarOpciones(req.body.opciones, respuesta);
+                if (resultado.error) return res.status(400).json({ error: resultado.error });
+                opciones = resultado.opciones;
+            }
             const result = await pool.query(`
                 INSERT INTO bancos_preguntas
                     (pregunta, respuesta, dificultad, tipo, puntos, ubicacion_id, pistas, duracion,
-                     es_temporal, fecha_inicio, fecha_fin, evento_temporal_tipo, requiere_visitas, lugares_requeridos)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                     es_temporal, fecha_inicio, fecha_fin, evento_temporal_tipo, requiere_visitas, lugares_requeridos, opciones)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                 RETURNING *
             `, [
                 pregunta.trim(), respuesta.trim(), dificultad || 1, tipo || 'pregunta', puntos || 50,
@@ -84,6 +107,7 @@ const adminEventosController = {
                 !!es_temporal, es_temporal ? fecha_inicio : null, es_temporal ? fecha_fin : null,
                 es_temporal ? (evento_temporal_tipo || null) : null, requiere_visitas || 1,
                 lugares_requeridos ? JSON.stringify(lugares_requeridos) : null,
+                opciones ? JSON.stringify(opciones) : null,
             ]);
             res.json(result.rows[0]);
         } catch (error) {
@@ -154,6 +178,13 @@ const adminEventosController = {
             if (lugares_requeridos !== undefined) {
                 updateFields.push(`lugares_requeridos = $${paramIndex++}`);
                 values.push(JSON.stringify(lugares_requeridos));
+            }
+            if (req.body.opciones !== undefined) {
+                const actual = await pool.query('SELECT respuesta FROM bancos_preguntas WHERE id = $1', [id]);
+                const resultado = validarOpciones(req.body.opciones, respuesta ?? actual.rows[0]?.respuesta);
+                if (resultado.error) return res.status(400).json({ error: resultado.error });
+                updateFields.push(`opciones = $${paramIndex++}`);
+                values.push(JSON.stringify(resultado.opciones));
             }
 
             if (updateFields.length === 0) {

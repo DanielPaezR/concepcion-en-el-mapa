@@ -7,6 +7,7 @@ router.use(authMiddleware);
 
 router.get('/mis-descubrimientos', descubrimientoController.getMisDescubrimientos);
 router.get('/mis-codigos', descubrimientoController.getMisCodigos);
+router.get('/resumen-hoy', descubrimientoController.getResumenHoy);
 router.post('/registrar', descubrimientoController.registrar);
 
 module.exports = router;

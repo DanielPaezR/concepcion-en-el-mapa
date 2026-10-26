@@ -26,6 +26,37 @@ const descubrimientoController = {
         }
     },
 
+    // Resumen de hoy (hora de Colombia) para "Mi día en Concepción"
+    async getResumenHoy(req, res) {
+        try {
+            const DESDE = `date_trunc('day', NOW() AT TIME ZONE 'America/Bogota') AT TIME ZONE 'America/Bogota'`;
+            const [lugares, retos, usuario, cupones] = await Promise.all([
+                pool.query(`
+                    SELECT l.nombre FROM descubrimientos d JOIN lugares l ON l.id = d.lugar_id
+                    WHERE d.usuario_id = $1 AND d.fecha_descubrimiento >= ${DESDE}
+                    ORDER BY d.fecha_descubrimiento`, [req.user.id]),
+                pool.query(`
+                    SELECT COUNT(*)::int AS n, COALESCE(SUM(e.xp_recompensa), 0)::int AS xp
+                    FROM progreso_eventos pe JOIN eventos_diarios e ON e.id = pe.evento_id
+                    WHERE pe.usuario_id = $1 AND pe.completado = true AND pe.fecha_completado >= ${DESDE}`, [req.user.id]),
+                pool.query('SELECT nombre, COALESCE(nivel, 1) AS nivel, COALESCE(xp_total, 0) AS xp_total FROM usuarios WHERE id = $1', [req.user.id]),
+                pool.query(`SELECT COUNT(*)::int AS n FROM codigos_descuento WHERE usuario_id = $1 AND fecha_creacion >= ${DESDE}`, [req.user.id]),
+            ]);
+            res.json({
+                lugares: lugares.rows.map((r) => r.nombre),
+                retos: retos.rows[0].n,
+                // 50 XP por lugar descubierto + lo de los retos
+                xp: lugares.rows.length * 50 + retos.rows[0].xp,
+                cupones: cupones.rows[0].n,
+                nivel: usuario.rows[0]?.nivel || 1,
+                xp_total: usuario.rows[0]?.xp_total || 0,
+            });
+        } catch (error) {
+            console.error('Error en resumen de hoy:', error);
+            res.status(500).json({ error: 'No se pudo armar tu resumen' });
+        }
+    },
+
     // Cupones de descuento del turista (antes no había cómo verlos: el
     // código se generaba pero la app nunca se lo mostraba)
     async getMisCodigos(req, res) {

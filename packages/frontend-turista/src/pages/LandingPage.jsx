@@ -17,6 +17,7 @@ import { PatoBase, ojosConfig } from '../components/CompaneroVirtual';
 import api from '../services/api';
 import { imagenLigera } from '../utils/imagenes';
 import { categoriaComercio } from '../data/comercios';
+import { BotonVoy } from '../components/MarcadoresExtra';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 // Parque principal de Concepción, inclinado como se ve en el juego
@@ -176,6 +177,12 @@ const CSS = `
 .lp-evento h3{ font-size:15px; color:white; }
 .lp-evento p{ font-size:13px; color:var(--suave); margin-top:2px; line-height:1.45;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.lp-meta-pueblo{ display:block; padding:16px; border-radius:20px; color:white;
+  background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(34,197,94,.04)); border:1px solid rgba(34,197,94,.3); }
+.lp-meta-numero{ font-size:30px; font-weight:900; color:#86EFAC; margin-top:6px; line-height:1; }
+.lp-meta-numero span{ font-size:14px; font-weight:600; color:var(--suave); margin-left:4px; }
+.lp-meta-barra{ height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; margin:12px 0 8px; }
+.lp-meta-barra i{ display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,#22C55E,#86EFAC); }
 .lp-vacio{ margin-top:16px; padding:18px; border-radius:18px; text-align:center; color:var(--suave); font-size:14px;
   background:var(--tarjeta); border:1px dashed var(--borde); }
 
@@ -244,10 +251,16 @@ function useDatosDelPueblo() {
     queryFn: async () => (await api.get('/eventos-comunidad')).data.eventos || [],
     staleTime: 5 * 60 * 1000,
   });
+  const meta = useQuery({
+    queryKey: ['meta-semanal'],
+    queryFn: async () => (await api.get('/eventos/meta-semanal')).data,
+    staleTime: 2 * 60 * 1000,
+  });
   return {
     comercios: comercios.data || [],
     anuncios: anuncios.data || [],
     eventos: eventos.data || [],
+    meta: meta.data,
     cargandoComercios: comercios.isLoading,
     cargandoAnuncios: anuncios.isLoading,
   };
@@ -307,7 +320,7 @@ export default function LandingPage() {
   const heroRef = useRef(null);
   const finalRef = useRef(null);
   const [mostrarFijo, setMostrarFijo] = useState(false);
-  const { comercios, anuncios, eventos, cargandoComercios, cargandoAnuncios } = useDatosDelPueblo();
+  const { comercios, anuncios, eventos, meta, cargandoComercios, cargandoAnuncios } = useDatosDelPueblo();
 
   // El botón fijo de abajo aparece cuando no se ve ni el botón de la portada
   // ni el del final
@@ -485,6 +498,7 @@ export default function LandingPage() {
                       <h3>{e.titulo}</h3>
                       {(e.lugar_texto || e.comercio_nombre) && <div className="lp-meta">📍 {e.lugar_texto || e.comercio_nombre}</div>}
                       {e.descripcion && <p>{e.descripcion}</p>}
+                      <BotonVoy evento={e} />
                     </div>
                   </div>
                 );
@@ -492,6 +506,27 @@ export default function LandingPage() {
             </div>
           )}
         </section>
+
+        {/* ── Meta del pueblo: un objetivo de todos, no una competencia ── */}
+        {meta && (
+          <section className="lp-seccion" style={{ paddingBottom: 0 }}>
+            <Link to={destino} className="lp-meta-pueblo">
+              <div className="lp-cabecera">
+                <div>
+                  <div className="lp-etiqueta">🏘️ Meta del pueblo esta semana</div>
+                  <div className="lp-meta-numero">{meta.completados}<span>/{meta.meta} retos</span></div>
+                </div>
+                <span className="lp-ver">Sumar el mío <ChevronRight size={16} /></span>
+              </div>
+              <div className="lp-meta-barra"><i style={{ width: `${Math.min(100, Math.round((meta.completados / meta.meta) * 100))}%` }} /></div>
+              <div className="lp-meta">
+                {meta.completados >= meta.meta
+                  ? '¡Lo logramos entre todos! 🎉 Sigue sumando.'
+                  : `${meta.participantes} ${meta.participantes === 1 ? 'explorador ya aportó' : 'exploradores ya aportaron'}. Entre todos completamos los retos del pueblo.`}
+              </div>
+            </Link>
+          </section>
+        )}
 
         <section id="como" className="lp-seccion">
           <div className="lp-etiqueta"><Footprints size={13} style={{ verticalAlign: '-2px' }} /> Cómo se juega</div>

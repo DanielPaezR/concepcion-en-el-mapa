@@ -4,8 +4,55 @@
 // solo aparecen cuando el explorador pasa cerca.
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Share2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import api from '../services/api';
 import { imagenLigera } from '../utils/imagenes';
+import { celebrar } from '../utils/celebrar';
+import { compartir } from '../utils/compartir';
+
+// "¡Voy!" de un evento del pueblo: muestra cuántos van (prueba social, sin
+// exponer quiénes) y deja marcar o desmarcar la asistencia.
+export const BotonVoy = ({ evento, claro = false }) => {
+  const queryClient = useQueryClient();
+  const [estado, setEstado] = useState({ yoVoy: !!evento.yo_voy, asistentes: Number(evento.asistentes) || 0 });
+  const [enviando, setEnviando] = useState(false);
+  useEffect(() => {
+    setEstado({ yoVoy: !!evento.yo_voy, asistentes: Number(evento.asistentes) || 0 });
+  }, [evento.id, evento.yo_voy, evento.asistentes]);
+
+  const alternar = async (e) => {
+    e.stopPropagation();
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      const { data } = await api.post(`/eventos-comunidad/${evento.id}/voy`);
+      setEstado({ yoVoy: data.yo_voy, asistentes: data.asistentes });
+      if (data.yo_voy) celebrar('normal');
+      queryClient.invalidateQueries({ queryKey: ['eventos-comunidad'] });
+    } catch { /* sin conexión: se deja como estaba */ } finally {
+      setEnviando(false);
+    }
+  };
+
+  const { yoVoy, asistentes } = estado;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+      <button type="button" onClick={alternar} disabled={enviando}
+        style={{
+          padding: '8px 14px', borderRadius: 12, fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+          border: `1.5px solid ${yoVoy ? '#22c55e' : '#f472b6'}`,
+          background: yoVoy ? 'rgba(34,197,94,0.18)' : 'linear-gradient(135deg,#db2777,#7c3aed)',
+          color: yoVoy ? '#86efac' : 'white', opacity: enviando ? 0.6 : 1,
+        }}>
+        {yoVoy ? '✓ Voy' : '🙋 ¡Voy!'}
+      </button>
+      <span style={{ fontSize: 12, color: claro ? '#64748b' : 'rgba(226,232,240,0.7)' }}>
+        {asistentes === 0 ? 'Sé el primero en apuntarte' : asistentes === 1 ? '1 persona va' : `${asistentes} personas van`}
+      </span>
+    </div>
+  );
+};
 
 // Distancia a la que se "activa" una curiosidad
 export const RADIO_CURIOSIDADES_M = 150;
@@ -99,6 +146,7 @@ export const EventoComunidadPopupContent = ({ evento }) => (
         {evento.descripcion}
       </div>
     )}
+    <BotonVoy evento={evento} />
   </div>
 );
 
@@ -143,6 +191,15 @@ export const CuriosidadModal = ({ curiosidad, onClose }) => (
             <div style={{ fontSize: 10, color: '#fcd34d', fontWeight: 700, letterSpacing: '.12em', marginBottom: 4 }}>💡 ¿SABÍAS QUE...?</div>
             <h3 style={{ color: '#f8fafc', fontWeight: 700, fontSize: 18, margin: '0 0 10px' }}>{curiosidad.titulo}</h3>
             <p style={{ color: 'rgba(226,232,240,0.85)', fontSize: 14, lineHeight: 1.65, margin: 0, whiteSpace: 'pre-line' }}>{curiosidad.descripcion}</p>
+            {/* Lo que sorprende se cuenta: esto lo vuelve fácil */}
+            <button type="button"
+              onClick={() => compartir({
+                titulo: curiosidad.titulo,
+                texto: `💡 ¿Sabías que...? ${curiosidad.titulo}. Lo descubrí jugando en Concepción, Antioquia 🦆`,
+              })}
+              style={{ marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 0', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', color: '#1a1300', border: 0, background: 'linear-gradient(135deg,#F6C453,#FFB800)' }}>
+              <Share2 size={16} /> Cuéntaselo a alguien
+            </button>
           </div>
         </motion.div>
       </motion.div>

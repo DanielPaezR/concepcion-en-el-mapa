@@ -4,8 +4,9 @@ import {
     User, Settings, Globe, LogOut, X, ChevronRight, LogIn,
     Award, MapPin, Calendar, Shield, Star, Zap, Crown,
     Wifi, WifiOff, RefreshCw, UserCircle, Medal, Camera,
-    Heart, MessageCircle, Share2, Bell, TrendingUp, Megaphone, ListChecks, Home, Gift
+    Heart, MessageCircle, Share2, Bell, TrendingUp, Megaphone, ListChecks, Home, Gift, Sun, Volume2, VolumeX
 } from 'lucide-react';
+import { sonidoActivo, activarSonido, celebrar } from '../utils/celebrar';
 import { useNavigate } from 'react-router-dom';
 import { getTuristaActual, logoutTurista } from '../services/auth';
 import api from '../services/api';
@@ -16,6 +17,7 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
     const [ultimaInsignia, setUltimaInsignia] = useState(null);
+    const [sonido, setSonido] = useState(sonidoActivo);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -106,6 +108,14 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
             onClick: () => navigate('/landing')
         },
         {
+            icon: <Sun className="w-5 h-5" />,
+            label: 'Mi día en Concepción',
+            desc: 'Lo que exploraste hoy, para compartir',
+            color: 'text-orange-600',
+            bg: 'bg-orange-50',
+            onClick: () => navigate('/mi-dia')
+        },
+        {
             icon: <Gift className="w-5 h-5" />,
             label: 'Mis cupones',
             desc: 'Tus descuentos y dónde usarlos',
@@ -137,6 +147,14 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
             color: 'text-amber-600',
             bg: 'bg-amber-50',
             onClick: () => navigate('/landing')
+        },
+        {
+            icon: <Sun className="w-5 h-5" />,
+            label: 'Mi día en Concepción',
+            desc: 'Lo que exploraste hoy, para compartir',
+            color: 'text-orange-600',
+            bg: 'bg-orange-50',
+            onClick: () => navigate('/mi-dia')
         },
         {
             icon: <Gift className="w-5 h-5" />,
@@ -372,6 +390,19 @@ export default function MenuExplorador({ nivel, xp, lugaresDescubiertos, totalLu
 
                             {/* Sección de idioma y configuración */}
                             <div className="border-t border-gray-100 p-4 space-y-4">
+                                {/* Sonidos de las celebraciones: apagados por defecto */}
+                                <button
+                                    onClick={() => { const nuevo = !sonido; activarSonido(nuevo); setSonido(nuevo); if (nuevo) celebrar('normal'); }}
+                                    className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-50"
+                                >
+                                    <span className="flex items-center gap-2 text-sm text-gray-700 font-medium">
+                                        {sonido ? <Volume2 className="w-4 h-4 text-green-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
+                                        Sonidos de celebración
+                                    </span>
+                                    <span className={`w-10 h-6 rounded-full p-0.5 transition-colors ${sonido ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                        <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${sonido ? 'translate-x-4' : ''}`} />
+                                    </span>
+                                </button>
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Globe className="w-4 h-4 text-gray-500" />
