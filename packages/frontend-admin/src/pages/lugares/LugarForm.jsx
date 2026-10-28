@@ -24,6 +24,24 @@ export default function LugarForm() {
     horario: ''
   });
 
+  // Fotos extra (hasta 4, además de la portada): { url } si ya estaba
+  // guardada, o { archivo, preview } si es nueva
+  const [extras, setExtras] = useState([]);
+  const MAX_EXTRAS = 4;
+  const extrasDropzone = useDropzone({
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'] },
+    maxSize: 5 * 1024 * 1024,
+    multiple: true,
+    onDrop: (aceptados, rechazados) => {
+      if (rechazados.length) toast.error('Algunas fotos no se agregaron: deben ser imágenes de máximo 5MB');
+      setExtras((prev) => {
+        const libres = MAX_EXTRAS - prev.length;
+        if (aceptados.length > libres) toast.error(`Solo caben ${MAX_EXTRAS} fotos extra (5 en total con la portada)`);
+        return [...prev, ...aceptados.slice(0, Math.max(0, libres)).map((archivo) => ({ archivo, preview: URL.createObjectURL(archivo) }))];
+      });
+    },
+  });
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'] },
     maxSize: 5 * 1024 * 1024,
@@ -58,6 +76,7 @@ export default function LugarForm() {
         horario: lugar.horario || ''
       });
       if (lugar.imagen_url) setImagenPreview(lugar.imagen_url);
+      setExtras((Array.isArray(lugar.imagenes_extra) ? lugar.imagenes_extra : []).map((url) => ({ url })));
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al cargar el lugar');
@@ -93,6 +112,9 @@ export default function LugarForm() {
     if (archivoSeleccionado) {
       formDataToSend.append('imagen', archivoSeleccionado);
     }
+    // Fotos extra: las ya guardadas que se conservan + las nuevas
+    formDataToSend.append('imagenes_extra_actuales', JSON.stringify(extras.filter((e) => e.url).map((e) => e.url)));
+    extras.filter((e) => e.archivo).forEach((e) => formDataToSend.append('imagenes', e.archivo));
     
     try {
       if (id) {
@@ -242,7 +264,7 @@ export default function LugarForm() {
 
           {/* Zona de subida de imágenes */}
           <div className="sm:col-span-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Imagen del lugar</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Foto de portada</label>
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
@@ -274,6 +296,42 @@ export default function LugarForm() {
                     JPG, PNG, GIF, WEBP (máx 5MB)
                   </p>
                 </>
+              )}
+            </div>
+          </div>
+
+          <div className="sm:col-span-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Más fotos <span className="text-gray-400 font-normal">({extras.length}/{MAX_EXTRAS}, hasta 5 en total con la portada)</span>
+            </label>
+            <p className="text-xs text-gray-500 mb-2">Se ven en la galería del lugar, en la app del turista.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {extras.map((foto, i) => (
+                <div key={foto.url || foto.preview} className="relative aspect-[4/3] rounded-lg overflow-hidden bg-gray-100">
+                  <img src={foto.url || foto.preview} alt={`Foto ${i + 2}`} className="w-full h-full object-cover" />
+                  {foto.archivo && (
+                    <span className="absolute bottom-1 left-1 bg-emerald-600 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">Nueva</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setExtras((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    title="Quitar foto"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {extras.length < MAX_EXTRAS && (
+                <div
+                  {...extrasDropzone.getRootProps()}
+                  className={`aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center cursor-pointer transition-colors p-2
+                    ${extrasDropzone.isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'}`}
+                >
+                  <input {...extrasDropzone.getInputProps()} />
+                  <CloudArrowUpIcon className="h-8 w-8 text-gray-400" />
+                  <span className="text-xs text-gray-600 mt-1">Agregar fotos</span>
+                </div>
               )}
             </div>
           </div>

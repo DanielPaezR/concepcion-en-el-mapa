@@ -15,6 +15,7 @@ import { dialogos } from '../data/dialogosMascota';
 import { useState, useEffect } from 'react';
 import { getTuristaActual } from '../services/auth';
 import toast from 'react-hot-toast';
+import { imagenLigera } from '../utils/imagenes';
 
 export default function LugarDetalle() {
   const { id } = useParams();
@@ -112,9 +113,13 @@ export default function LugarDetalle() {
     toggleFavoritoMutation.mutate();
   };
 
-  const imagenes = lugar?.imagen_url 
-    ? [lugar.imagen_url, ...(lugar.imagenes_extra || [])] 
+  // Portada + hasta 4 fotos extra (si no hay portada, se usa la primera extra)
+  const fotosLugar = [lugar?.imagen_url, ...(Array.isArray(lugar?.imagenes_extra) ? lugar.imagenes_extra : [])].filter(Boolean);
+  const imagenes = fotosLugar.length > 0
+    ? fotosLugar
     : ['https://images.unsplash.com/photo-1589308078059-be1415eab4c3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80'];
+  const fotoActual = imagenes.includes(selectedImage) ? selectedImage : imagenes[0];
+  const siguienteFoto = () => setSelectedImage(imagenes[(imagenes.indexOf(fotoActual) + 1) % imagenes.length]);
 
   const getTipoIcono = (tipo) => {
     const iconos = {
@@ -230,16 +235,27 @@ export default function LugarDetalle() {
 
       {/* Header con imagen de fondo y navegación */}
       <div className="relative h-96 bg-gray-900">
-        <motion.img 
-          initial={{ scale: 1.1 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 10 }}
-          src={selectedImage || lugar.imagen_url || imagenes[0]} 
+        <motion.img
+          key={fotoActual}
+          initial={{ scale: 1.1, opacity: 0.4 }}
+          animate={{ scale: 1, opacity: 0.9 }}
+          transition={{ scale: { duration: 10 }, opacity: { duration: 0.4 } }}
+          src={imagenLigera(fotoActual, 1200)}
           alt={lugar.nombre}
-          className="w-full h-full object-cover opacity-90"
+          onClick={imagenes.length > 1 ? siguienteFoto : undefined}
+          className={`w-full h-full object-cover ${imagenes.length > 1 ? 'cursor-pointer' : ''}`}
         />
-        
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
+
+        {/* Puntos de la galería: tocar la foto pasa a la siguiente */}
+        {imagenes.length > 1 && (
+          <div className="absolute top-28 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+            {imagenes.map((img) => (
+              <span key={img} className={`h-1.5 rounded-full transition-all ${img === fotoActual ? 'w-5 bg-white' : 'w-1.5 bg-white/50'}`} />
+            ))}
+          </div>
+        )}
         
         <motion.button
           initial={{ x: -20, opacity: 0 }}
@@ -315,10 +331,10 @@ export default function LugarDetalle() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedImage(img)}
-                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 
-                            ${selectedImage === img ? 'border-yellow-500' : 'border-transparent'}`}
+                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2
+                            ${fotoActual === img ? 'border-yellow-500' : 'border-transparent'}`}
                 >
-                  <img src={img} alt={`${lugar.nombre} ${index + 1}`} className="w-full h-full object-cover" />
+                  <img src={imagenLigera(img, 160)} alt={`${lugar.nombre} ${index + 1}`} loading="lazy" className="w-full h-full object-cover" />
                 </motion.button>
               ))}
             </div>

@@ -15,8 +15,10 @@ router.get('/:id', lugarController.getById);
 router.use(authMiddleware);
 router.use(requireRole('admin'));
 router.use(requirePermiso('lugares'));
-router.post('/', upload.single('imagen'), lugarController.create);
-router.put('/:id', upload.single('imagen'), lugarController.update);
+// Portada ("imagen") + hasta 4 fotos extra ("imagenes"): 5 por lugar
+const fotosLugar = upload.fields([{ name: 'imagen', maxCount: 1 }, { name: 'imagenes', maxCount: 4 }]);
+router.post('/', fotosLugar, lugarController.create);
+router.put('/:id', fotosLugar, lugarController.update);
 router.delete('/:id', lugarController.delete);
 
 module.exports = router;
