@@ -12,6 +12,25 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Teselas del mapa. Antes eran de CARTO, que ahora exige una API key y
+// devolvía cada tesela con la marca de agua "API KEY REQUIRED" encima de las
+// calles. Se usan las de Mapbox con el mismo token del resto del proyecto, y
+// OpenStreetMap si no hay token configurado.
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const CAPA_MAPA = MAPBOX_TOKEN
+  ? {
+      url: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`,
+      attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 20,
+    }
+  : {
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    };
+
 function ClickHandler({ onMapClick }) {
   useMapEvents({
     click: (e) => {
@@ -83,13 +102,11 @@ export default function MapaCoordenadas({ latitud, longitud, onCoordenadasChange
       <div className="border border-gray-300 rounded-lg overflow-hidden" style={{ height: altura, width: '100%' }}>
         <MapContainer
           center={[center.lat, center.lng]}
-          zoom={15}
+          // Más cerca para ubicar el punto en la calle exacta
+          zoom={position ? 18 : 16}
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
+          <TileLayer {...CAPA_MAPA} />
           <ClickHandler onMapClick={handleMapClick} />
           {position && (
             <Marker position={[position.lat, position.lng]}>
