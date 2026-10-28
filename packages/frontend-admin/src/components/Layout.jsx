@@ -33,7 +33,7 @@ const todasLasSecciones = [
   { name: 'Curiosidades', href: '/admin/curiosidades', icon: LightBulbIcon, permiso: 'curiosidades' },
   { name: 'Retos', href: '/admin/eventos', icon: PuzzlePieceIcon, permiso: 'retos' },
   { name: 'Reservas', href: '/admin/reservas', icon: CalendarIcon, permiso: 'reservas' },
-  { name: 'Guías', href: '/admin/guias', icon: UsersIcon, permiso: 'guias' },
+  { name: 'Usuarios', href: '/admin/usuarios', icon: UsersIcon, permiso: 'guias' },
   { name: 'Encuestas', href: '/admin/encuestas', icon: ClipboardDocumentListIcon, permiso: 'encuestas' },
 ];
 

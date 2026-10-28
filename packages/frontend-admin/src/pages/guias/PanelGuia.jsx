@@ -15,6 +15,7 @@ import { subscribeUser, unsubscribeUser } from '../../services/pushNotifications
 import CambiarPasswordModal from '../../components/CambiarPasswordModal';
 import ChatModal from '../../components/ChatModal'; // 🆕
 import GestorEventosComunidad from '../../components/GestorEventosComunidad';
+import CuriosidadesList from '../curiosidades/CuriosidadesList';
 
 export default function PanelGuia() {
   const { user, logout } = useAuth();
@@ -35,6 +36,7 @@ export default function PanelGuia() {
   const [activeTab, setActiveTab] = useState('reservas');
   const [puedeGestionarEventos, setPuedeGestionarEventos] = useState(false);
   const [puedeEventosPueblo, setPuedeEventosPueblo] = useState(false);
+  const [puedeCuriosidades, setPuedeCuriosidades] = useState(false);
   
   const [eventos, setEventos] = useState([]);
   const [ubicaciones, setUbicaciones] = useState([]);
@@ -139,6 +141,7 @@ export default function PanelGuia() {
       // Permisos que da y quita el superadmin (por defecto, según puede_gestionar_eventos)
       setPuedeGestionarEventos(!!response.data.permisos?.retos);
       setPuedeEventosPueblo(!!response.data.permisos?.eventos_pueblo);
+      setPuedeCuriosidades(!!response.data.permisos?.curiosidades);
     } catch (error) {
       console.error('Error al cargar perfil:', error);
     }
@@ -564,11 +567,20 @@ export default function PanelGuia() {
           {puedeGestionarEventos && (
             <button onClick={() => setActiveTab('eventos')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventos' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>🎮 Gestión de eventos</button>
           )}
+          {puedeCuriosidades && (
+            <button onClick={() => setActiveTab('curiosidades')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'curiosidades' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>💡 Curiosidades</button>
+          )}
           {puedeEventosPueblo && (
             <button onClick={() => setActiveTab('eventosPueblo')} className={`min-w-[140px] px-4 py-2 text-sm font-semibold rounded-t-lg transition ${activeTab === 'eventosPueblo' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white/50' : 'text-gray-500 hover:text-gray-700'}`}>🎉 Eventos del pueblo</button>
           )}
         </div>
       </div>
+
+      {activeTab === 'curiosidades' && puedeCuriosidades && (
+        <div className="px-5 py-4">
+          <CuriosidadesList />
+        </div>
+      )}
 
       {activeTab === 'eventosPueblo' && puedeEventosPueblo && (
         <div className="px-5 py-4">

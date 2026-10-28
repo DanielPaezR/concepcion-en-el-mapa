@@ -9,9 +9,9 @@ const { requirePermiso } = require('../services/permisosService');
 // Pública: curiosidades activas (el mapa solo muestra las cercanas)
 router.get('/', curiosidadController.listar);
 
-// Administración
+// Administración: admins y los guías a los que se les dé el acceso
 router.use(authMiddleware);
-router.use(requireRole('admin'));
+router.use(requireRole('admin', 'guia'));
 router.use(requirePermiso('curiosidades'));
 
 router.get('/admin', curiosidadController.listarAdmin);

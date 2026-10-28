@@ -1,5 +1,5 @@
 // controllers/usuarioController.js
-const { calcularPermisos } = require('../services/permisosService');
+const { calcularPermisos, limpiarPermisosGuia } = require('../services/permisosService');
 const pool = require('../config/database');
 const { getIo } = require('../socket');
 
@@ -8,7 +8,7 @@ const usuarioController = {
     async listar(req, res) {
         try {
             const { rol } = req.query;
-            let query = 'SELECT id, nombre, email, telefono, rol, disponible, calificacion_promedio, COALESCE(mostrar_avatar_publico, false) as mostrar_avatar_publico, COALESCE(puede_gestionar_eventos, false) as puede_gestionar_eventos, created_at FROM usuarios';
+            let query = 'SELECT id, nombre, email, telefono, rol, disponible, calificacion_promedio, COALESCE(mostrar_avatar_publico, false) as mostrar_avatar_publico, COALESCE(puede_gestionar_eventos, false) as puede_gestionar_eventos, permisos, created_at FROM usuarios';
             let params = [];
             
             if (rol) {
@@ -19,7 +19,9 @@ const usuarioController = {
             query += ' ORDER BY id DESC';
             
             const result = await pool.query(query, params);
-            res.json(result.rows);
+            // Permisos efectivos (con sus valores por defecto) para las
+            // casillas de acceso del formulario de usuarios
+            res.json(result.rows.map((u) => ({ ...u, permisos: calcularPermisos(u) })));
         } catch (error) {
             console.error('Error al listar usuarios:', error);
             res.status(500).json({ error: 'Error al listar usuarios' });
@@ -152,7 +154,9 @@ const usuarioController = {
     async crearGuia(req, res) {
         try {
             const { nombre, email, telefono, password, puede_gestionar_eventos, mostrar_avatar_publico } = req.body;
-            
+            // Acceso por sección (retos, eventos del pueblo, curiosidades)
+            const permisos = limpiarPermisosGuia(req.body.permisos);
+
             // Verificar si ya existe
             const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
             if (existe.rows.length > 0) {
@@ -164,9 +168,10 @@ const usuarioController = {
             const hashedPassword = await bcrypt.hash(password || 'guiadefault123', 10);
             
             const result = await pool.query(
-                `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, disponible, mostrar_avatar_publico, puede_gestionar_eventos) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                [nombre, email, telefono, hashedPassword, 'guia', false, !!mostrar_avatar_publico, !!puede_gestionar_eventos]
+                `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, disponible, mostrar_avatar_publico, puede_gestionar_eventos, permisos)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+                [nombre, email, telefono, hashedPassword, 'guia', false, !!mostrar_avatar_publico, !!puede_gestionar_eventos,
+                 Object.keys(permisos).length ? JSON.stringify(permisos) : null]
             );
             
             // Crear perfil de guardián automáticamente
@@ -190,7 +195,7 @@ const usuarioController = {
             const { nombre, email, telefono, disponible, mostrar_avatar_publico, puede_gestionar_eventos } = req.body;
 
             const currentResult = await pool.query(
-                `SELECT nombre, COALESCE(mostrar_avatar_publico, false) AS mostrar_avatar_publico FROM usuarios WHERE id = $1 AND rol = 'guia'`,
+                `SELECT nombre, permisos, COALESCE(mostrar_avatar_publico, false) AS mostrar_avatar_publico FROM usuarios WHERE id = $1 AND rol = 'guia'`,
                 [id]
             );
 
@@ -199,6 +204,11 @@ const usuarioController = {
             }
 
             const currentGuia = currentResult.rows[0];
+            // Acceso por sección: se mezcla con lo que ya tenía guardado
+            if (req.body.permisos !== undefined) {
+                const nuevos = { ...(currentGuia.permisos || {}), ...limpiarPermisosGuia(req.body.permisos) };
+                await pool.query('UPDATE usuarios SET permisos = $1 WHERE id = $2', [JSON.stringify(nuevos), id]);
+            }
             const result = await pool.query(
                 `UPDATE usuarios 
                  SET nombre = COALESCE($1, nombre),

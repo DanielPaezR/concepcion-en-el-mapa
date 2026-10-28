@@ -13,7 +13,7 @@ const PERMISOS_ADMIN = {
     curiosidades: 'Curiosidades',
     retos: 'Retos',
     reservas: 'Reservas',
-    guias: 'Guías',
+    guias: 'Usuarios del equipo',
     encuestas: 'Encuestas',
     metricas: 'Dashboard y métricas',
 };
@@ -21,7 +21,22 @@ const PERMISOS_ADMIN = {
 const PERMISOS_GUIA = {
     retos: 'Gestionar retos',
     eventos_pueblo: 'Publicar eventos del pueblo',
+    curiosidades: 'Gestionar curiosidades',
 };
+
+// Permisos de guía que por defecto siguen a puede_gestionar_eventos (los
+// históricos). Los nuevos, como curiosidades, empiezan apagados.
+const GUIA_SEGUN_EVENTOS = ['retos', 'eventos_pueblo'];
+
+// Solo deja claves de PERMISOS_GUIA con valor booleano (lo que manda el
+// formulario de usuarios del admin)
+function limpiarPermisosGuia(enviados) {
+    return Object.fromEntries(
+        Object.entries(enviados || {})
+            .filter(([clave]) => clave in PERMISOS_GUIA)
+            .map(([clave, valor]) => [clave, !!valor])
+    );
+}
 
 function calcularPermisos(usuario) {
     if (!usuario) return {};
@@ -34,7 +49,9 @@ function calcularPermisos(usuario) {
     }
     if (usuario.rol === 'guia') {
         const base = !!usuario.puede_gestionar_eventos;
-        return Object.fromEntries(Object.keys(PERMISOS_GUIA).map((k) => [k, guardados[k] ?? base]));
+        return Object.fromEntries(Object.keys(PERMISOS_GUIA).map((k) => [
+            k, guardados[k] ?? (GUIA_SEGUN_EVENTOS.includes(k) ? base : false),
+        ]));
     }
     return {};
 }
@@ -72,4 +89,4 @@ const requirePermiso = (clave) => async (req, res, next) => {
     }
 };
 
-module.exports = { PERMISOS_ADMIN, PERMISOS_GUIA, calcularPermisos, obtenerPermisos, tienePermiso, requirePermiso };
+module.exports = { PERMISOS_ADMIN, PERMISOS_GUIA, calcularPermisos, obtenerPermisos, tienePermiso, requirePermiso, limpiarPermisosGuia };

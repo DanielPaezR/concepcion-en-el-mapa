@@ -1,4 +1,6 @@
 // pages/guias/GuiasList.jsx
+// Usuarios del equipo (guías y colaboradores): se crean aquí y se les da o
+// quita acceso a cada sección (retos, eventos del pueblo, curiosidades).
 import { useState, useEffect } from 'react';
 import { 
   PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
@@ -6,6 +8,28 @@ import {
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+
+// Secciones a las que se puede dar acceso desde aquí
+const ACCESOS = [
+  { clave: 'retos', emoji: '🎮', titulo: 'Retos', desc: 'Crear y editar retos, quizzes y "¿verdad o mito?"' },
+  { clave: 'eventos_pueblo', emoji: '🎉', titulo: 'Eventos del pueblo', desc: 'Publicar eventos en el mapa' },
+  { clave: 'curiosidades', emoji: '💡', titulo: 'Curiosidades', desc: 'Crear y editar las curiosidades del mapa' },
+];
+
+// Etiquetas con las secciones a las que tiene acceso
+function Accesos({ permisos }) {
+  const activos = ACCESOS.filter((a) => permisos?.[a.clave]);
+  if (activos.length === 0) return <span className="text-xs text-gray-400">Sin acceso a secciones</span>;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {activos.map((a) => (
+        <span key={a.clave} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs font-medium">
+          {a.emoji} {a.titulo}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function GuiasList() {
   const [guias, setGuias] = useState([]);
@@ -18,7 +42,7 @@ export default function GuiasList() {
     email: '',
     telefono: '',
     password: '',
-    puede_gestionar_eventos: false,
+    permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
     mostrar_avatar_publico: false
   });
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +58,7 @@ export default function GuiasList() {
       setGuias(response.data || []);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al cargar guías');
+      toast.error('Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
@@ -48,7 +72,11 @@ export default function GuiasList() {
         email: guia.email || '',
         telefono: guia.telefono || '',
         password: '',
-        puede_gestionar_eventos: !!guia.puede_gestionar_eventos,
+        permisos: {
+          retos: !!guia.permisos?.retos,
+          eventos_pueblo: !!guia.permisos?.eventos_pueblo,
+          curiosidades: !!guia.permisos?.curiosidades,
+        },
         mostrar_avatar_publico: !!guia.mostrar_avatar_publico
       });
     } else {
@@ -58,7 +86,7 @@ export default function GuiasList() {
         email: '',
         telefono: '',
         password: '',
-        puede_gestionar_eventos: false,
+        permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
         mostrar_avatar_publico: false
       });
     }
@@ -73,7 +101,7 @@ export default function GuiasList() {
       email: '',
       telefono: '',
       password: '',
-      puede_gestionar_eventos: false,
+      permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
       mostrar_avatar_publico: false
     });
   };
@@ -90,10 +118,10 @@ export default function GuiasList() {
           email: formData.email,
           telefono: formData.telefono,
           disponible: editando.disponible,
-          puede_gestionar_eventos: !!formData.puede_gestionar_eventos,
+          permisos: formData.permisos,
           mostrar_avatar_publico: !!formData.mostrar_avatar_publico
         });
-        toast.success('Guía actualizado correctamente');
+        toast.success('Usuario actualizado correctamente');
       } else {
         // Crear nuevo guía
         if (!formData.password) {
@@ -106,16 +134,16 @@ export default function GuiasList() {
           email: formData.email,
           telefono: formData.telefono,
           password: formData.password,
-          puede_gestionar_eventos: !!formData.puede_gestionar_eventos,
+          permisos: formData.permisos,
           mostrar_avatar_publico: !!formData.mostrar_avatar_publico
         });
-        toast.success('Guía creado correctamente');
+        toast.success('Usuario creado correctamente');
       }
       cargarGuias();
       handleCloseModal();
     } catch (error) {
       console.error('Error:', error);
-      toast.error(error.response?.data?.error || 'Error al guardar guía');
+      toast.error(error.response?.data?.error || 'Error al guardar usuario');
     } finally {
       setSubmitting(false);
     }
@@ -124,7 +152,7 @@ export default function GuiasList() {
   const cambiarDisponibilidad = async (id, disponible) => {
     try {
       await api.patch(`/usuarios/${id}/disponibilidad`, { disponible: !disponible });
-      toast.success(`Guía ${!disponible ? 'activado' : 'desactivado'}`);
+      toast.success(`Usuario ${!disponible ? 'activado' : 'desactivado'}`);
       cargarGuias();
     } catch (error) {
       console.error('Error:', error);
@@ -133,15 +161,15 @@ export default function GuiasList() {
   };
 
   const eliminarGuia = async (guia) => {
-    if (!confirm(`¿Eliminar al guía "${guia.nombre}"? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar al usuario "${guia.nombre}"? Esta acción no se puede deshacer.`)) return;
     
     try {
       await api.delete(`/usuarios/${guia.id}`);
-      toast.success('Guía eliminado correctamente');
+      toast.success('Usuario eliminado correctamente');
       cargarGuias();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al eliminar guía');
+      toast.error('Error al eliminar usuario');
     }
   };
 
@@ -163,15 +191,15 @@ export default function GuiasList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Guías Turísticos</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestiona los guías y su disponibilidad</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Usuarios</h1>
+          <p className="mt-1 text-sm text-gray-500">Guías y colaboradores del equipo: crea cuentas y decide a qué secciones tiene acceso cada uno</p>
         </div>
         <button
           onClick={() => handleOpenModal()}
           className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
         >
           <UserPlusIcon className="w-5 h-5" />
-          <span className="font-medium">Nuevo Guía</span>
+          <span className="font-medium">Nuevo usuario</span>
         </button>
       </div>
 
@@ -203,6 +231,7 @@ export default function GuiasList() {
                 </div>
                 <p className="text-sm text-gray-500">{guia.email}</p>
                 <p className="text-sm text-gray-500">{guia.telefono || 'Sin teléfono'}</p>
+                <Accesos permisos={guia.permisos} />
                 <div className="flex items-center gap-1 mt-2">
                   <span className="text-yellow-500">★</span>
                   <span className="text-sm text-gray-600">
@@ -251,6 +280,7 @@ export default function GuiasList() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acceso</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calificación</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponible</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -262,6 +292,7 @@ export default function GuiasList() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{guia.nombre}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{guia.email}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{guia.telefono || '-'}</td>
+                <td className="px-6 py-4 text-sm"><Accesos permisos={guia.permisos} /></td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {guia.calificacion_promedio ? (
                     <div className="flex items-center gap-1">
@@ -317,7 +348,7 @@ export default function GuiasList() {
       {guiasFiltrados.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">
-            {searchTerm ? 'No se encontraron guías con esa búsqueda' : 'No hay guías registrados'}
+            {searchTerm ? 'No se encontraron usuarios con esa búsqueda' : 'No hay usuarios registrados'}
           </p>
         </div>
       )}
@@ -335,7 +366,7 @@ export default function GuiasList() {
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      {editando ? 'Editar Guía' : 'Nuevo Guía'}
+                      {editando ? 'Editar usuario' : 'Nuevo usuario'}
                     </h3>
                     <button type="button" onClick={handleCloseModal} className="text-gray-400 hover:text-gray-500">
                       <XMarkIcon className="w-6 h-6" />
@@ -375,19 +406,25 @@ export default function GuiasList() {
                       />
                     </div>
 
-                    <div className="flex items-start gap-4">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={!!formData.puede_gestionar_eventos}
-                          onChange={(e) => setFormData({ ...formData, puede_gestionar_eventos: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <div className="text-sm">
-                          <div className="font-medium">Puede gestionar eventos</div>
-                          <div className="text-xs text-gray-500">Permite crear y editar eventos desde su cuenta de guía</div>
-                        </div>
-                      </label>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Acceso a secciones</div>
+                      <div className="space-y-2">
+                        {ACCESOS.map((acceso) => (
+                          <label key={acceso.clave} className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!formData.permisos[acceso.clave]}
+                              onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, [acceso.clave]: e.target.checked } })}
+                              className="h-4 w-4 mt-0.5 rounded border-gray-300"
+                            />
+                            <div className="text-sm">
+                              <div className="font-medium">{acceso.emoji} {acceso.titulo}</div>
+                              <div className="text-xs text-gray-500">{acceso.desc}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">Las secciones marcadas le aparecen en su panel al iniciar sesión.</p>
                     </div>
 
                     <div className="flex items-start gap-4">
@@ -415,7 +452,7 @@ export default function GuiasList() {
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Contraseña por defecto para el nuevo guía</p>
+                        <p className="text-xs text-gray-500 mt-1">Contraseña inicial; la persona puede cambiarla desde su panel</p>
                       </div>
                     )}
                   </div>
@@ -430,7 +467,7 @@ export default function GuiasList() {
                     {submitting ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                     ) : (
-                      editando ? 'Actualizar' : 'Crear Guía'
+                      editando ? 'Actualizar' : 'Crear usuario'
                     )}
                   </button>
                   <button

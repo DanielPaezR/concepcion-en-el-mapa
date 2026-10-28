@@ -72,7 +72,7 @@ export default function Dashboard() {
     { id: 'lugares', nombre: 'Lugares', icon: MapPinIcon, ruta: '/admin/lugares', color: 'text-green-500' },
     { id: 'eventos', nombre: 'Eventos', icon: CalendarIcon, ruta: '/admin/eventos', color: 'text-purple-500' },
     { id: 'reservas', nombre: 'Reservas', icon: ClipboardDocumentListIcon, ruta: '/admin/reservas', color: 'text-orange-500' },
-    { id: 'guias', nombre: 'Guías', icon: UsersIcon, ruta: '/admin/guias', color: 'text-indigo-500' },
+    { id: 'guias', nombre: 'Usuarios', icon: UsersIcon, ruta: '/admin/usuarios', color: 'text-indigo-500' },
     { id: 'ubicaciones', nombre: 'Ubicaciones', icon: BuildingLibraryIcon, ruta: '/admin/ubicaciones', color: 'text-teal-500' },
   ];
 

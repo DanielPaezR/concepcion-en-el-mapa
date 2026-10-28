@@ -75,7 +75,9 @@ function App() {
         <Route path="lugares/editar/:id" element={<LugarForm />} />
         <Route path="comercios" element={<ComerciosList />} />
         <Route path="reservas" element={<ReservasList />} />
-        <Route path="guias" element={<GuiasList />} />
+        <Route path="usuarios" element={<GuiasList />} />
+        {/* La sección se llamaba "Guías": se redirige por si alguien la tiene guardada */}
+        <Route path="guias" element={<Navigate to="/admin/usuarios" replace />} />
         <Route path="eventos" element={<BancoPreguntas />} />
         <Route path="ubicaciones" element={<Ubicaciones />} />
         <Route path="encuestas" element={<EncuestasList />} />
