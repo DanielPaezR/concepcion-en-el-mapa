@@ -89,4 +89,23 @@ const requirePermiso = (clave) => async (req, res, next) => {
     }
 };
 
-module.exports = { PERMISOS_ADMIN, PERMISOS_GUIA, calcularPermisos, obtenerPermisos, tienePermiso, requirePermiso, limpiarPermisosGuia };
+// Permisos para una cuenta de "equipo" (admin) creada desde el formulario de
+// usuarios: se guardan TODAS las secciones explícitas, así lo que no se marcó
+// queda apagado (por defecto un admin vería todo).
+function permisosEquipoCompletos(enviados) {
+    return Object.fromEntries(Object.keys(PERMISOS_ADMIN).map((clave) => [clave, !!enviados?.[clave]]));
+}
+
+// Solo claves de PERMISOS_ADMIN (para editar una cuenta de equipo)
+function limpiarPermisosEquipo(enviados) {
+    return Object.fromEntries(
+        Object.entries(enviados || {})
+            .filter(([clave]) => clave in PERMISOS_ADMIN)
+            .map(([clave, valor]) => [clave, !!valor])
+    );
+}
+
+module.exports = {
+    PERMISOS_ADMIN, PERMISOS_GUIA, calcularPermisos, obtenerPermisos, tienePermiso, requirePermiso,
+    limpiarPermisosGuia, permisosEquipoCompletos, limpiarPermisosEquipo,
+};

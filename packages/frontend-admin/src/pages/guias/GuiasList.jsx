@@ -1,24 +1,54 @@
 // pages/guias/GuiasList.jsx
-// Usuarios del equipo (guías y colaboradores): se crean aquí y se les da o
-// quita acceso a cada sección (retos, eventos del pueblo, curiosidades).
+// Usuarios: guías turísticos y cuentas del equipo de la alcaldía (alcalde,
+// funcionarios). A cada uno se le da o quita acceso a cada sección.
+//   - Guía turístico (rol guia): entra a su panel de guía con recorridos y
+//     las secciones que se le marquen.
+//   - Equipo (rol admin): entra al panel de administración y solo ve las
+//     secciones marcadas. Solo el superadmin las ve, crea y edita.
 import { useState, useEffect } from 'react';
-import { 
-  PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
-  CheckIcon, MagnifyingGlassIcon, UserPlusIcon
+import {
+  PencilIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, UserPlusIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../hooks/useAuth';
 
-// Secciones a las que se puede dar acceso desde aquí
-const ACCESOS = [
+// Secciones a las que se puede dar acceso a un guía (en su panel de guía)
+const ACCESOS_GUIA = [
   { clave: 'retos', emoji: '🎮', titulo: 'Retos', desc: 'Crear y editar retos, quizzes y "¿verdad o mito?"' },
   { clave: 'eventos_pueblo', emoji: '🎉', titulo: 'Eventos del pueblo', desc: 'Publicar eventos en el mapa' },
   { clave: 'curiosidades', emoji: '💡', titulo: 'Curiosidades', desc: 'Crear y editar las curiosidades del mapa' },
 ];
 
+// Secciones del panel de administración para una cuenta del equipo
+const ACCESOS_EQUIPO = [
+  { clave: 'metricas', emoji: '📊', titulo: 'Dashboard y métricas', desc: 'Visitas, uso de la app y estadísticas' },
+  { clave: 'lugares', emoji: '📍', titulo: 'Lugares', desc: 'Crear y editar los lugares del mapa y sus fotos' },
+  { clave: 'comercios', emoji: '🏪', titulo: 'Comercios', desc: 'Comercios aliados y sus beneficios' },
+  { clave: 'eventos_pueblo', emoji: '🎉', titulo: 'Eventos del pueblo', desc: 'Publicar eventos en el mapa' },
+  { clave: 'curiosidades', emoji: '💡', titulo: 'Curiosidades', desc: 'Crear y editar las curiosidades del mapa' },
+  { clave: 'retos', emoji: '🎮', titulo: 'Retos', desc: 'Retos, quizzes y "¿verdad o mito?"' },
+  { clave: 'reservas', emoji: '📅', titulo: 'Reservas', desc: 'Reservas de recorridos con guías' },
+  { clave: 'encuestas', emoji: '📝', titulo: 'Encuestas', desc: 'Resultados de las encuestas de los turistas' },
+  { clave: 'guias', emoji: '👥', titulo: 'Usuarios (guías)', desc: 'Crear y editar guías. Las cuentas del equipo solo las gestionas tú' },
+];
+
+const accesosDe = (tipo) => (tipo === 'admin' ? ACCESOS_EQUIPO : ACCESOS_GUIA);
+const sinPermisos = (tipo) => Object.fromEntries(accesosDe(tipo).map((a) => [a.clave, false]));
+
+const FORM_VACIO = {
+  tipo: 'guia',
+  nombre: '',
+  email: '',
+  telefono: '',
+  password: '',
+  permisos: sinPermisos('guia'),
+  mostrar_avatar_publico: false
+};
+
 // Etiquetas con las secciones a las que tiene acceso
-function Accesos({ permisos }) {
-  const activos = ACCESOS.filter((a) => permisos?.[a.clave]);
+function Accesos({ usuario }) {
+  const activos = accesosDe(usuario.rol).filter((a) => usuario.permisos?.[a.clave]);
   if (activos.length === 0) return <span className="text-xs text-gray-400">Sin acceso a secciones</span>;
   return (
     <div className="flex flex-wrap gap-1 mt-1">
@@ -31,31 +61,34 @@ function Accesos({ permisos }) {
   );
 }
 
+const TipoBadge = ({ rol }) => (rol === 'admin'
+  ? <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">🏛️ Equipo</span>
+  : <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800">🧭 Guía</span>);
+
 export default function GuiasList() {
-  const [guias, setGuias] = useState([]);
+  const { user } = useAuth();
+  const esSuperadmin = user?.rol === 'superadmin';
+  const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [formData, setFormData] = useState({
-    nombre: '',
-    email: '',
-    telefono: '',
-    password: '',
-    permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
-    mostrar_avatar_publico: false
-  });
+  const [formData, setFormData] = useState(FORM_VACIO);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    cargarGuias();
+    cargarUsuarios();
   }, []);
 
-  const cargarGuias = async () => {
+  const cargarUsuarios = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/usuarios?rol=guia');
-      setGuias(response.data || []);
+      // Las cuentas del equipo solo las ve el superadmin
+      const [guias, equipo] = await Promise.all([
+        api.get('/usuarios?rol=guia'),
+        esSuperadmin ? api.get('/usuarios?rol=admin') : Promise.resolve({ data: [] }),
+      ]);
+      setUsuarios([...(equipo.data || []), ...(guias.data || [])]);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al cargar usuarios');
@@ -64,31 +97,21 @@ export default function GuiasList() {
     }
   };
 
-  const handleOpenModal = (guia = null) => {
-    if (guia) {
-      setEditando(guia);
+  const handleOpenModal = (usuario = null) => {
+    if (usuario) {
+      setEditando(usuario);
       setFormData({
-        nombre: guia.nombre || '',
-        email: guia.email || '',
-        telefono: guia.telefono || '',
+        tipo: usuario.rol,
+        nombre: usuario.nombre || '',
+        email: usuario.email || '',
+        telefono: usuario.telefono || '',
         password: '',
-        permisos: {
-          retos: !!guia.permisos?.retos,
-          eventos_pueblo: !!guia.permisos?.eventos_pueblo,
-          curiosidades: !!guia.permisos?.curiosidades,
-        },
-        mostrar_avatar_publico: !!guia.mostrar_avatar_publico
+        permisos: Object.fromEntries(accesosDe(usuario.rol).map((a) => [a.clave, !!usuario.permisos?.[a.clave]])),
+        mostrar_avatar_publico: !!usuario.mostrar_avatar_publico
       });
     } else {
       setEditando(null);
-      setFormData({
-        nombre: '',
-        email: '',
-        telefono: '',
-        password: '',
-        permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
-        mostrar_avatar_publico: false
-      });
+      setFormData(FORM_VACIO);
     }
     setModalAbierto(true);
   };
@@ -96,23 +119,17 @@ export default function GuiasList() {
   const handleCloseModal = () => {
     setModalAbierto(false);
     setEditando(null);
-    setFormData({
-      nombre: '',
-      email: '',
-      telefono: '',
-      password: '',
-      permisos: { retos: false, eventos_pueblo: false, curiosidades: false },
-      mostrar_avatar_publico: false
-    });
+    setFormData(FORM_VACIO);
   };
+
+  const cambiarTipo = (tipo) => setFormData({ ...formData, tipo, permisos: sinPermisos(tipo) });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    
+
     try {
       if (editando) {
-        // Actualizar guía
         await api.put(`/usuarios/${editando.id}`, {
           nombre: formData.nombre,
           email: formData.email,
@@ -123,23 +140,23 @@ export default function GuiasList() {
         });
         toast.success('Usuario actualizado correctamente');
       } else {
-        // Crear nuevo guía
         if (!formData.password) {
           toast.error('La contraseña es requerida');
           setSubmitting(false);
           return;
         }
         await api.post('/usuarios', {
+          rol: formData.tipo,
           nombre: formData.nombre,
           email: formData.email,
           telefono: formData.telefono,
           password: formData.password,
           permisos: formData.permisos,
-          mostrar_avatar_publico: !!formData.mostrar_avatar_publico
+          mostrar_avatar_publico: formData.tipo === 'guia' && !!formData.mostrar_avatar_publico
         });
         toast.success('Usuario creado correctamente');
       }
-      cargarGuias();
+      cargarUsuarios();
       handleCloseModal();
     } catch (error) {
       console.error('Error:', error);
@@ -152,31 +169,33 @@ export default function GuiasList() {
   const cambiarDisponibilidad = async (id, disponible) => {
     try {
       await api.patch(`/usuarios/${id}/disponibilidad`, { disponible: !disponible });
-      toast.success(`Usuario ${!disponible ? 'activado' : 'desactivado'}`);
-      cargarGuias();
+      toast.success(`Guía ${!disponible ? 'activado' : 'desactivado'}`);
+      cargarUsuarios();
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al cambiar disponibilidad');
     }
   };
 
-  const eliminarGuia = async (guia) => {
-    if (!confirm(`¿Eliminar al usuario "${guia.nombre}"? Esta acción no se puede deshacer.`)) return;
-    
+  const eliminarUsuario = async (usuario) => {
+    if (!confirm(`¿Eliminar a "${usuario.nombre}"? Esta acción no se puede deshacer.`)) return;
+
     try {
-      await api.delete(`/usuarios/${guia.id}`);
+      await api.delete(`/usuarios/${usuario.id}`);
       toast.success('Usuario eliminado correctamente');
-      cargarGuias();
+      cargarUsuarios();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al eliminar usuario');
+      toast.error(error.response?.data?.error || 'Error al eliminar usuario');
     }
   };
 
-  const guiasFiltrados = guias.filter(guia =>
-    guia.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    guia.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtrados = usuarios.filter(u =>
+    u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const esGuia = (u) => u.rol === 'guia';
 
   if (loading) {
     return (
@@ -192,7 +211,11 @@ export default function GuiasList() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Usuarios</h1>
-          <p className="mt-1 text-sm text-gray-500">Guías y colaboradores del equipo: crea cuentas y decide a qué secciones tiene acceso cada uno</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {esSuperadmin
+              ? 'Guías turísticos y equipo de la alcaldía: crea cuentas y decide a qué secciones tiene acceso cada uno'
+              : 'Guías turísticos: crea cuentas y decide a qué secciones tiene acceso cada uno'}
+          </p>
         </div>
         <button
           onClick={() => handleOpenModal()}
@@ -215,40 +238,37 @@ export default function GuiasList() {
         />
       </div>
 
-      {/* Lista de guías - Vista móvil (cards) */}
+      {/* Lista - Vista móvil (cards) */}
       <div className="block lg:hidden space-y-3">
-        {guiasFiltrados.map((guia) => (
-          <div key={guia.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+        {filtrados.map((u) => (
+          <div key={u.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-gray-900">{guia.nombre}</h3>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                    guia.disponible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {guia.disponible ? 'Disponible' : 'No disponible'}
-                  </span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="font-semibold text-gray-900">{u.nombre}</h3>
+                  <TipoBadge rol={u.rol} />
+                  {esGuia(u) && (
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      u.disponible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {u.disponible ? 'Disponible' : 'No disponible'}
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-gray-500">{guia.email}</p>
-                <p className="text-sm text-gray-500">{guia.telefono || 'Sin teléfono'}</p>
-                <Accesos permisos={guia.permisos} />
-                <div className="flex items-center gap-1 mt-2">
-                  <span className="text-yellow-500">★</span>
-                  <span className="text-sm text-gray-600">
-                    {guia.calificacion_promedio ? parseFloat(guia.calificacion_promedio).toFixed(1) : 'Sin calificar'}
-                  </span>
-                </div>
+                <p className="text-sm text-gray-500">{u.email}</p>
+                <p className="text-sm text-gray-500">{u.telefono || 'Sin teléfono'}</p>
+                <Accesos usuario={u} />
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleOpenModal(guia)}
+                  onClick={() => handleOpenModal(u)}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                   title="Editar"
                 >
                   <PencilIcon className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => eliminarGuia(guia)}
+                  onClick={() => eliminarUsuario(u)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                   title="Eliminar"
                 >
@@ -256,18 +276,18 @@ export default function GuiasList() {
                 </button>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={() => cambiarDisponibilidad(guia.id, guia.disponible)}
-                className={`text-sm font-medium px-3 py-1 rounded-lg transition ${
-                  guia.disponible 
-                    ? 'text-red-600 hover:bg-red-50' 
-                    : 'text-green-600 hover:bg-green-50'
-                }`}
-              >
-                {guia.disponible ? 'Desactivar' : 'Activar'}
-              </button>
-            </div>
+            {esGuia(u) && (
+              <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                <button
+                  onClick={() => cambiarDisponibilidad(u.id, u.disponible)}
+                  className={`text-sm font-medium px-3 py-1 rounded-lg transition ${
+                    u.disponible ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'
+                  }`}
+                >
+                  {u.disponible ? 'Desactivar' : 'Activar'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -278,64 +298,50 @@ export default function GuiasList() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acceso</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calificación</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponible</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {guiasFiltrados.map((guia) => (
-              <tr key={guia.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{guia.nombre}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{guia.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{guia.telefono || '-'}</td>
-                <td className="px-6 py-4 text-sm"><Accesos permisos={guia.permisos} /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {guia.calificacion_promedio ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500">★</span>
-                      {parseFloat(guia.calificacion_promedio).toFixed(1)}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">Sin calificar</span>
-                  )}
+            {filtrados.map((u) => (
+              <tr key={u.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {u.nombre}
+                  <div className="text-xs text-gray-400 font-normal">{u.telefono || ''}</div>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap"><TipoBadge rol={u.rol} /></td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                <td className="px-6 py-4 text-sm"><Accesos usuario={u} /></td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                    guia.disponible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {guia.disponible ? 'Disponible' : 'No disponible'}
-                  </span>
+                  {esGuia(u) ? (
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      u.disponible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {u.disponible ? 'Disponible' : 'No disponible'}
+                    </span>
+                  ) : <span className="text-xs text-gray-300">—</span>}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => handleOpenModal(guia)}
-                      className="text-blue-600 hover:text-blue-800 p-1"
-                      title="Editar"
-                    >
+                    <button onClick={() => handleOpenModal(u)} className="text-blue-600 hover:text-blue-800 p-1" title="Editar">
                       <PencilIcon className="w-5 h-5" />
                     </button>
-                    <button
-                      onClick={() => eliminarGuia(guia)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="Eliminar"
-                    >
+                    <button onClick={() => eliminarUsuario(u)} className="text-red-600 hover:text-red-800 p-1" title="Eliminar">
                       <TrashIcon className="w-5 h-5" />
                     </button>
-                    <button
-                      onClick={() => cambiarDisponibilidad(guia.id, guia.disponible)}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${
-                        guia.disponible 
-                          ? 'text-red-600 hover:bg-red-50' 
-                          : 'text-green-600 hover:bg-green-50'
-                      }`}
-                    >
-                      {guia.disponible ? 'Desactivar' : 'Activar'}
-                    </button>
+                    {esGuia(u) && (
+                      <button
+                        onClick={() => cambiarDisponibilidad(u.id, u.disponible)}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition ${
+                          u.disponible ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'
+                        }`}
+                      >
+                        {u.disponible ? 'Desactivar' : 'Activar'}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -345,7 +351,7 @@ export default function GuiasList() {
       </div>
 
       {/* Mensaje sin resultados */}
-      {guiasFiltrados.length === 0 && (
+      {filtrados.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">
             {searchTerm ? 'No se encontraron usuarios con esa búsqueda' : 'No hay usuarios registrados'}
@@ -374,6 +380,28 @@ export default function GuiasList() {
                   </div>
 
                   <div className="space-y-4">
+                    {/* Tipo de cuenta: solo el superadmin puede crear cuentas del equipo */}
+                    {esSuperadmin && !editando && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de cuenta</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ['guia', '🧭 Guía turístico', 'Hace recorridos; entra a su panel de guía'],
+                            ['admin', '🏛️ Equipo / alcaldía', 'Alcalde, funcionarios: entra al panel de administración'],
+                          ].map(([tipo, titulo, desc]) => (
+                            <button key={tipo} type="button" onClick={() => cambiarTipo(tipo)}
+                              className={`text-left rounded-lg border-2 p-2.5 transition ${formData.tipo === tipo ? 'border-green-600 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                              <div className="text-sm font-semibold text-gray-800">{titulo}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {editando && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">Tipo de cuenta: <TipoBadge rol={editando.rol} /></div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
                       <input
@@ -407,9 +435,20 @@ export default function GuiasList() {
                     </div>
 
                     <div className="rounded-lg border border-gray-200 p-3">
-                      <div className="text-sm font-medium text-gray-700 mb-2">Acceso a secciones</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">Acceso a secciones</span>
+                        {formData.tipo === 'admin' && (
+                          <button type="button" className="text-xs text-green-700 hover:underline"
+                            onClick={() => {
+                              const todos = Object.values(formData.permisos).every(Boolean);
+                              setFormData({ ...formData, permisos: Object.fromEntries(Object.keys(formData.permisos).map((k) => [k, !todos])) });
+                            }}>
+                            {Object.values(formData.permisos).every(Boolean) ? 'Quitar todos' : 'Marcar todos'}
+                          </button>
+                        )}
+                      </div>
                       <div className="space-y-2">
-                        {ACCESOS.map((acceso) => (
+                        {accesosDe(formData.tipo).map((acceso) => (
                           <label key={acceso.clave} className="flex items-start gap-2 cursor-pointer">
                             <input
                               type="checkbox"
@@ -424,10 +463,14 @@ export default function GuiasList() {
                           </label>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-400 mt-2">Las secciones marcadas le aparecen en su panel al iniciar sesión.</p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        {formData.tipo === 'admin'
+                          ? 'Al entrar al panel de administración solo verá las secciones marcadas.'
+                          : 'Las secciones marcadas le aparecen en su panel de guía al iniciar sesión.'}
+                      </p>
                     </div>
 
-                    <div className="flex items-start gap-4">
+                    {formData.tipo === 'guia' && (
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -440,7 +483,7 @@ export default function GuiasList() {
                           <div className="text-xs text-gray-500">Si está activado, su avatar puede mostrarse en el mapa público</div>
                         </div>
                       </label>
-                    </div>
+                    )}
 
                     {!editando && (
                       <div>
@@ -452,7 +495,7 @@ export default function GuiasList() {
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Contraseña inicial; la persona puede cambiarla desde su panel</p>
+                        <p className="text-xs text-gray-500 mt-1">Contraseña inicial; la persona puede cambiarla después</p>
                       </div>
                     )}
                   </div>

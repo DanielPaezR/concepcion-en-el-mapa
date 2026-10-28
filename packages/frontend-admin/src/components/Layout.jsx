@@ -16,9 +16,11 @@ import {
   CalendarDaysIcon,
   LightBulbIcon,
   PuzzlePieceIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  KeyIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
+import CambiarPasswordModal from './CambiarPasswordModal'
 
 // Logo de Concepción
 const LOGO_URL = '/logo192.png';
@@ -51,6 +53,7 @@ function classNames(...classes) {
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [mostrarCambiarPassword, setMostrarCambiarPassword] = useState(false)
   const { user, logout } = useAuth()
   const navigation = seccionesPara(user)
   const location = useLocation()
@@ -251,6 +254,20 @@ export default function Layout() {
                     <Menu.Item>
                       {({ active }) => (
                         <button
+                          onClick={() => setMostrarCambiarPassword(true)}
+                          className={classNames(
+                            active ? 'bg-gray-100' : '',
+                            'flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700'
+                          )}
+                        >
+                          <KeyIcon className="h-4 w-4" />
+                          Cambiar contraseña
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
                           onClick={handleLogout}
                           className={classNames(
                             active ? 'bg-gray-100' : '',
@@ -275,6 +292,10 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      {/* Antes solo el panel de guía permitía cambiar la contraseña: las
+          cuentas del equipo quedaban con la que les asignaron */}
+      <CambiarPasswordModal isOpen={mostrarCambiarPassword} onClose={() => setMostrarCambiarPassword(false)} />
     </div>
   )
 }

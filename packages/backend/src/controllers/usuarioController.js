@@ -1,13 +1,23 @@
 // controllers/usuarioController.js
-const { calcularPermisos, limpiarPermisosGuia } = require('../services/permisosService');
+const { calcularPermisos, limpiarPermisosGuia, permisosEquipoCompletos, limpiarPermisosEquipo } = require('../services/permisosService');
 const pool = require('../config/database');
 const { getIo } = require('../socket');
+
+// Las cuentas de "equipo" (rol admin: alcalde, funcionarios...) solo las
+// ve, crea, edita y borra el superadmin. Así un admin con permiso de
+// usuarios no puede crearse otro admin con más acceso del que tiene.
+const esSuperadmin = (req) => req.user?.rolReal === 'superadmin';
+const SOLO_SUPERADMIN = 'Solo el superadministrador puede gestionar cuentas del equipo de administración';
 
 const usuarioController = {
     // Listar usuarios (con filtro por rol)
     async listar(req, res) {
         try {
-            const { rol } = req.query;
+            // Sin filtro, un admin solo ve guías (no correos de otros admins ni turistas)
+            const rol = req.query.rol || (esSuperadmin(req) ? undefined : 'guia');
+            if (rol === 'admin' && !esSuperadmin(req)) {
+                return res.status(403).json({ error: SOLO_SUPERADMIN });
+            }
             let query = 'SELECT id, nombre, email, telefono, rol, disponible, calificacion_promedio, COALESCE(mostrar_avatar_publico, false) as mostrar_avatar_publico, COALESCE(puede_gestionar_eventos, false) as puede_gestionar_eventos, permisos, created_at FROM usuarios';
             let params = [];
             
@@ -154,8 +164,17 @@ const usuarioController = {
     async crearGuia(req, res) {
         try {
             const { nombre, email, telefono, password, puede_gestionar_eventos, mostrar_avatar_publico } = req.body;
-            // Acceso por sección (retos, eventos del pueblo, curiosidades)
-            const permisos = limpiarPermisosGuia(req.body.permisos);
+            // Tipo de cuenta: guía turístico (por defecto) o equipo de
+            // administración (alcaldía), que solo crea el superadmin
+            const rol = req.body.rol === 'admin' ? 'admin' : 'guia';
+            if (rol === 'admin' && !esSuperadmin(req)) {
+                return res.status(403).json({ error: SOLO_SUPERADMIN });
+            }
+            // Acceso por sección. En el equipo se guardan todas las secciones
+            // para que lo que no se marcó quede apagado.
+            const permisos = rol === 'admin'
+                ? permisosEquipoCompletos(req.body.permisos)
+                : limpiarPermisosGuia(req.body.permisos);
 
             // Verificar si ya existe
             const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
@@ -170,18 +189,22 @@ const usuarioController = {
             const result = await pool.query(
                 `INSERT INTO usuarios (nombre, email, telefono, password_hash, rol, disponible, mostrar_avatar_publico, puede_gestionar_eventos, permisos)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-                [nombre, email, telefono, hashedPassword, 'guia', false, !!mostrar_avatar_publico, !!puede_gestionar_eventos,
+                [nombre, email, telefono, hashedPassword, rol, false,
+                 rol === 'guia' && !!mostrar_avatar_publico, rol === 'guia' && !!puede_gestionar_eventos,
                  Object.keys(permisos).length ? JSON.stringify(permisos) : null]
             );
-            
-            // Crear perfil de guardián automáticamente
-            await pool.query(
-                `INSERT INTO perfiles_guardian (usuario_id, nombre_publico, visible) 
-                 VALUES ($1, $2, true) ON CONFLICT (usuario_id) DO NOTHING`,
-                [result.rows[0].id, nombre]
-            );
-            
-            res.status(201).json({ success: true, guia: result.rows[0] });
+
+            // Crear perfil de guardián automáticamente (solo guías)
+            if (rol === 'guia') {
+                await pool.query(
+                    `INSERT INTO perfiles_guardian (usuario_id, nombre_publico, visible)
+                     VALUES ($1, $2, true) ON CONFLICT (usuario_id) DO NOTHING`,
+                    [result.rows[0].id, nombre]
+                );
+            }
+
+            const { password_hash, ...creado } = result.rows[0];
+            res.status(201).json({ success: true, guia: creado });
         } catch (error) {
             console.error('Error al crear guía:', error);
             res.status(500).json({ error: 'Error al crear guía' });
@@ -195,18 +218,25 @@ const usuarioController = {
             const { nombre, email, telefono, disponible, mostrar_avatar_publico, puede_gestionar_eventos } = req.body;
 
             const currentResult = await pool.query(
-                `SELECT nombre, permisos, COALESCE(mostrar_avatar_publico, false) AS mostrar_avatar_publico FROM usuarios WHERE id = $1 AND rol = 'guia'`,
+                `SELECT nombre, rol, permisos, COALESCE(mostrar_avatar_publico, false) AS mostrar_avatar_publico
+                 FROM usuarios WHERE id = $1 AND rol IN ('guia', 'admin')`,
                 [id]
             );
 
             if (currentResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Guía no encontrado' });
+                return res.status(404).json({ error: 'Usuario no encontrado' });
             }
 
             const currentGuia = currentResult.rows[0];
+            if (currentGuia.rol === 'admin' && !esSuperadmin(req)) {
+                return res.status(403).json({ error: SOLO_SUPERADMIN });
+            }
             // Acceso por sección: se mezcla con lo que ya tenía guardado
             if (req.body.permisos !== undefined) {
-                const nuevos = { ...(currentGuia.permisos || {}), ...limpiarPermisosGuia(req.body.permisos) };
+                const limpios = currentGuia.rol === 'admin'
+                    ? limpiarPermisosEquipo(req.body.permisos)
+                    : limpiarPermisosGuia(req.body.permisos);
+                const nuevos = { ...(currentGuia.permisos || {}), ...limpios };
                 await pool.query('UPDATE usuarios SET permisos = $1 WHERE id = $2', [JSON.stringify(nuevos), id]);
             }
             const result = await pool.query(
@@ -217,9 +247,12 @@ const usuarioController = {
                      disponible = COALESCE($4, disponible),
                      mostrar_avatar_publico = COALESCE($5, mostrar_avatar_publico),
                      puede_gestionar_eventos = COALESCE($6, puede_gestionar_eventos)
-                 WHERE id = $7 AND rol = 'guia'
+                 WHERE id = $7 AND rol = $8
                  RETURNING *`,
-                [nombre, email, telefono, disponible, mostrar_avatar_publico, puede_gestionar_eventos, id]
+                [nombre, email, telefono, disponible,
+                 currentGuia.rol === 'guia' ? mostrar_avatar_publico : null,
+                 currentGuia.rol === 'guia' ? puede_gestionar_eventos : null,
+                 id, currentGuia.rol]
             );
 
             if (result.rows.length === 0) {
@@ -308,17 +341,25 @@ const usuarioController = {
     async eliminarGuia(req, res) {
         try {
             const { id } = req.params;
-            
+            const objetivo = await pool.query("SELECT rol FROM usuarios WHERE id = $1 AND rol IN ('guia', 'admin')", [id]);
+            if (objetivo.rows.length === 0) {
+                return res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+            const rol = objetivo.rows[0].rol;
+            if (rol === 'admin' && !esSuperadmin(req)) {
+                return res.status(403).json({ error: SOLO_SUPERADMIN });
+            }
+
             const result = await pool.query(
                 'DELETE FROM usuarios WHERE id = $1 AND rol = $2 RETURNING id',
-                [id, 'guia']
+                [id, rol]
             );
-            
+
             if (result.rows.length === 0) {
-                return res.status(404).json({ error: 'Guía no encontrado' });
+                return res.status(404).json({ error: 'Usuario no encontrado' });
             }
-            
-            res.json({ success: true, message: 'Guía eliminado' });
+
+            res.json({ success: true, message: 'Usuario eliminado' });
         } catch (error) {
             // 23503 = violación de llave foránea: el guía tiene reservas asociadas
             if (error.code === '23503') {
